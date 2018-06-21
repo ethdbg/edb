@@ -1,0 +1,23 @@
+# compiled files
+*.o
+*.so
+*.rlib
+*.dll
+
+# exec
+*.exe
+
+# generated
+**/target/
+target/
+
+# vim
+*.swp
+*.swo
+
+#MAC
+.DS_Store
+
+out/
+
+rls/

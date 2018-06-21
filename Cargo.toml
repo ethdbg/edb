@@ -1,0 +1,19 @@
+[package]
+description = "Ethereum Debug"
+name = "edb"
+version = "0.0.1"
+license = "GPL-3.0"
+authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
+
+
+[lib]
+path = "edb/lib.rs"
+name = "edb"
+
+[workspace]
+members = [
+  "compiler/",
+  "debugger/",
+  "emul/"
+]
+

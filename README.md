@@ -1,1 +1,1 @@
-# ethdbgv2
+# EDB
