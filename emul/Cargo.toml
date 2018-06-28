@@ -5,3 +5,5 @@ authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 
 [dependencies]
 evm = { git = "https://github.com/paritytech/parity"}
+vm = { git = "https://github.com/paritytech/parity"}
+ethereum-types = "0.3"

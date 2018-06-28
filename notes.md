@@ -1,0 +1,1 @@
+- want to use `finalize` function in evm.rs, not test_finalize in vm::tests because finalize in vm::tests no return data
