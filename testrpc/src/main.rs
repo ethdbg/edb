@@ -1,3 +1,3 @@
+extern crate parity_rpc;
 fn main() {
-    println!("Hello, world!");
 }

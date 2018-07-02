@@ -1,0 +1,24 @@
+so here's what i can do
+
+I can create a whole testrpc implementation on top of parity basically
+
+or we just have a small wrapper over the evm and we create JUST a debugger
+  - possibly this can work with a testRPC
+  - how?
+    - making it work with TestRPC too complicated possibly
+      - have to deal with multiple threads
+  - IMO, out of scope of this project. not needed.
+    - just stick to designing a debugger around the parity EVM
+      - no need to mix in testRPC in it
+
+  - need testRPC for augur bounty, need it for this
+    - will make dev easier b/c anotehr testrpc not needed
+      - can have op to get rid of testrpc
+  - need to write testrpc seperately though
+    - rpc methods in parity:
+      - run.rs line 804: RPC client setup
+      - rpc methods use client for executing transactions
+        - uses client.rs in ethcore
+      - client.rs uses Executive
+      - we have executive
+      - so would probably need to rewrite everything above executive for own rpc xD
