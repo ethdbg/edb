@@ -20,13 +20,18 @@ extern crate vm;
 extern crate evm;
 extern crate ethcore_bytes as bytes;
 extern crate ethcore;
+extern crate ethcore_transaction as transaction;
 extern crate ethereum_types;
 extern crate keccak_hash as hash;
 extern crate rustc_hex;
+extern crate crossbeam;
+extern crate rlp;
+extern crate ethcore_io;
 
 
 pub mod emul;
-pub mod externalities;
+mod externalities;
+mod executive;
 /**
  * args
 #[derive(Clone, Debug)]

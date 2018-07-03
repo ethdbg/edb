@@ -363,12 +363,16 @@ dependencies = [
 name = "emul"
 version = "0.1.0"
 dependencies = [
+ "crossbeam 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethcore 1.12.0 (git+https://github.com/paritytech/parity)",
  "ethcore-bytes 0.1.0 (git+https://github.com/paritytech/parity)",
+ "ethcore-io 1.12.0 (git+https://github.com/paritytech/parity)",
+ "ethcore-transaction 0.1.0 (git+https://github.com/paritytech/parity)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "evm 0.1.0 (git+https://github.com/paritytech/parity)",
  "keccak-hash 0.1.2 (git+https://github.com/paritytech/parity)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rlp 0.2.1 (git+https://github.com/paritytech/parity)",
  "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "vm 0.1.0 (git+https://github.com/paritytech/parity)",
 ]

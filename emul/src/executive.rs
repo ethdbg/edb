@@ -15,24 +15,29 @@
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
 
 //! Transaction Execution environment.
+// misc
+use crossbeam;
+// rust
+use ethcore_io;
 use std::cmp;
 use std::sync::Arc;
+// Parity
+use bytes::{Bytes, BytesRef};
 use hash::keccak;
 use ethereum_types::{H256, U256, U512, Address};
-use bytes::{Bytes, BytesRef};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::error::ExecutionError;
+use ethcore::trace::{self, Tracer, VMTracer};
 use evm::{CallType, Finalize, FinalizationResult};
 use vm::{
-	self, Ext, EnvInfo, CreateContractAddress, ReturnData, CleanDustMode, ActionParams,
-	ActionValue, Schedule,
+    self, Ext, EnvInfo, CreateContractAddress, ReturnData, CleanDustMode, 
+    ActionParams, ActionValue, Schedule,
 };
-use externalities::*;
-use trace::{self, Tracer, VMTracer};
 use transaction::{Action, SignedTransaction};
-use crossbeam;
-pub use executed::{Executed, ExecutionResult};
+pub use ethcore::executed::{Executed, ExecutionResult};
+// local
+use externalities::*;
 
 #[cfg(debug_assertions)]
 /// Roughly estimate what stack size each level of evm depth will use. (Debug build)
@@ -51,7 +56,12 @@ const STACK_SIZE_ENTRY_OVERHEAD: usize = 100 * 1024;
 const STACK_SIZE_ENTRY_OVERHEAD: usize = 20 * 1024;
 
 /// Returns new address created from address, nonce, and code hash
-pub fn contract_address(address_scheme: CreateContractAddress, sender: &Address, nonce: &U256, code: &[u8]) -> (Address, Option<H256>) {
+pub fn contract_address(
+    address_scheme: CreateContractAddress, 
+    sender: &Address, 
+    nonce: &U256, 
+    code: &[u8]) -> (Address, Option<H256>) {
+
 	use rlp::RlpStream;
 
 	match address_scheme {
@@ -343,7 +353,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 		tracer: &mut T,
 		vm_tracer: &mut V
 	) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer {
-		let local_stack_size = ::io::LOCAL_STACK_SIZE.with(|sz| sz.get());
+		let local_stack_size = ethcore_io::LOCAL_STACK_SIZE.with(|sz| sz.get());
 		let depth_threshold = local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
 		let static_call = params.call_type == CallType::StaticCall;
 

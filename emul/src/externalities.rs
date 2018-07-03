@@ -22,10 +22,13 @@ use ethcore::trace::{Tracer, VMTracer};
 use ethereum_types::{U256, H256, Address};
 use ethcore::machine::EthereumMachine;
 use bytes::{Bytes, BytesRef};
+use evm::FinalizationResult;
 use vm::{self, CallType, ActionParams, ActionValue, Schedule, EnvInfo, ReturnData, Ext, 
     ContractCreateResult, MessageCallResult, CreateContractAddress, 
     Result, GasLeft
 };
+use transaction::UNSIGNED_SENDER;
+use executive::*;
 
 pub struct LogEntry {
     pub topics: Vec<H256>,
@@ -75,7 +78,6 @@ pub struct Externalities<'a, T: 'a, V: 'a, B: 'a>
     output: OutputPolicy<'a, 'a>,
     tracer: &'a mut T,
     vm_tracer: &'a mut V,
-    tracing: bool,
     static_flag: bool,
 }
 
@@ -91,7 +93,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
         output: OutputPolicy<'a, 'a>,
         tracer: &'a mut T,
         vm_tracer: &'a mut V,
-        tracing: bool,
         static_flag: bool
         ) -> Self {
 
@@ -106,7 +107,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
                 output,
                 tracer,
                 vm_tracer,
-                tracing,
                 static_flag,
             }
     }
@@ -222,8 +222,63 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
     /// Creates a new Contract.
     ///
     /// Returns gas_left and contract address if contract creation was succesful
-    fn create(&mut self, gas: &U256, value: &U256, code: &[u8], address: CreateContractAddress) -> ContractCreateResult {
-        unimplemented!();
+    fn create(&mut self, gas: &U256, value: &U256, code: &[u8], address_scheme: CreateContractAddress) -> ContractCreateResult {
+
+        let (address, code_hash) = 
+            match self.state.nonce(&self.origin_info.address) {
+            
+            Ok(nonce) => 
+                contract_address(address_scheme, 
+                                 &self.origin_info.address, 
+                                 &nonce, 
+                                 &code),
+            Err(e) => {
+                debug!(target: "ext", 
+                       "Database corruption encountered: {:?}", e);
+                return ContractCreateResult::Failed;
+            }
+        };
+        
+        let params = ActionParams {
+            code_address: address.clone(),
+            address: address.clone(),
+            sender: self.origin_info.address.clone(),
+            origin: self.origin_info.origin.clone(),
+            gas: *gas,
+            gas_price: self.origin_info.gas_price,
+            value: ActionValue::Transfer(*value),
+            code: Some(Arc::new(code.to_vec())),
+            code_hash: code_hash,
+            data: None,
+            call_type: CallType::None,
+            params_type: vm::ParamsType::Embedded,
+        };
+        
+        if !self.static_flag {
+            if !self.schedule.eip86 || params.sender != UNSIGNED_SENDER {
+                if let Err(e) = self.state.inc_nonce(&self.origin_info.address) {
+                    debug!(target: "ext", 
+                           "Database corruption encountered: {:?}", e);
+                    return ContractCreateResult::Failed;
+                }
+            }
+        }
+        let mut ex = Executive::from_parent(self.state, self.env_info, self.machine, self.depth, self.static_flag);
+        match ex.create(params, 
+                        self.substate, 
+                        &mut None, 
+                        self.tracer, 
+                        self.vm_tracer
+        ) {
+            Ok(FinalizationResult{ gas_left, apply_state: true, .. }) => {
+                self.substate.contracts_created.push(address.clone());
+                ContractCreateResult::Created(address, gas_left)
+            },
+            Ok(FinalizationResult{ gas_left, apply_state: false, return_data }) => {
+                ContractCreateResult::Reverted(gas_left, return_data)
+            },
+            _ => ContractCreateResult::Failed,
+        }
     }
 
     /// Message call.
@@ -242,46 +297,175 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
             call_type: CallType
             ) -> MessageCallResult 
     {
-        unimplemented!();
+        trace!(target: "externalities", "call");
+        let code_res = self.state.code(code_address)
+            .and_then(|code| self.state.code_hash(code_address)
+                .map(|hash| (code, hash)));
+        let (code, code_hash) = match code_res {
+            Ok((code, hash)) => (code, hash),
+            Err(_) => return MessageCallResult::Failed,
+        };
+
+        let mut params = ActionParams {
+            sender: sender_address.clone(),
+            address: receive_address.clone(),
+            value: ActionValue::Apparent(self. origin_info.value),
+            code_address: code_address.clone(),
+            origin: self.origin_info.origin.clone(),
+            gas: *gas,
+            gas_price: self.origin_info.gas_price,
+            code: code,
+            code_hash: Some(code_hash),
+            data: Some(data.to_vec()),
+            call_type: call_type,
+            params_type: vm::ParamsType::Separate,
+        };
+        
+        if let Some(value) = value {
+            params.value = ActionValue::Transfer(value);
+        }
+
+        let mut executive = Executive::from_parent(self.state, 
+                                            self.env_info, 
+                                            self.machine, 
+                                            self.depth, 
+                                            self.static_flag);
+        match executive.call(params, 
+                      self.substate, 
+                      BytesRef::Fixed(output), 
+                      self.tracer, 
+                      self.vm_tracer
+        ) {
+            Ok(FinalizationResult{ gas_left, return_data, apply_state: true }) 
+                => MessageCallResult::Success(gas_left, return_data),
+            Ok(FinalizationResult{ gas_left, return_data, apply_state: false }) 
+                => MessageCallResult::Reverted(gas_left, return_data),
+            _ => MessageCallResult::Failed,
+        }
     }
 
     /// Returns code at given address
     fn extcode(&self, address: &Address) -> Result<Arc<Bytes>> {
-        unimplemented!();
+        // gets the code at an address, or just returns an empty ref-counted
+        // vecctor
+        Ok(self.state.code(address)?.unwrap_or_else(|| Arc::new(vec![])))
     }
 
     /// Returns code size at a given address
     fn extcodesize(&self, address: &Address) -> Result<usize> {
-        unimplemented!()
+        // gets code size at an address, or returns 0
+        Ok(self.state.code_size(address)?.unwrap_or(0))
     }
 
     /// Creates log entry with given topics and data
     fn log(&mut self, topics: Vec<H256>, data: &[u8]) -> Result<()> {
-        unimplemented!();
+        use ethcore::log_entry::LogEntry;
+
+        if self.static_flag {
+            return Err(vm::Error::MutableCallInStaticContext);
+        }
+
+        let address = self.origin_info.address.clone();
+        self.substate.logs.push(LogEntry {
+            address: address,
+            topics: topics,
+            data: data.to_vec()
+        });
+        Ok(())
     }
     
     /// Should be called when transaction calls the `RETURN` opcode.
     /// Returns gas_left if cost of returning the data is not too high.
-    fn ret(self, gas: &U256, data: &ReturnData, apply_state: bool) 
-        -> Result<U256>
+    fn ret(mut self, gas: &U256, data: &ReturnData, apply_state: bool) 
+        -> Result<U256> where Self: Sized 
     {
-        unimplemented!();
+        let handle_copy = |to: &mut Option<&mut Bytes>| {
+            to.as_mut().map(|b| **b = data.to_vec());
+        };
+
+        match self.output {
+            OutputPolicy::Return(
+                BytesRef::Fixed(ref mut slice), 
+                ref mut copy) 
+            => {
+                handle_copy(copy);
+
+                let len = cmp::min(slice.len(), data.len());
+                (&mut slice[..len]).copy_from_slice(&data[..len]);
+                Ok(*gas)
+            }
+            OutputPolicy::Return(
+                BytesRef::Flexible(ref mut vec), 
+                ref mut copy)
+            => {
+                handle_copy(copy);
+
+                vec.clear();
+                vec.extend_from_slice(&*data);
+                Ok(*gas)
+            },
+            OutputPolicy::InitContract(ref mut copy) if apply_state => {
+                let return_cost = 
+                    U256::from(data.len()) * 
+                        U256::from(self.schedule.create_data_gas);
+                if return_cost > 
+                    *gas || data.len() > 
+                    self.schedule.create_data_limit
+                {
+                    return match self.schedule.exceptional_failed_code_deposit {
+                        true => Err(vm::Error::OutOfGas),
+                        false =>  Ok(*gas)
+                    }
+                }
+                handle_copy(copy);
+                self.state.init_code(&self.origin_info.address, data.to_vec())?;
+                Ok(*gas - return_cost)
+            },
+            OutputPolicy::InitContract(_) => {
+                Ok(*gas)
+            },
+        }
     }
     
     /// Should be called when contract commits suicide
     /// Address to which funds should be refunded.
     fn suicide(&mut self, refund_address: &Address) -> Result<()> {
-        unimplemented!();
+        if self.static_flag {
+            return Err(vm::Error::MutableCallInStaticContext);
+        }
+
+        let address = self.origin_info.address.clone();
+        let balance = self.balance(&address)?;
+        if &address == refund_address {
+            // TODO to be consistent with CPP client we 
+            // set balance to 0 in this case
+            self.state.sub_balance(&address, &balance, &mut CleanupMode::NoEmpty)?;
+        } else {
+            trace!(target: "ext", 
+                   "Suiciding {} -> {} (xfer: {})",
+                   address,
+                   refund_address,
+                   balance);
+            self.state.transfer_balance(
+                &address,
+                refund_address,
+                &balance,
+                self.substate.to_cleanup_mode(&self.schedule)
+            )?;
+        }
+        self.tracer.trace_suicide(address, balance, refund_address.clone());
+        self.substate.suicides.insert(address);
+        Ok(())
     }
     
     /// returns schedule
     fn schedule(&self) -> &Schedule {
-        unimplemented!();
+        &self.schedule
     }
 
     /// Returns environment info
     fn env_info(&self) -> &EnvInfo {
-        unimplemented!();
+        self.env_info
     }
     
     /// Returns current depth of execution
@@ -289,44 +473,45 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
     /// If contract A calls contract B, and contract B calls C,
     /// then A depth is 0, B is 1, C is 2, and so on
     fn depth(&self) -> usize {
-        unimplemented!();
+        self.depth
     }
     
     /// Increments sstore refunds count by 1
     fn inc_sstore_clears(&mut self) {
-        unimplemented!();
+        self.substate.sstore_clears_count = 
+            self.substate.sstore_clears_count + U256::one();
     }
     
     /// Decide if anymore operations should be traced. 
     /// Passthrough for the VMTrace
     fn trace_next_instruction(
         &mut self, 
-        _pc: usize, 
-        _instruction: u8, 
-        _current_gas: U256) -> bool 
+        pc: usize, 
+        instruction: u8, 
+        current_gas: U256) -> bool 
     {
-        unimplemented!();
+        self.vm_tracer.trace_next_instruction(pc, instruction, current_gas)
     }
 
     /// Prepare to trace an operation. Passthrough for the VM trace
     fn trace_prepare_execute(
         &mut self, 
-        _pc: usize, 
-        _instruction: u8, 
-        _gas_cost: U256) 
+        pc: usize, 
+        instruction: u8, 
+        gas_cost: U256) 
     {
-        unimplemented!();
+        self.vm_tracer.trace_prepare_execute(pc, instruction, gas_cost)
     }
 
     /// Trace the finalised execution of a single instruction
     fn trace_executed(
         &mut self, 
-        _gas_used: U256, 
-        _stack_push: &[U256], 
-        _mem_diff: Option<(usize, &[u8])>, 
-        _store_diff: Option<(U256, U256)>) 
+        gas_used: U256, 
+        stack_push: &[U256], 
+        mem_diff: Option<(usize, &[u8])>, 
+        store_diff: Option<(U256, U256)>) 
     {
-        unimplemented!()
+        self.vm_tracer.trace_executed(gas_used, stack_push, mem_diff, store_diff)
     }
 
     /// check if running in static context
