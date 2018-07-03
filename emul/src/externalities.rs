@@ -30,11 +30,6 @@ use vm::{self, CallType, ActionParams, ActionValue, Schedule, EnvInfo, ReturnDat
 use transaction::UNSIGNED_SENDER;
 use executive::*;
 
-pub struct LogEntry {
-    pub topics: Vec<H256>,
-    pub data: Bytes,
-}
-
 /// Policy for handling output data on `RETURN` opcode.
 pub enum OutputPolicy<'a, 'b> {
     /// Return reference to fixed sized output.

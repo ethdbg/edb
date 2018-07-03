@@ -22,3 +22,6 @@ or we just have a small wrapper over the evm and we create JUST a debugger
       - client.rs uses Executive
       - we have executive
       - so would probably need to rewrite everything above executive for own rpc xD
+        - executive rewritten
+        - need to rewrite client then we good i think
+
