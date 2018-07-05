@@ -28,7 +28,7 @@ use vm::{self, CallType, ActionParams, ActionValue, Schedule, EnvInfo, ReturnDat
     Result, GasLeft
 };
 use transaction::UNSIGNED_SENDER;
-use executive::*;
+use ethcore::executive::*;
 
 /// Policy for handling output data on `RETURN` opcode.
 pub enum OutputPolicy<'a, 'b> {

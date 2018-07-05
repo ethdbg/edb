@@ -29,9 +29,10 @@ extern crate rlp;
 extern crate ethcore_io;
 
 
-pub mod emul;
+pub mod emulator;
 mod externalities;
-mod executive;
+mod extensions;
+mod factory;
 /**
  * args
 #[derive(Clone, Debug)]
