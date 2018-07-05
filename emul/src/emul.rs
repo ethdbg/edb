@@ -44,22 +44,18 @@ impl Emul {
     }
 
     pub fn run_code(&self) -> vm::GasLeft {
+        let mut ext = FakeExt::new();
         let mut vm: Box<Vm> = 
             Factory::new(VMType::Interpreter, 10 * 1024)
-            .create(&self.params.gas);
-        let mut ext = FakeExt::new();
+            .create(self.params.clone(), &ext).unwrap();
         ext.balances.insert(5.into(), 1_000_000_000.into());
         ext.tracing = true;
-        let output = vm.exec(self.params.clone(), &mut ext).unwrap();
+        let output = vm.exec(&mut ext).unwrap();
         output
     }
 
     pub fn next_inst() {
         unimplemented!(); 
-    }
-
-    pub fn freeze_exec() {
-        unimplemented!();
     }
 }
 

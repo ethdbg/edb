@@ -25,3 +25,9 @@ or we just have a small wrapper over the evm and we create JUST a debugger
         - executive rewritten
         - need to rewrite client then we good i think
 
+
+  - Two choices for when VMStep implemented
+    - use DB w/o testRPC
+    - use DB as TestRPC
+      - have both options
+
