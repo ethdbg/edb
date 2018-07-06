@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
-
+use instruction_manager::InstructionManager;
 use std::sync::Arc;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
@@ -74,6 +74,7 @@ pub struct Externalities<'a, T: 'a, V: 'a, B: 'a>
     tracer: &'a mut T,
     vm_tracer: &'a mut V,
     static_flag: bool,
+    inst_manager: InstructionManager,
 }
 
 impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B> 
@@ -103,6 +104,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
                 tracer,
                 vm_tracer,
                 static_flag,
+                inst_manager: InstructionManager::new()
             }
     }
 }
@@ -495,6 +497,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
         instruction: u8, 
         gas_cost: U256) 
     {
+        self.inst_manager.trace_prepare(pc, instruction, gas_cost);
         self.vm_tracer.trace_prepare_execute(pc, instruction, gas_cost)
     }
 
@@ -506,6 +509,8 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
         mem_diff: Option<(usize, &[u8])>, 
         store_diff: Option<(U256, U256)>) 
     {
+        self.inst_manager.
+            trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
         self.vm_tracer.trace_executed(gas_used, stack_push, mem_diff, store_diff)
     }
 

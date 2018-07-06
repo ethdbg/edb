@@ -30,56 +30,8 @@ extern crate ethcore_io;
 
 
 pub mod emulator;
+mod instruction_manager;
 mod externalities;
 mod extensions;
-mod factory;
-/**
- * args
-#[derive(Clone, Debug)]
-pub struct Args {
-	/// Address of currently executed code.
-	pub to: Option<Address>,
-	/// Hash of currently executed code.
-	pub code_hash: Option<H256>,
-    pub from: Option<Address>,
-	/// Gas paid up front for transaction execution
-	pub gas: Option<U256>,
-	/// Gas price.
-	pub gas_price: Option<U256>,
-	/// Transaction value.
-	pub value: Option<ActionValue>,
-	/// Code being executed.
-	pub code: Option<Bytes>,
-	/// Input data.
-	pub data: Option<Bytes>,
-}
- *
- */
-
-#[cfg(test)]
-mod tests {
-    use super::emul::{Emul, Args};
-    use super::rustc_hex::FromHex;
-    use super::vm::{ActionParams};
-    use std::sync::Arc;
-
-    
-    #[test]
-    fn it_should_create_emulator_instance() {
-        let mut params = ActionParams::default();
-        let code = "606060405260005b620f42408112156019575b6001016007565b600081905550600680602b6000396000f3606060405200"
-            .from_hex().unwrap();
-        params.code = Some(Arc::new(code));
-        let emul = Emul::new(params).unwrap();;
-    }
-
-    fn it_should_run_code() {
-        let mut params = ActionParams::default();
-        let code = "606060405260005b620f42408112156019575b6001016007565b600081905550600680602b6000396000f3606060405200"
-            .from_hex().unwrap();
-        params.code = Some(Arc::new(code));
-        let emul = Emul::new(params).unwrap();
-        emul.run_code();
-
-    }
-}
+// mod factory;
+ 
