@@ -22,7 +22,6 @@ use evm::{CostType};
 use evm::interpreter::{Interpreter, SharedCache, InterpreterResult};
 use vm::{ActionParams};
 use vm::{Vm, GasLeft};
-//use vm::tests::{FakeExt};
 use std::sync::Arc;
 use instruction_manager::InstructionManager;
 
@@ -98,7 +97,7 @@ impl<'a, Cost: CostType> InterpreterExt<'a, Cost> {
 mod tests {
     use ethereum_types::{U256, H256, Address};
     use rustc_hex::FromHex;
-    use vm::tests::{FakeExt, FakeCall, FakeCallType, test_finalize};
+    use tests::fake_ext::{FakeExt, test_finalize};
     use vm::{ActionParams};
     use std::sync::Arc;
     use evm::interpreter::{SharedCache};

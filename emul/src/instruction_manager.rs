@@ -12,7 +12,7 @@ pub struct InstructionState {
     mem_diff: Option<(usize, Vec<u8>)>,
     store_diff: Option<(U256, U256)>,
 }
-
+#[derive(Default)]
 pub struct InstructionManager {
     pub inst_hist: RefCell<Vec<InstructionState>>,
     last_inst: u8,

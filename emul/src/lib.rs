@@ -33,5 +33,6 @@ pub mod emulator;
 mod instruction_manager;
 mod externalities;
 mod extensions;
+mod tests;
 // mod factory;
  
