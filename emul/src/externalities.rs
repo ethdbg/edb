@@ -89,7 +89,8 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
         output: OutputPolicy<'a, 'a>,
         tracer: &'a mut T,
         vm_tracer: &'a mut V,
-        static_flag: bool
+        static_flag: bool,
+        inst_manager: InstructionManager,
         ) -> Self {
 
             Externalities {
@@ -104,7 +105,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
                 tracer,
                 vm_tracer,
                 static_flag,
-                inst_manager: InstructionManager::new()
+                inst_manager,
             }
     }
 }

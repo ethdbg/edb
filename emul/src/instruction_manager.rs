@@ -1,10 +1,12 @@
 //! Manages Instructions/Traces 
 use ethereum_types::{U256, H256, Address};
 use evm::{Instruction};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-struct InstructionState {
+pub struct InstructionState {
     instruction: Instruction,
-    pc: usize,
+    pub pc: usize,
     gas_cost: U256,
     stack_push: Vec<U256>,
     mem_diff: Option<(usize, Vec<u8>)>,
@@ -12,9 +14,9 @@ struct InstructionState {
 }
 
 pub struct InstructionManager {
-    instruction_hist: Vec<InstructionState>,
+    pub inst_hist: RefCell<Vec<InstructionState>>,
     last_inst: u8,
-    pc: usize,
+    pub pc: usize,
     gas_cost: U256,
 }
 
@@ -22,7 +24,7 @@ impl InstructionManager {
 
     pub fn new() -> InstructionManager {
         InstructionManager {
-            instruction_hist: Vec::new(),
+            inst_hist: RefCell::new(Vec::new()),
             last_inst: 0,
             pc: 0,
             gas_cost: U256::zero(),
@@ -45,7 +47,7 @@ impl InstructionManager {
     ) {
         let mem_diff = mem_diff.unwrap();
         let stack_push = stack_push.to_vec();
-        self.instruction_hist.push(
+        self.inst_hist.borrow_mut().push(
             InstructionState {
                 instruction: Instruction::from_u8(self.last_inst).unwrap(),
                 pc: self.pc,

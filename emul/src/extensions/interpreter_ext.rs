@@ -24,26 +24,28 @@ use vm::{ActionParams};
 use vm::{Vm, GasLeft};
 //use vm::tests::{FakeExt};
 use std::sync::Arc;
+use instruction_manager::InstructionManager;
 
 
 /// A wrapper around Parity's Evm Interpreter implementation
-pub struct InterpreterExt<Cost: CostType> {
+pub struct InterpreterExt<'a, Cost: CostType> {
     interpreter: Interpreter<Cost>,
     cache: Arc<SharedCache>,
     params: ActionParams,
-    pub pos: usize,
+    inst_manager: &'a InstructionManager,
 }
 
-impl<Cost: CostType> InterpreterExt<Cost> {
+impl<'a, Cost: CostType> InterpreterExt<'a, Cost> {
     
-    pub fn new(params: ActionParams, cache: Arc<SharedCache>, ext: &vm::Ext)
-        -> vm::Result<InterpreterExt<Cost>> 
+    pub fn new(params: ActionParams, cache: Arc<SharedCache>, ext: &vm::Ext, inst_manager: &'a InstructionManager)
+        -> vm::Result<InterpreterExt<'a, Cost>> 
     {
+
         Ok(InterpreterExt {
             params: params.clone(),
             cache: cache.clone(),
             interpreter: Interpreter::new(params, cache, ext).unwrap(),
-            pos: 0,
+            inst_manager,
         })
     }
 
@@ -53,24 +55,32 @@ impl<Cost: CostType> InterpreterExt<Cost> {
         self.interpreter.exec(ext)
     }
     
-    /// go back in execution to a position
+    /// go back in execution to a position (PC). pos specifies how many
+    /// VM steps to go back
     // actually just restarts vm until a pos
     // the most inefficient function so far
     pub fn step_back(&mut self, pos: usize, ext: &mut vm::Ext) {
         // Might be an issue, if cache isn't really a cache and used as a 
         // reference in Parity somewhere
-        self.interpreter = Interpreter::new(self.params.clone(), self.cache.clone(), ext).unwrap();
-        let new_pos: usize = self.pos - pos;
-        self.pos = 0;
-        self.run_code_until(ext, new_pos);
+        self.interpreter = Interpreter::new(
+                                            self.params.clone(), 
+                                            self.cache.clone(), 
+                                            ext).unwrap();
+        let steps = self.inst_manager.inst_hist.borrow();
+        let new_pc = steps.get(steps.len() - pos);
+
+        {
+            self.inst_manager.inst_hist.borrow_mut().clear();
+        } 
+        self.run_code_until(ext, pos);
     }
 
-    /// run code until a byte position
-    /// stops before byte position
+    /// run code until an instruction
+    /// stops before instruction execution (PC)
     pub fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize) 
         -> Option<vm::Result<GasLeft>>
     {
-        while self.pos < pos {
+        while self.inst_manager.pc < pos {
             let result = self.interpreter.step(ext);
             match result {
                 InterpreterResult::Continue => {},
@@ -78,7 +88,6 @@ impl<Cost: CostType> InterpreterExt<Cost> {
                 InterpreterResult::Stopped 
                     => panic!("Attempted to execute an already stopped VM.")
             }
-            self.pos += 1;
         }
         None
     }
@@ -94,7 +103,9 @@ mod tests {
     use std::sync::Arc;
     use evm::interpreter::{SharedCache};
     use std::str::FromStr;
+    use instruction_manager::InstructionManager;
 
+    
     #[test]
     fn it_should_run_code() {
         let address = Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
@@ -106,9 +117,13 @@ mod tests {
         params.code = Some(Arc::new(code));
         let mut ext = FakeExt::new();
         let cache = Arc::new(SharedCache::default());
+        let inst_manager = InstructionManager::new();
         
         let gas_left = {
-            let mut vm = super::InterpreterExt::<usize>::new(params, cache.clone(), &ext).unwrap();
+            let mut vm = super::InterpreterExt::<usize>::new(params, 
+                                                             cache.clone(), 
+                                                             &ext, 
+                                                             &inst_manager).unwrap();
             test_finalize(vm.run_code(&mut ext)).unwrap()
         };
 
@@ -131,12 +146,39 @@ mod tests {
         params.code = Some(Arc::new(code));
         let mut ext = FakeExt::new();
         let cache = Arc::new(SharedCache::default());
-
+        let inst_manager = InstructionManager::new();
         let gas_left = {
-            let mut vm = super::InterpreterExt::<usize>::new(params, cache.clone(), &ext).unwrap();
+            let mut vm = super::InterpreterExt::<usize>::new(params, 
+                                                             cache.clone(), 
+                                                             &ext, 
+                                                             &inst_manager).unwrap();
             test_finalize(vm.run_code(&mut ext)).unwrap()
         };
-        println!("Gas Left: {}", gas_left);
+    }
+    
+    // need trace to test further
+    #[test]
+    fn it_should_run_until_ins_2() {
+        let address = 
+            Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
+
+        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055".from_hex().unwrap();
+
+        let mut params = ActionParams::default();
+        params.address = address.clone();
+        params.gas = U256::from(100_000);
+        params.code = Some(Arc::new(code));
+        let mut ext = FakeExt::new();
+        let cache = Arc::new(SharedCache::default());
+        let inst_manager = InstructionManager::new(); 
+        let mut vm = super::InterpreterExt::<usize>::new(params, 
+                                                        cache.clone(), 
+                                                        &ext, &inst_manager).unwrap();
+
+        let gas_left = vm.run_code_until(&mut ext, 2).unwrap();
+        assert_eq!(vm.inst_manager.pc, 2);
+        // println!("VM Step: {}", vm.);
+        // assert!(gas_left.is_none());
     }
 }
 
