@@ -90,7 +90,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
         tracer: &'a mut T,
         vm_tracer: &'a mut V,
         static_flag: bool,
-        inst_manager: InstructionManager,
+        inst_manager: &'a InstructionManager,
         ) -> Self {
 
             Externalities {

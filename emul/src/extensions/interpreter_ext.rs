@@ -183,6 +183,27 @@ mod tests {
         assert!(vm.inst_manager.get_curr_pc() >= 2);
         // println!("VM Step: {}", vm.);
     }
+
+    #[test]
+    fn it_should_exec_simple_contract() {
+        let address = 
+            Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
+
+        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055".from_hex().unwrap();
+
+        let mut params = ActionParams::default();
+        params.address = address.clone();
+        params.gas = U256::from(100_000);
+        params.code = Some(Arc::new(code));
+        let cache = Arc::new(SharedCache::default());
+        let mut inst_manager = InstructionManager::new();
+        let mut ext = FakeExt::new(&inst_manager);
+
+        let mut vm = super::InterpreterExt::<usize>::new(params, 
+                                                        cache.clone(), 
+                                                        &ext, &inst_manager).unwrap();
+        let gas_left = test_finalize(vm.run_code(&mut ext)).unwrap();
+    }
 }
 
 

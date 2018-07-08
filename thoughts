@@ -31,3 +31,13 @@ or we just have a small wrapper over the evm and we create JUST a debugger
     - use DB as TestRPC
       - have both options
 
+
+---- Crate Specific
+
+-----Emul-------
+- What does emulator.rs need to do?
+  - create InterpreterExts
+    - execute actions
+  - manage Instruction State
+  - manage calls
+

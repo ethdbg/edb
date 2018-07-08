@@ -207,8 +207,8 @@ impl<'a> Ext for FakeExt<'a> {
 	}
 
 	fn ret(self, _gas: &U256, _data: &ReturnData, _apply_state: bool) -> Result<U256> {
-		unimplemented!();
-	}
+        
+    }
 
 	fn suicide(&mut self, refund_address: &Address) -> Result<()> {
 		self.suicides.insert(refund_address.clone());

@@ -94,18 +94,3 @@ impl InstructionManager {
         self.curr_exec.borrow_mut().clear();
     }
 }
-
-/*
-impl<'a> Default for &'a InstructionManager {
-    fn default() -> InstructionManager {
-        InstructionManager {
-            inst_hist: RefCell::new(Vec::new()),
-            last_inst: 0,
-            pc: 0,
-            gas_cost: U256::zero(),
-        }
-    }
-
-}
-
-*/
