@@ -23,7 +23,6 @@ use evm::interpreter::{Interpreter, SharedCache, InterpreterResult};
 use vm::{ActionParams};
 use vm::{Vm, GasLeft};
 use std::sync::Arc;
-use std::rc::Rc;
 use instruction_manager::InstructionManager;
 
 

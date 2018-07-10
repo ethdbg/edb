@@ -28,7 +28,6 @@ extern crate crossbeam;
 extern crate rlp;
 extern crate ethcore_io;
 
-
 pub mod emulator;
 mod instruction_manager;
 mod externalities;

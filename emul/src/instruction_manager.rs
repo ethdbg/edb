@@ -1,6 +1,6 @@
 //! Manages Instructions/Traces 
 //! shared between Externalities and Interpreter
-use ethereum_types::{U256, H256, Address};
+use ethereum_types::{U256};
 use evm::{Instruction};
 use std::cell::RefCell;
 use std::rc::Rc;

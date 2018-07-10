@@ -16,7 +16,6 @@
 use instruction_manager::InstructionManager;
 use std::sync::Arc;
 use std::cmp;
-use std::collections::{HashMap, HashSet};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::trace::{Tracer, VMTracer};
 use ethereum_types::{U256, H256, Address};
@@ -24,8 +23,7 @@ use ethcore::machine::EthereumMachine;
 use bytes::{Bytes, BytesRef};
 use evm::FinalizationResult;
 use vm::{self, CallType, ActionParams, ActionValue, Schedule, EnvInfo, ReturnData, Ext, 
-    ContractCreateResult, MessageCallResult, CreateContractAddress, 
-    Result, GasLeft
+    ContractCreateResult, MessageCallResult, CreateContractAddress, Result
 };
 use transaction::UNSIGNED_SENDER;
 use ethcore::executive::*;
@@ -74,7 +72,7 @@ pub struct Externalities<'a, T: 'a, V: 'a, B: 'a>
     tracer: &'a mut T,
     vm_tracer: &'a mut V,
     static_flag: bool,
-    inst_manager: InstructionManager,
+    inst_manager: &'a InstructionManager,
 }
 
 impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B> 
