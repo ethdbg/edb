@@ -98,6 +98,13 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> {
         Executive::new(self.state, self.info, self.machine).transact_virtual(t, options)
     }
 
+    fn finalize<T, V>(&mut self, t: &SignedTransaction, mut substate: Substate, 
+                result: vm::Result<FinalizationResult>, output: Bytes, trace: Vec<T>, 
+                vm_trace: Option<V>) -> Result<Executed<T, V>, ExecutionError> {
+        Executive::new(self.state, self.info, self.machine).finalize(t, substate, result, output, 
+                                                                     trace, vm_trace)
+    }
+
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     fn transact_with_debug() {
@@ -132,23 +139,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> {
         println!("STACK SIZE {}", local_stack_size);
         
     }
-
-
-    /* 
-    /// Finalize a transaction
-    fn finalize<T, V>(&mut self, 
-                t: &SignedTransaction,
-                mut substate: Substate,
-                result: vm::Result<FinalizationResult>,
-                output: Bytes,
-                trace: Vec<T>,
-                vm_trace: Option<V>) 
-        -> Result<Executed<T, V>, ExecutionError> 
-    {
-    
-        unimplemented!();   
-    }
-    */
 }
 
 
