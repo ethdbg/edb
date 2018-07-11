@@ -156,9 +156,13 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> {
 #[cfg(test)]
 mod tests {
     use ::*;
+    use super::ExecutiveExt;
     use ethcore::state_db::StateDB;
     use ethcore::BlockChainDB;
     use ethereum_types::{U256};
+    use ethcore::state::{State, Backend};
+    use ethcore::machine::EthereumMachine;
+    use vm::{EnvInfo};
     use kvdb::KeyValueDB;
     use tempdir::TempDir;
     use std::sync::Arc;
@@ -172,8 +176,7 @@ mod tests {
         machine
     }
 
-    #[test]
-    fn get_test_db() {
+    fn get_params() -> (State<StateDB>, EnvInfo, EthereumMachine) {
         // im assuming this returns a default of some sort for all other arguments
         // in our own configuraiton, we will set the args ourselves
         // for now this suffices
@@ -216,10 +219,16 @@ mod tests {
                                         ethcore::db::COL_STATE);
         let mut state_db = StateDB::new(journal_db, 5*1024*1024);
         let mut factories = ethcore::factory::Factories::default(); // factory is private in official parity
-        let state = State::new(state_db, U256::from(0), factories);
+        let mut state = State::new(state_db, U256::from(0), factories);
         let info = EnvInfo::default();
         let machine = make_byzantium_machine(0);
-        ExecutiveExt::new(&mut state, &info, &machine);
+        (state, info, machine)
+        // ExecutiveExt::new(&mut state, &info, &machine);
     }
 
+    #[test]
+    fn it_should_create_new_executive_extension() {
+        let (mut state, info, machine) = get_params();
+        ExecutiveExt::new(&mut state, &info, &machine);
+    }
 }
