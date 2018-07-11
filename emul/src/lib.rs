@@ -18,7 +18,7 @@
 extern crate log;
 extern crate vm;
 extern crate evm;
-extern crate ethcore_bytes as bytes;
+extern crate parity_bytes as bytes;
 extern crate ethcore;
 extern crate ethcore_transaction as transaction;
 extern crate ethereum_types;
@@ -27,6 +27,13 @@ extern crate rustc_hex;
 extern crate crossbeam;
 extern crate rlp;
 extern crate ethcore_io;
+//extern crate parity; // should really get rid of this dependency; all of parity is not needed
+extern crate kvdb; // key-value database
+extern crate kvdb_rocksdb;
+extern crate blooms_db;
+extern crate tempdir;
+extern crate journaldb;
+extern crate kvdb_memorydb;
 
 pub mod emulator;
 mod instruction_manager;

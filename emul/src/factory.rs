@@ -9,11 +9,11 @@ use evm::{CostType};
 
 /// Like Parities Factory, but returns full Interpreter type, and not just vm::Vm
 /// Interpreter type also not in Box<>
-pub struct Factory {
+pub struct EvmFactory {
     evm_cache: Arc<SharedCache>,
 }
 
-impl Factory {
+impl EvmFactory {
 
     pub fn create(&self, params: ActionParams, ext: &vm::Ext) -> vm::Result<Interpreter<U256>> {
         Ok(Interpreter::<U256>::new(params, self.evm_cache.clone(), ext)?)
@@ -24,5 +24,9 @@ impl Factory {
             evm_cache: Arc::new(SharedCache::new(cache_size)),
         }
     }
+}
+
+pub struct EvmFactoryWrapper {
+    evm: EvmFactory,
 }
 

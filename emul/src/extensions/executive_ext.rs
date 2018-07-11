@@ -11,6 +11,7 @@ use evm::{FinalizationResult, Finalize, CallType};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use externalities::*;
 use instruction_manager::InstructionManager;
 
@@ -150,19 +151,75 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> {
     */
 }
 
+
+// serves as example of how executive should be used
 #[cfg(test)]
 mod tests {
     use ::*;
- 
+    use ethcore::state_db::StateDB;
+    use ethcore::BlockChainDB;
+    use ethereum_types::{U256};
+    use kvdb::KeyValueDB;
+    use tempdir::TempDir;
+    use std::sync::Arc;
+    use {blooms_db, journaldb};
     // pub fn new(state: &'a mut State<B>, info: &'a EnvInfo, machine: &'a Machine) -> Self {
+    
+    // just for tests
+    fn make_byzantium_machine(max_depth: usize) -> EthereumMachine {
+        let mut machine = ethcore::ethereum::new_byzantium_test_machine();
+        machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = max_depth));
+        machine
+    }
 
     #[test]
-    fn test_executive_ext() {
-        //let db = 
-        //let state = State::new
-        //ExecutiveExt::new()
+    fn get_test_db() {
+        // im assuming this returns a default of some sort for all other arguments
+        // in our own configuraiton, we will set the args ourselves
+        // for now this suffices
+        // let config = parity::Configuration::parse_cli(&["--chain", "dev"]).unwrap();
+        struct TestBlockChainDB {
+            _blooms_dir: TempDir,
+            _trace_blooms_dir: TempDir,
+            blooms: blooms_db::Database,
+            trace_blooms: blooms_db::Database,
+            key_value: Arc<KeyValueDB>,
+        }
 
-    
+        impl BlockChainDB for TestBlockChainDB {
+            fn key_value(&self) -> &Arc<KeyValueDB> {
+                &self.key_value
+            }
+
+            fn blooms(&self) -> &blooms_db::Database {
+                &self.blooms
+            }
+
+            fn trace_blooms(&self) -> &blooms_db::Database {
+                &self.trace_blooms
+            }
+        }
+
+        let blooms_dir = TempDir::new("").unwrap();
+        let trace_blooms_dir = TempDir::new("").unwrap();
+
+        let db = TestBlockChainDB {
+            blooms: blooms_db::Database::open(blooms_dir.path()).unwrap(),
+            trace_blooms: blooms_db::Database::open(trace_blooms_dir.path()).unwrap(),
+            _blooms_dir: blooms_dir,
+            _trace_blooms_dir: trace_blooms_dir,
+            key_value: Arc::new(kvdb_memorydb::create(ethcore::db::NUM_COLUMNS.unwrap()))
+        };
+        let db: Arc<BlockChainDB> = Arc::new(db);
+        let journal_db = journaldb::new(db.key_value().clone(), 
+                                        journaldb::Algorithm::EarlyMerge, 
+                                        ethcore::db::COL_STATE);
+        let mut state_db = StateDB::new(journal_db, 5*1024*1024);
+        let mut factories = ethcore::factory::Factories::default(); // factory is private in official parity
+        let state = State::new(state_db, U256::from(0), factories);
+        let info = EnvInfo::default();
+        let machine = make_byzantium_machine(0);
+        ExecutiveExt::new(&mut state, &info, &machine);
     }
 
 }
