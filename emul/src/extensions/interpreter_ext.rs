@@ -18,6 +18,7 @@
 //! An Extension to the parity interpreter for debugging 
 
 use vm;
+use super::InterpreterSnapshot;
 use evm::{CostType};
 use evm::interpreter::{Interpreter, SharedCache, InterpreterResult};
 use vm::{ActionParams};
@@ -25,60 +26,30 @@ use vm::{Vm, GasLeft};
 use std::sync::Arc;
 use instruction_manager::InstructionManager;
 
-
-/// A wrapper around Parity's Evm Interpreter implementation
-pub struct InterpreterExt<'a, Cost: CostType> {
-    interpreter: Interpreter<Cost>,
-    cache: Arc<SharedCache>,
-    params: ActionParams,
-    inst_manager: &'a InstructionManager,
+pub trait InterpreterExt<'a, Cost: CostType> {
+    fn step_back(&mut self, steps: usize, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshot<Cost>);
+    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshot<Cost>)
+        -> Option<vm::Result<GasLeft>>;
 }
 
-impl<'a, Cost: CostType> InterpreterExt<'a, Cost> {
-    
-    pub fn new(params: ActionParams, cache: Arc<SharedCache>, ext: &vm::Ext, inst_manager: &'a InstructionManager)
-        -> vm::Result<InterpreterExt<'a, Cost>> 
-    {
 
-        Ok(InterpreterExt {
-            params: params.clone(),
-            cache: cache.clone(),
-            interpreter: Interpreter::new(params, cache, ext).unwrap(),
-            inst_manager,
-        })
-    }
+impl<'a, Cost: CostType> InterpreterExt<'a, Cost> for Interpreter<Cost> {
 
-    /// runs code without stopping at any position
-    // pass through for vm::Vm exec
-    pub fn run_code(&mut self, ext: &mut vm::Ext) -> vm::Result<GasLeft> {
-        self.interpreter.exec(ext)
-    }
-    
-    /// go back in execution to a position (PC). pos specifies how many
-    /// VM steps to go back
-    // actually just restarts vm until a pos
-    // the most inefficient function so far
-    pub fn step_back(&mut self, pos: usize, ext: &mut vm::Ext) {
-        // Might be an issue, if cache isn't really a cache and used as a 
-        // reference in Parity somewhere
-        self.interpreter = Interpreter::new(
-                                            self.params.clone(), 
-                                            self.cache.clone(), 
-                                            ext).unwrap();
-
-        let steps = self.inst_manager.inst_hist.borrow();
-        let new_pc = steps.get(steps.len() - pos);
-        self.inst_manager.reset();
-        self.run_code_until(ext, pos);
+    /// go back in execution to a step.
+    fn step_back(&mut self, steps: usize, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshot<Cost>) {
+        self = i_hist.states.get(i_hist.states.len() - steps).clone();
+        i_hist.states = i_hist.states.drain((i_hist.states.len() - steps)..).collect();
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    pub fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize) 
+    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshot<Cost>)
         -> Option<vm::Result<GasLeft>>
-    {
-        while self.inst_manager.get_curr_pc() < pos {
-            let result = self.interpreter.step(ext);
+    {   
+        // self = i_hist.states.get(i_hist.states.len()).clone();
+        while (self.reader.position - 1) < pos {
+            i_hist.states.push(self.clone());
+            let result = self.step(ext);
             match result {
                 InterpreterResult::Continue => {},
                 InterpreterResult::Done(value) => return Some(value),
