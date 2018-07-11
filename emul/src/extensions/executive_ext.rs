@@ -1,12 +1,12 @@
 use ethcore::executive::{Executive, TransactOptions};
 use ethcore::executed::{Executed, ExecutionResult};
-use ethcore::state::{Backend as StateBackend, State, Substate};
+use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{self, Tracer, VMTracer};
 use ethcore::error::ExecutionError;
 use bytes::{Bytes, BytesRef};
 use transaction::{Action, SignedTransaction};
-use vm::{self, Schedule, ActionParams, EnvInfo};
+use vm::{self, Schedule, ActionParams, EnvInfo, CleanDustMode};
 use evm::{FinalizationResult, Finalize, CallType};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
@@ -27,12 +27,14 @@ use instruction_manager::InstructionManager;
 // may occur
 
 pub trait ExecutiveExt<B: StateBackend> {
-    
+   
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn transact_with_debug(&self) {
-        unimplemented!();
-    }
+    /// pc = Program Counter (where to stop execution)
+    fn transact_with_debug(&mut self, 
+                           t: &SignedTransaction, 
+                           options: TransactOptions<T,V>, 
+                           pc: usize);
     
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
@@ -42,9 +44,7 @@ pub trait ExecutiveExt<B: StateBackend> {
                            substate: &mut Substate,
                            mut output: BytesRef,
                            tracer: &mut T,
-                           vm_tracer: &mut V) /* -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer */ {
-        unimplemented!();
-    }
+                           vm_tracer: &mut V); /* -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer */ 
     
     /// Execute VM until it hits the program counter
     fn exec_step_vm<T, V>(&mut self, 
@@ -64,12 +64,117 @@ pub trait ExecutiveExt<B: StateBackend> {
     }*/
 }
 
+
+// TODO: add enum type that allows a config option to choose whether to execute with or without 
+// validation
 impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn transact_with_debug(&self) {
-        unimplemented!();
+    fn transact_with_debug<T,V>(&'a mut self, t: &SignedTransaction, options: TransactOptions<T,V>, pc: usize) {
+        /* setup a virtual transaction */
+        let sender = t.sender();
+        let balance = self.state.balance(&sender)?;
+        let needed_balance = t.value.saturating_add(t.gas.saturating_mul(t.gas_price));
+        if balance < needed_blance {
+            self.state.add_balance(&sender, &(needed_balance - balance), CleanupMode::NoEmpty)?;
+        }
+        /* virt tx setup */ // might not need the above block
+
+        let nonce = self.state.nonce(&sender)?;
+        let schedule = self.machine.schedule(self.info.number);
+        let base_gas_required = U256::from(t.gas_required(&schedule));
+
+        // Might not want all this validation
+        if t.gas < base_gas_required {
+            return Err(ExecutionError::NotEnoughBaseGas { required: base_gas_required, got: t.gas }); 
+        }
+
+        if !t.is_unsigned() && check_nonce && schedule.kill_dust != CleanDustMode::Off && 
+            !self.state.exists(&sender)? {
+                return Err(ExecutionError::SenderMustExist);
+        }
+ 
+        let init_gas = t.gas - bae_gas_required;
+        
+        // tx nonce validation
+        if check_nonce && t.nonce != nonce {
+            return Err(ExecutionError::InvalidNonce { expected: nonce, got: t.nonce });
+        }
+
+        // validate if tx fits into block
+        if self.info.gas_used + t.gas > self.info.gas_limit {
+            return Err(ExecutionError::BlockGasLimitReached {
+                gas_limit: self.info.gas_limit,
+                gas_used: self.info.gas_used,
+                gas: t.gas
+            });
+        }
+        
+        let balance = self.state.balance(&sender)?;
+        let gas_cost = t.gas.full_mul(t.gas_price);
+        let total_cost = U512::from(t.value) + gas_cost;
+        
+        // validate if user can afford tx
+        let balance512 = U512::from(balance);
+        if balance512 < total_cost {
+            return Err(ExecutionError::NotEnoughCash { required: total_cost, got: balance512 });
+        }
+
+        let mut substate = Substate::new();
+
+        if !schedule.eip86 || !t.is_unsigned() {
+            self.state.inc_nonce(&sender)?;
+        }
+    
+        self.state.sub_balance(&sender, 
+                               &U256::from(gas_cost), 
+                               &mut substate.to_cleanup_mode(&schedule))?;
+
+        let(result, output) = match t.action {
+            Action::Create => { // no debugging for create actions yet
+                let (new_address, code_hash) = 
+                    contract_address(self.machine.create_address_scheme(self.info.number), 
+                                    &sender, &nonce, &t.data);
+                let params = ActionParams {
+                    code_address: new_address.clone(),
+                    code_hash,
+                    address: new_address,
+                    sender: sender.clone(),
+                    origin: sender.clone(),
+                    gas: init_gas,
+                    gas_price: t.gas_price,
+                    value: ActionValue::Transfer(t.value),
+                    code: Some(Arc::new(t.data.clone())),
+                    data: None,
+                    call_type: CallType::None,
+                    params_type: vm::ParamsType::Embedded,
+                };
+                let mut out = if output_from_create { Some(vec![])} else { None };
+                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), 
+                    out.unwrap_or_else(Vec::new))
+            },
+            Action::Call(ref address) => {
+                let params = ActionParams {
+                    code_address: new_address.clone(),
+                    address: address.clone(),
+                    sender: sender.clone(),
+                    gas: init_gas,
+                    gas_price: t.gas_price,
+                    value: ActionValue::Transfer(t.value),
+                    code: self.state.code(address)?,
+                    code_hash: Some( self.state.code_hash(address)?),
+                    data: Some(t.data.clone()),
+                    call_type: CallType::Call,
+                    params_type: vm::ParamsType::Separate,
+                };
+                let mut out = vec![];
+                (self.debug_call(pc, params, &mut substate, BytesRef::Flexible(&mut out), 
+                           &mut tracer, &mut vm_tracer), 
+                    out)
+            }
+        };
+        Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
     
     /// call a contract function with contract params
