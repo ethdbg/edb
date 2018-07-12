@@ -1,12 +1,13 @@
-use ethcore::executive::{Executive, TransactOptions};
+use ethcore::executive::{Executive, TransactOptions, contract_address};
 use ethcore::executed::{Executed, ExecutionResult};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{self, Tracer, VMTracer};
 use ethcore::error::ExecutionError;
+use ethereum_types::{U256, U512};
 use bytes::{Bytes, BytesRef};
 use transaction::{Action, SignedTransaction};
-use vm::{self, Schedule, ActionParams, EnvInfo, CleanDustMode};
+use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode};
 use evm::{FinalizationResult, Finalize, CallType};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
@@ -26,35 +27,47 @@ use instruction_manager::InstructionManager;
 // is preferable to iterating through a variably-sized BTree everytime a state change
 // may occur
 
-pub trait ExecutiveExt<B: StateBackend> {
+pub trait ExecutiveExt<'a, B: StateBackend> {
    
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     /// pc = Program Counter (where to stop execution)
-    fn transact_with_debug(&mut self, 
+    fn begin_debug_transact<T, V>(&'a mut self, 
                            t: &SignedTransaction, 
-                           options: TransactOptions<T,V>, 
-                           pc: usize);
+                           check_nonce: bool,
+                           output_from_create: bool,
+                           mut tracer: T,
+                           mut vm_tracer: V,
+                           pc: usize
+    ) -> Result<Executed<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
+                                         // returns a result with InstructionSnapshot
+                                         // if no breakpoints set, returns error
+
+    fn resume_debug_transact<T,V>(&'a mut self, 
+                             t: &SignedTransaction, 
+                             options: TransactOptions<T, V>, 
+                             pc: usize); // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
     
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
-    fn debug_call<T,V>(&mut self,
+    fn debug_call<T,V>(&'a mut self,
                            pc: usize,
                            params: ActionParams,
                            substate: &mut Substate,
                            mut output: BytesRef,
                            tracer: &mut T,
-                           vm_tracer: &mut V); /* -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer */ 
+                           vm_tracer: &mut V
+    ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
     
     /// Execute VM until it hits the program counter
-    fn exec_step_vm<T, V>(&mut self, 
+    fn exec_step_vm<T, V>(&'a mut self, 
                           pc: usize, 
                           schedule: Schedule, 
                           params: ActionParams, 
                           unconfirmed_substate: &mut Substate, 
                           output_policy: OutputPolicy, 
-                          tracer: &mut T, 
-                          vm_tracer: &mut V);
+                          tracer: &'a mut T, 
+                          vm_tracer: &'a mut V);
        /* -> vm::Result<FinalizationResult> where T: Tracer, V:VMTracer */
  /*   {   
         // LOCAL_STACK_SIZE is a `Cell`
@@ -67,16 +80,25 @@ pub trait ExecutiveExt<B: StateBackend> {
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
 // validation
-impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
+impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn transact_with_debug<T,V>(&'a mut self, t: &SignedTransaction, options: TransactOptions<T,V>, pc: usize) {
+    fn begin_debug_transact<T,V>(&'a mut self, 
+                                 t: &SignedTransaction,
+                                 check_nonce: bool,
+                                 output_from_create: bool,
+                                 mut tracer: T,
+                                 mut vm_tracer: V,
+                                 pc: usize) 
+        -> Result<Executed<T::Output, V::Output>, ExecutionError>
+            where T: Tracer, V: VMTracer
+    {
         /* setup a virtual transaction */
         let sender = t.sender();
         let balance = self.state.balance(&sender)?;
         let needed_balance = t.value.saturating_add(t.gas.saturating_mul(t.gas_price));
-        if balance < needed_blance {
+        if balance < needed_balance {
             self.state.add_balance(&sender, &(needed_balance - balance), CleanupMode::NoEmpty)?;
         }
         /* virt tx setup */ // might not need the above block
@@ -95,7 +117,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
                 return Err(ExecutionError::SenderMustExist);
         }
  
-        let init_gas = t.gas - bae_gas_required;
+        let init_gas = t.gas - base_gas_required;
         
         // tx nonce validation
         if check_nonce && t.nonce != nonce {
@@ -135,7 +157,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
             Action::Create => { // no debugging for create actions yet
                 let (new_address, code_hash) = 
                     contract_address(self.machine.create_address_scheme(self.info.number), 
-                                    &sender, &nonce, &t.data);
+                        &sender, &nonce, &t.data);
                 let params = ActionParams {
                     code_address: new_address.clone(),
                     code_hash,
@@ -151,14 +173,14 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Embedded,
                 };
                 let mut out = if output_from_create { Some(vec![])} else { None };
-                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), 
-                    out.unwrap_or_else(Vec::new))
+                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), out.unwrap_or_else(Vec::new))
             },
             Action::Call(ref address) => {
                 let params = ActionParams {
-                    code_address: new_address.clone(),
+                    code_address: address.clone(),
                     address: address.clone(),
                     sender: sender.clone(),
+                    origin: sender.clone(),
                     gas: init_gas,
                     gas_price: t.gas_price,
                     value: ActionValue::Transfer(t.value),
@@ -168,14 +190,21 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
                     call_type: CallType::Call,
                     params_type: vm::ParamsType::Separate,
                 };
-                let mut out = vec![];
-                (self.debug_call(pc, params, &mut substate, BytesRef::Flexible(&mut out), 
-                           &mut tracer, &mut vm_tracer), 
-                    out)
+                let mut out = vec![]; //debug_call here, but fails when unimplemented!()
+                (self.call(params, &mut substate, BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
             }
         };
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
+
+    fn resume_debug_transact<T,V>(&mut self, 
+                             t: &SignedTransaction, 
+                             options: TransactOptions<T, V>, 
+                             pc: usize) 
+    {
+        unimplemented!();
+    }
+
     
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
@@ -185,7 +214,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<B> for Executive<'a, B> {
                            substate: &mut Substate,
                            mut output: BytesRef,
                            tracer: &mut T,
-                           vm_tracer: &mut V) /* -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer */ {
+                           vm_tracer: &mut V
+    ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer {
         unimplemented!();
     }
     

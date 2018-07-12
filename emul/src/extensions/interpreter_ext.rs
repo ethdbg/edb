@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Andrew Plaa (U.S.A) Ltd.
+// Copyright 2015-2018 Andrew Plaza (U.S.A)
 // This file is part of EDB.
 //
 // EDB is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 //! An Extension to the parity interpreter for debugging 
 
 use vm;
-use super::InterpreterSnapshot;
+use emulator::InterpreterSnapshots;
 use evm::{CostType};
 use evm::interpreter::{Interpreter, SharedCache, InterpreterResult};
 use vm::{ActionParams};
@@ -27,29 +27,35 @@ use std::sync::Arc;
 use instruction_manager::InstructionManager;
 
 pub trait InterpreterExt<'a, Cost: CostType> {
-    fn step_back(&mut self, steps: usize, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshot<Cost>);
-    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshot<Cost>)
+    fn step_back(self, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshots<Cost>) -> Self;
+    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshots<Cost>)
         -> Option<vm::Result<GasLeft>>;
 }
 
-
 impl<'a, Cost: CostType> InterpreterExt<'a, Cost> for Interpreter<Cost> {
 
-    /// go back in execution to a step.
-    fn step_back(&mut self, steps: usize, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshot<Cost>) {
-        self = i_hist.states.get(i_hist.states.len() - steps).clone();
-        i_hist.states = i_hist.states.drain((i_hist.states.len() - steps)..).collect();
+    /// go back one step in execution
+    fn step_back(self, ext: &mut vm::Ext, i_hist: &'a mut InterpreterSnapshots<Cost>) -> Self {
+        if i_hist.states.len() <= 1 {
+            i_hist.states.pop().unwrap().clone()
+        } else {
+            // pop latest step
+            i_hist.states.pop();
+            // state = one step back
+            i_hist.states.pop().unwrap()
+        }
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshot<Cost>)
+    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshots<Cost>)
         -> Option<vm::Result<GasLeft>>
-    {   
-        // self = i_hist.states.get(i_hist.states.len()).clone();
+    {   if i_hist.states.len() <= 0 {
+            i_hist.states.push(self.clone()); // empty state
+        }
         while (self.reader.position - 1) < pos {
-            i_hist.states.push(self.clone());
             let result = self.step(ext);
+            i_hist.states.push(self.clone());
             match result {
                 InterpreterResult::Continue => {},
                 InterpreterResult::Done(value) => return Some(value),
