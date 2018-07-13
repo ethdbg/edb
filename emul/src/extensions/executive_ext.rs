@@ -1,4 +1,4 @@
-use ethcore::executive::{Executive, TransactOptions, contract_address};
+use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
 use ethcore::executed::{Executed, ExecutionResult};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::machine::EthereumMachine as Machine;
@@ -9,12 +9,12 @@ use bytes::{Bytes, BytesRef};
 use transaction::{Action, SignedTransaction};
 use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode};
 use evm::{FinalizationResult, Finalize, CallType, CostType};
-use evm::stack::{VecStack};
+use evm::interpreter::stack::{VecStack};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use externalities::*;
+use ethcore::externalities::*;
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -57,7 +57,8 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                              t: &SignedTransaction, 
                              options: TransactOptions<T, V>, 
                              pc: usize
-        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer; 
+        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
+            where T: Tracer, V: VMTracer; 
     
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
@@ -184,7 +185,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Embedded,
                 };
                 let mut out = if output_from_create { Some(vec![])} else { None };
-                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), out.unwrap_or_else(Vec::new))
+                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), 
+                    out.unwrap_or_else(Vec::new))
             },
             Action::Call(ref address) => {
                 let params = ActionParams {
@@ -202,7 +204,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Separate,
                 };
                 let mut out = vec![]; //debug_call here, but fails when unimplemented!()
-                (self.call(params, &mut substate, BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
+                (self.debug_call(params, &mut substate, BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
             }
         };
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
@@ -212,7 +214,9 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     fn resume_debug_transact<T,V>(&mut self, 
                              t: &SignedTransaction, 
                              options: TransactOptions<T, V>, 
-                             pc: usize) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
+                             pc: usize
+        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
+            where T: Tracer, V: VMTracer
     {
         unimplemented!();
     }
@@ -240,7 +244,37 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                           output_policy: OutputPolicy, 
                           tracer: &mut T, 
                           vm_tracer: &mut V) {
-        unimplemented!();
+
+        let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
+		let depth_threshold = local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
+		let static_call = params.call_type == CallType::StaticCall;
+
+		// Ordinary execution - keep VM in same thread
+		if self.depth != depth_threshold {
+			let vm_factory = self.state.vm_factory();
+			let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
+			trace!(target: "executive", "ext.schedule.have_delegate_call: {}", ext.schedule().have_delegate_call);
+			let vm = vm_factory.create(params, &ext);
+			return match vm {
+				Ok(mut vm) => vm.exec(&mut ext).finalize(ext),
+				Err(e) => e.finalize(ext),
+			}
+		}
+
+		// Start in new thread with stack size needed up to max depth
+		crossbeam::scope(|scope| {
+			let vm_factory = self.state.vm_factory();
+			let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
+
+			scope.builder().stack_size(::std::cmp::max(schedule.max_depth.saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size)).spawn(move || {
+				let vm = vm_factory.create(params, &ext);
+				match vm {
+					Ok(mut vm) => vm.exec(&mut ext).finalize(ext),
+					Err(e) => e.finalize(ext),
+				}
+			}).expect("Sub-thread creation cannot fail; the host might run out of resources; qed")
+		}).join()
+
     }
 
 }
