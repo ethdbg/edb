@@ -159,8 +159,7 @@ mod tests {
     #[test]
     fn it_should_step_back() {
         let address = Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
-        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffff \
-                    ffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055"
+        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055"
                     .from_hex().unwrap();
         let mut params = ActionParams::default();
         params.address = address.clone();
@@ -187,7 +186,8 @@ mod tests {
         let address = 
             Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
 
-        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055".from_hex().unwrap();
+        let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055"
+            .from_hex().unwrap();
 
         let mut params = ActionParams::default();
         params.address = address.clone();

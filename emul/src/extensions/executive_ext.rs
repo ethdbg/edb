@@ -2,19 +2,19 @@ use ethcore::executive::{Executive, TransactOptions, contract_address};
 use ethcore::executed::{Executed, ExecutionResult};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::machine::EthereumMachine as Machine;
-use ethcore::trace::{self, Tracer, VMTracer};
+use ethcore::trace::{self, Tracer, VMTracer, FlatTrace, VMTrace};
 use ethcore::error::ExecutionError;
 use ethereum_types::{U256, U512};
 use bytes::{Bytes, BytesRef};
 use transaction::{Action, SignedTransaction};
 use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode};
-use evm::{FinalizationResult, Finalize, CallType};
+use evm::{FinalizationResult, Finalize, CallType, CostType};
+use evm::stack::{VecStack};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use externalities::*;
-use instruction_manager::InstructionManager;
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -26,6 +26,16 @@ use instruction_manager::InstructionManager;
 // is used, but I will guess allocating space for a small struct via ::new()
 // is preferable to iterating through a variably-sized BTree everytime a state change
 // may occur
+
+#[derive(Debug,  PartialEq, Clone)]
+pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
+    pub executed: Option<Executed<T,V>>,
+    is_complete: bool,
+    pub mem: Vec<u8>,
+    pub pc: usize,
+    pub stack: VecStack<U256>,
+}
+
 
 pub trait ExecutiveExt<'a, B: StateBackend> {
    
@@ -39,14 +49,15 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                            mut tracer: T,
                            mut vm_tracer: V,
                            pc: usize
-    ) -> Result<Executed<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
+    ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
                                          // returns a result with InstructionSnapshot
                                          // if no breakpoints set, returns error
-
+    // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
     fn resume_debug_transact<T,V>(&'a mut self, 
                              t: &SignedTransaction, 
                              options: TransactOptions<T, V>, 
-                             pc: usize); // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
+                             pc: usize
+        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer; 
     
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
@@ -91,7 +102,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                                  mut tracer: T,
                                  mut vm_tracer: V,
                                  pc: usize) 
-        -> Result<Executed<T::Output, V::Output>, ExecutionError>
+        -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
             where T: Tracer, V: VMTracer
     {
         /* setup a virtual transaction */
@@ -197,10 +208,11 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
 
+    /// continue until next breakpoint
     fn resume_debug_transact<T,V>(&mut self, 
                              t: &SignedTransaction, 
                              options: TransactOptions<T, V>, 
-                             pc: usize) 
+                             pc: usize) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
     {
         unimplemented!();
     }
