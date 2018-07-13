@@ -72,7 +72,7 @@ pub struct Externalities<'a, T: 'a, V: 'a, B: 'a>
     tracer: &'a mut T,
     vm_tracer: &'a mut V,
     static_flag: bool,
-    inst_manager: &'a InstructionManager,
+    // inst_manager: &'a InstructionManager,
 }
 
 impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B> 
@@ -88,7 +88,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
         tracer: &'a mut T,
         vm_tracer: &'a mut V,
         static_flag: bool,
-        inst_manager: &'a InstructionManager,
         ) -> Self {
 
             Externalities {
@@ -103,7 +102,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Externalities<'a, T, V, B>
                 tracer,
                 vm_tracer,
                 static_flag,
-                inst_manager,
             }
     }
 }
@@ -496,7 +494,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
         instruction: u8, 
         gas_cost: U256) 
     {
-        self.inst_manager.trace_prepare(pc, instruction, gas_cost);
+        // self.inst_manager.trace_prepare(pc, instruction, gas_cost);
         self.vm_tracer.trace_prepare_execute(pc, instruction, gas_cost)
     }
 
@@ -508,8 +506,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for Externalities<'a, T, V, B>
         mem_diff: Option<(usize, &[u8])>, 
         store_diff: Option<(U256, U256)>) 
     {
-        self.inst_manager.
-            trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
+        // self.inst_manager.trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
         self.vm_tracer.trace_executed(gas_used, stack_push, mem_diff, store_diff)
     }
 

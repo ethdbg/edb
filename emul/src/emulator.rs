@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 
 // 0 state is before interpreter did anything
+#[derive(Default)]
 pub struct InterpreterSnapshots<Cost: CostType> {
     pub states: Vec<Interpreter<Cost>>,
 }
@@ -43,7 +44,7 @@ pub struct Emulator<Cost: CostType> {
 
 impl<Cost: CostType> Emulator<Cost> {
 
-    pub fn new(mut params: vm::ActionParams, cache: Arc<SharedCache>, ext: &Ext) -> Self {
+    pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &Ext) -> Self {
         Emulator {
             interpreter: Interpreter::new(params, cache, ext).unwrap(),
             snapshots: InterpreterSnapshots::new(),
@@ -55,7 +56,7 @@ impl<Cost: CostType> Emulator<Cost> {
 
         match action {
             Action::StepBack => {
-                self.interpreter = self.interpreter.step_back(ext, &mut self.snapshots);
+                self.interpreter = self.interpreter.step_back(&mut self.snapshots);
             }
             Action::RunUntil => {self.interpreter.run_code_until(ext, pos, &mut self.snapshots);},
             Action::Exec => {self.interpreter.exec(ext);},

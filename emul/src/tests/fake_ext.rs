@@ -54,7 +54,8 @@ pub struct FakeCall {
 /// Fake externalities test structure.
 ///
 /// Can't do recursive calls.
-pub struct FakeExt<'a> {
+#[derive(Default)]
+pub struct FakeExt {
 	pub store: HashMap<H256, H256>,
 	pub suicides: HashSet<Address>,
 	pub calls: HashSet<FakeCall>,
@@ -68,7 +69,7 @@ pub struct FakeExt<'a> {
 	pub balances: HashMap<Address, U256>,
 	pub tracing: bool,
 	pub is_static: bool,
-    pub inst_manager: &'a InstructionManager,
+        // pub inst_manager: &'a InstructionManager,
 }
 
 // similar to the normal `finalize` function, but ignoring NeedsReturn.
@@ -80,9 +81,9 @@ pub fn test_finalize(res: Result<GasLeft>) -> Result<U256> {
 	}
 }
 
-impl<'a> FakeExt<'a> {
+impl FakeExt {
 	/// New fake externalities
-	pub fn new(inst_manager: &'a InstructionManager) -> Self {
+	pub fn new() -> Self {
         FakeExt {
             store: HashMap::default(),
             suicides: HashSet::default(),
@@ -97,20 +98,20 @@ impl<'a> FakeExt<'a> {
             balances: HashMap::default(),
             tracing: true,
             is_static: false,
-            inst_manager,
+            // inst_manager,
         }
 	}
 
 	/// New fake externalities with byzantium schedule rules
-	pub fn new_byzantium(inst_manager: &'a InstructionManager) -> Self {
-		let mut ext = FakeExt::new(inst_manager);
+	pub fn new_byzantium() -> Self {
+		let mut ext = FakeExt::default();
 		ext.schedule = Schedule::new_byzantium();
 		ext
 	}
 
 	/// New fake externalities with constantinople schedule rules
-	pub fn new_constantinople(inst_manager: &'a InstructionManager) -> Self {
-		let mut ext = FakeExt::new(inst_manager);
+	pub fn new_constantinople() -> Self {
+		let mut ext = FakeExt::default();
 		ext.schedule = Schedule::new_constantinople();
 		ext
 	}
@@ -122,7 +123,7 @@ impl<'a> FakeExt<'a> {
 	}
 }
 
-impl<'a> Ext for FakeExt<'a> {
+impl Ext for FakeExt {
 	fn storage_at(&self, key: &H256) -> Result<H256> {
 		Ok(self.store.get(key).unwrap_or(&H256::new()).clone())
 	}
@@ -244,7 +245,7 @@ impl<'a> Ext for FakeExt<'a> {
         instruction: u8, 
         gas_cost: U256) 
     {   
-        self.inst_manager.trace_prepare(pc, instruction, gas_cost);
+        //self.inst_manager.trace_prepare(pc, instruction, gas_cost);
     }
 
     /// Trace the finalised execution of a single instruction
@@ -255,8 +256,7 @@ impl<'a> Ext for FakeExt<'a> {
         mem_diff: Option<(usize, &[u8])>, 
         store_diff: Option<(U256, U256)>) 
     {   
-        self.inst_manager.
-            trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
+        // self.inst_manager.trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
     }
 }
 

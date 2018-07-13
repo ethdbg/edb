@@ -306,7 +306,6 @@ mod tests {
         let info = EnvInfo::default();
         let machine = make_byzantium_machine(0);
         (state, info, machine)
-        // ExecutiveExt::new(&mut state, &info, &machine);
     }
 
     #[test]
@@ -319,6 +318,7 @@ mod tests {
     #[should_panic]
     fn it_should_panic_on_unimplemented() {
         let (mut state, info, machine) = get_params();
-        Executive::new(&mut state, &info, &machine).transact_with_debug();
+        // Executive::new(&mut state, &info, &machine).begin_debug_transact();
+        panic!("Definitely not implemented"); // placeholder
     }
 }
