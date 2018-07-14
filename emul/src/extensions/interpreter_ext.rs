@@ -39,6 +39,7 @@ pub trait AsInterpreter<C: CostType> {
     fn as_interpreter(self) -> Option<Interpreter<C>>;
 }
 
+// TODO change from returning Option to Result, for error handling
 impl<C> AsInterpreter<C> for Box<Any> 
     where C: CostType + 'static,
 {
@@ -146,7 +147,7 @@ mod tests {
 
     
     #[test]
-    fn it_should_run_code() {
+    fn it_should_run_trait_functions() {
         let address = Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
 	    let code = "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055".from_hex().unwrap();
 
