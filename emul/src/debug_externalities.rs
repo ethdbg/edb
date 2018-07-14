@@ -1,5 +1,5 @@
-use vm;
 use delegate;
+use vm;
 use ethcore::externalities::{Externalities, OriginInfo, OutputPolicy};
 use ethcore::state::{Backend as StateBackend, State, Substate};
 use ethcore::machine::EthereumMachine as Machine;
