@@ -18,60 +18,115 @@
 //! An Extension to the parity interpreter for debugging 
 
 use vm;
-use emulator::InterpreterSnapshots;
-use evm::{CostType};
+use debug_externalities::{ExternalitiesExt, DebugExt};
+use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
-//use vm::{ActionParams};
-use vm::{GasLeft};
-//use std::sync::Arc;
-//use instruction_manager::InstructionManager;
+use evm::interpreter::stack::VecStack;
+use evm::{CostType};
+use vm::{GasLeft, Vm};
+use std::any::Any;
 
-pub trait InterpreterExt<'a, Cost: CostType> {
-    fn step_back(self, i_hist: &'a mut InterpreterSnapshots<Cost>) -> Self;
-    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshots<Cost>)
-        -> Option<vm::Result<GasLeft>>;
+pub trait InterpreterExt {
+    fn step_back(self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
+    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
+        -> vm::Result<ExecInfo>;
+    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo>;
     fn get_curr_pc(&self) -> usize;
-    
+    fn as_any(&self) -> Box<Any>;
 }
 
-impl<'a, Cost: CostType> InterpreterExt<'a, Cost> for Interpreter<Cost> {
+pub trait AsInterpreter<C: CostType> {
+    fn as_interpreter(self) -> Option<Interpreter<C>>;
+}
+
+impl<C> AsInterpreter<C> for Box<Any> 
+    where C: CostType + 'static,
+{
+    fn as_interpreter(self) -> Option<Interpreter<C>> {
+        if let Ok(interpreter) = self.downcast::<Interpreter<C>>() {
+            Some(*interpreter)
+        } else { None }
+    }
+}
+
+impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
 
     /// go back one step in execution
-    fn step_back(self, i_hist: &'a mut InterpreterSnapshots<Cost>) -> Self {
-        if i_hist.states.len() <= 1 {
-            i_hist.states.pop().unwrap().clone()
-        } else {
-            // pop latest step
-            i_hist.states.pop();
-            // state = one step back
-            i_hist.states.pop().unwrap()
-        }
+    fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>{
+        self = ext.step_back().as_any().as_interpreter().unwrap();
+        Ok(ExecInfo::from_vm(&self, None))
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    fn run_code_until(&mut self, ext: &mut vm::Ext, pos: usize, i_hist: &mut InterpreterSnapshots<Cost>)
-        -> Option<vm::Result<GasLeft>>
-    {   if i_hist.states.len() <= 0 {
-            i_hist.states.push(self.clone()); // empty state
+    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> vm::Result<ExecInfo> {   
+        if ext.snapshots_len() <= 0 {
+            ext.push_snapshot(Box::new(self.clone())); // empty state
         }
         while (self.reader.position) < pos {
-            let result = self.step(ext);
-            i_hist.states.push(self.clone());
+            let result = self.step(ext.externalities());
+            ext.push_snapshot(Box::new(self.clone()));
             match result {
                 InterpreterResult::Continue => {},
-                InterpreterResult::Done(value) => return Some(value),
+                InterpreterResult::Done(value) => return Ok(ExecInfo::from_vm(&self, Some(value))),
                 InterpreterResult::Stopped 
                     => panic!("Attempted to execute an already stopped VM.")
             }
         }
-        None
+        Ok(ExecInfo::from_vm(&self, None))
+    }
+
+    /// passthrough for vm::Vm exec()
+    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo> {
+        let gas_left = self.exec(ext);
+        Ok(ExecInfo::from_vm(&self, Some(gas_left)))
     }
 
     fn get_curr_pc(&self) -> usize {
         if self.reader.position <= 0 { self.reader.position}
         else { self.reader.position - 1 }
     }
+    
+    fn as_any(&self) -> Box<Any> {
+        Box::new(self.clone())
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct ExecInfo {
+    mem: Vec<u8>,
+    stack: VecStack<U256>,
+    pc: usize,
+    finished: bool,
+    gas_left: Option<vm::Result<GasLeft>>
+}
+
+impl ExecInfo {
+    pub fn new(mem: Vec<u8>, 
+               stack: VecStack<U256>, 
+               pc: usize, 
+               gas_left: Option<vm::Result<GasLeft>>
+    ) -> Self {
+        ExecInfo {mem, stack, pc, gas_left, finished: false}
+    }
+
+    pub fn from_vm<C: CostType + 'static>(interpreter: &Interpreter<C>, gas_left: Option<vm::Result<GasLeft>>
+    ) -> Self {
+        ExecInfo {
+            mem: interpreter.mem.clone(),
+            stack: interpreter.stack.clone(),
+            pc: interpreter.get_curr_pc(),
+            finished: if gas_left.is_none() {false} else {true},
+            gas_left,
+       }
+    }
+
+    pub fn mem(&self) -> &Vec<u8> {&self.mem}
+    pub fn stack(&self) -> &VecStack<U256>{&self.stack}
+    pub fn gas_left(&self) -> &Option<vm::Result<GasLeft>> {&self.gas_left}
+    pub fn pc(&self) -> &usize {&self.pc}
+    pub fn finished(&self) -> bool {self.finished}
 }
 
 // some tests taken from ethcore::evm::tests

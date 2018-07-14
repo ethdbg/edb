@@ -120,7 +120,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "blooms-db"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethbloom 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "blooms-db"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethbloom 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -207,7 +207,7 @@ dependencies = [
 [[package]]
 name = "common-types"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethjson 0.1.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -221,7 +221,7 @@ dependencies = [
 [[package]]
 name = "common-types"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethjson 0.1.0 (git+https://github.com/paritytech/parity)",
@@ -336,7 +336,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "dir"
 version = "0.1.1"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "app_dirs 1.2.1 (git+https://github.com/paritytech/app-dirs-rs)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -346,7 +346,7 @@ dependencies = [
 [[package]]
 name = "dir"
 version = "0.1.1"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "app_dirs 1.2.1 (git+https://github.com/paritytech/app-dirs-rs)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -472,7 +472,7 @@ dependencies = [
 [[package]]
 name = "ethash"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "crunchy 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -486,7 +486,7 @@ dependencies = [
 [[package]]
 name = "ethash"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "crunchy 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -512,7 +512,7 @@ dependencies = [
 [[package]]
 name = "ethcore"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "blooms-db 0.1.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -580,7 +580,7 @@ dependencies = [
 [[package]]
 name = "ethcore"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "blooms-db 0.1.0 (git+https://github.com/paritytech/parity)",
@@ -649,7 +649,7 @@ dependencies = [
 [[package]]
 name = "ethcore-bloom-journal"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "siphasher 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -657,7 +657,7 @@ dependencies = [
 [[package]]
 name = "ethcore-bloom-journal"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "siphasher 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -665,12 +665,12 @@ dependencies = [
 [[package]]
 name = "ethcore-devtools"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "ethcore-io"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "crossbeam 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -685,7 +685,7 @@ dependencies = [
 [[package]]
 name = "ethcore-io"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "crossbeam 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -701,7 +701,7 @@ dependencies = [
 [[package]]
 name = "ethcore-light"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -739,7 +739,7 @@ dependencies = [
 [[package]]
 name = "ethcore-logger"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "arrayvec 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -755,7 +755,7 @@ dependencies = [
 [[package]]
 name = "ethcore-logger"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "arrayvec 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -771,7 +771,7 @@ dependencies = [
 [[package]]
 name = "ethcore-miner"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -792,7 +792,7 @@ dependencies = [
 [[package]]
 name = "ethcore-miner"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -813,7 +813,7 @@ dependencies = [
 [[package]]
 name = "ethcore-network"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethcore-io 1.12.0 (git+https://github.com/paritytech/parity)",
@@ -829,7 +829,7 @@ dependencies = [
 [[package]]
 name = "ethcore-network-devp2p"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -864,7 +864,7 @@ dependencies = [
 [[package]]
 name = "ethcore-private-tx"
 version = "1.0.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -901,7 +901,7 @@ dependencies = [
 [[package]]
 name = "ethcore-sync"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethcore 1.12.0 (git+https://github.com/paritytech/parity)",
@@ -934,7 +934,7 @@ dependencies = [
 [[package]]
 name = "ethcore-transaction"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethjson 0.1.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -949,7 +949,7 @@ dependencies = [
 [[package]]
 name = "ethcore-transaction"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethjson 0.1.0 (git+https://github.com/paritytech/parity)",
@@ -990,7 +990,7 @@ dependencies = [
 [[package]]
 name = "ethjson"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1002,7 +1002,7 @@ dependencies = [
 [[package]]
 name = "ethjson"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1014,7 +1014,7 @@ dependencies = [
 [[package]]
 name = "ethkey"
 version = "0.3.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "edit-distance 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1036,7 +1036,7 @@ dependencies = [
 [[package]]
 name = "ethkey"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "edit-distance 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1058,7 +1058,7 @@ dependencies = [
 [[package]]
 name = "ethstore"
 version = "0.2.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "dir 0.1.1 (git+https://github.com/ethdbg/parity?branch=edb)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1083,7 +1083,7 @@ dependencies = [
 [[package]]
 name = "ethstore"
 version = "0.2.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "dir 0.1.1 (git+https://github.com/paritytech/parity)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1108,7 +1108,7 @@ dependencies = [
 [[package]]
 name = "evm"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1125,7 +1125,7 @@ dependencies = [
 [[package]]
 name = "evm"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1141,7 +1141,7 @@ dependencies = [
 [[package]]
 name = "fake-hardware-wallet"
 version = "0.0.1"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -1150,7 +1150,7 @@ dependencies = [
 [[package]]
 name = "fake-hardware-wallet"
 version = "0.0.1"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/paritytech/parity)",
@@ -1159,7 +1159,7 @@ dependencies = [
 [[package]]
 name = "fetch"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "bytes 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1259,7 +1259,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "hardware-wallet"
 version = "1.12.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -1275,7 +1275,7 @@ dependencies = [
 [[package]]
 name = "hardware-wallet"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/paritytech/parity)",
@@ -1436,7 +1436,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "journaldb"
 version = "0.2.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashdb 0.2.0 (git+https://github.com/paritytech/parity-common)",
@@ -1454,7 +1454,7 @@ dependencies = [
 [[package]]
 name = "journaldb"
 version = "0.2.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashdb 0.2.0 (git+https://github.com/paritytech/parity-common)",
@@ -1565,7 +1565,7 @@ dependencies = [
 [[package]]
 name = "keccak-hasher"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashdb 0.2.0 (git+https://github.com/paritytech/parity-common)",
@@ -1576,7 +1576,7 @@ dependencies = [
 [[package]]
 name = "keccak-hasher"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashdb 0.2.0 (git+https://github.com/paritytech/parity-common)",
@@ -1737,12 +1737,12 @@ dependencies = [
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "matches"
@@ -1752,12 +1752,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "mem"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 
 [[package]]
 name = "mem"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "memchr"
@@ -1784,7 +1784,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "memory-cache"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "heapsize 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1793,7 +1793,7 @@ dependencies = [
 [[package]]
 name = "memory-cache"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "heapsize 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1929,7 +1929,7 @@ dependencies = [
 [[package]]
 name = "node-health"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "futures 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-cpupool 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2062,7 +2062,7 @@ dependencies = [
 [[package]]
 name = "parity-hash-fetch"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi-contract 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2085,7 +2085,7 @@ dependencies = [
 [[package]]
 name = "parity-machine"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2093,7 +2093,7 @@ dependencies = [
 [[package]]
 name = "parity-machine"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2101,7 +2101,7 @@ dependencies = [
 [[package]]
 name = "parity-reactor"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "futures 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2110,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "parity-rpc"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cid 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2149,7 +2149,7 @@ dependencies = [
  "parity-crypto 0.1.0 (git+https://github.com/paritytech/parity-common)",
  "parity-reactor 0.1.0 (git+https://github.com/paritytech/parity)",
  "parity-updater 1.12.0 (git+https://github.com/paritytech/parity)",
- "parity-version 2.0.0 (git+https://github.com/paritytech/parity)",
+ "parity-version 2.1.0 (git+https://github.com/paritytech/parity)",
  "parking_lot 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "patricia-trie 0.2.1 (git+https://github.com/paritytech/parity-common)",
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2187,7 +2187,7 @@ dependencies = [
 [[package]]
 name = "parity-updater"
 version = "1.12.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi-contract 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2200,7 +2200,7 @@ dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-bytes 0.1.0 (git+https://github.com/paritytech/parity-common)",
  "parity-hash-fetch 1.12.0 (git+https://github.com/paritytech/parity)",
- "parity-version 2.0.0 (git+https://github.com/paritytech/parity)",
+ "parity-version 2.1.0 (git+https://github.com/paritytech/parity)",
  "parking_lot 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "path 0.1.1 (git+https://github.com/paritytech/parity-common)",
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2210,8 +2210,8 @@ dependencies = [
 
 [[package]]
 name = "parity-version"
-version = "2.0.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+version = "2.1.0"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "parity-bytes 0.1.0 (git+https://github.com/paritytech/parity-common)",
  "rlp 0.2.1 (git+https://github.com/paritytech/parity-common)",
@@ -2280,7 +2280,7 @@ dependencies = [
 [[package]]
 name = "patricia-trie-ethereum"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "elastic-array 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2294,7 +2294,7 @@ dependencies = [
 [[package]]
 name = "patricia-trie-ethereum"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "elastic-array 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2542,7 +2542,7 @@ dependencies = [
 [[package]]
 name = "registrar"
 version = "0.0.1"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethabi 5.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethabi-contract 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2593,7 +2593,7 @@ dependencies = [
 [[package]]
 name = "rlp_compress"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "elastic-array 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2603,7 +2603,7 @@ dependencies = [
 [[package]]
 name = "rlp_compress"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "elastic-array 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2613,7 +2613,7 @@ dependencies = [
 [[package]]
 name = "rlp_derive"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "quote 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.13.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "rlp_derive"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "quote 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.13.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2862,7 +2862,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "stats"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2870,7 +2870,7 @@ dependencies = [
 [[package]]
 name = "stats"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2878,12 +2878,12 @@ dependencies = [
 [[package]]
 name = "stop-guard"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 
 [[package]]
 name = "stop-guard"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "syn"
@@ -3206,7 +3206,7 @@ dependencies = [
 [[package]]
 name = "trace-time"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -3214,7 +3214,7 @@ dependencies = [
 [[package]]
 name = "trace-time"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -3222,7 +3222,7 @@ dependencies = [
 [[package]]
 name = "transaction-pool"
 version = "1.12.1"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3233,7 +3233,7 @@ dependencies = [
 [[package]]
 name = "transaction-pool"
 version = "1.12.1"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "error-chain 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3268,7 +3268,7 @@ dependencies = [
 [[package]]
 name = "triehash-ethereum"
 version = "0.2.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher 0.1.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -3278,7 +3278,7 @@ dependencies = [
 [[package]]
 name = "triehash-ethereum"
 version = "0.2.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "ethereum-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "keccak-hasher 0.1.0 (git+https://github.com/paritytech/parity)",
@@ -3309,12 +3309,12 @@ dependencies = [
 [[package]]
 name = "unexpected"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 
 [[package]]
 name = "unexpected"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "unicase"
@@ -3386,12 +3386,12 @@ dependencies = [
 [[package]]
 name = "using_queue"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 
 [[package]]
 name = "using_queue"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 
 [[package]]
 name = "utf8-ranges"
@@ -3415,7 +3415,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "vm"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "common-types 0.1.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -3432,7 +3432,7 @@ dependencies = [
 [[package]]
 name = "vm"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "common-types 0.1.0 (git+https://github.com/paritytech/parity)",
@@ -3464,7 +3464,7 @@ dependencies = [
 [[package]]
 name = "wasm"
 version = "0.1.0"
-source = "git+https://github.com/ethdbg/parity?branch=edb#6befec998ca491c376ffad75cb4f1fef5c4b5052"
+source = "git+https://github.com/ethdbg/parity?branch=edb#d13fa6abf384cea79d190cf4ca7beacab35d7dbb"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethcore-logger 1.12.0 (git+https://github.com/ethdbg/parity?branch=edb)",
@@ -3480,7 +3480,7 @@ dependencies = [
 [[package]]
 name = "wasm"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/parity#bab85dd78933edd9dde66ef67f10b36136683cd3"
+source = "git+https://github.com/paritytech/parity#3ecf16a4922b8b64307062283ed0a3bf0c1bceb5"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethcore-logger 1.12.0 (git+https://github.com/paritytech/parity)",
@@ -3788,7 +3788,7 @@ dependencies = [
 "checksum parity-rpc 1.12.0 (git+https://github.com/paritytech/parity)" = "<none>"
 "checksum parity-tokio-ipc 0.1.5 (git+https://github.com/nikvolf/parity-tokio-ipc)" = "<none>"
 "checksum parity-updater 1.12.0 (git+https://github.com/paritytech/parity)" = "<none>"
-"checksum parity-version 2.0.0 (git+https://github.com/paritytech/parity)" = "<none>"
+"checksum parity-version 2.1.0 (git+https://github.com/paritytech/parity)" = "<none>"
 "checksum parity-wasm 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e1c91199d14bd5b78ecade323d4a891d094799749c1b9e82d9c590c2e2849a40"
 "checksum parity-wordlist 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1d0dec124478845b142f68b446cbee953d14d4b41f1bc0425024417720dce693"
 "checksum parking_lot 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "901d6514273469bb17380c1ac3f51fb3ce54be1f960e51a6f04901eba313ab8d"

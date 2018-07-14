@@ -1,3 +1,4 @@
+use crossbeam;
 use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
 use ethcore::executed::{Executed, ExecutionResult};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
@@ -7,14 +8,17 @@ use ethcore::error::ExecutionError;
 use ethereum_types::{U256, U512};
 use bytes::{Bytes, BytesRef};
 use transaction::{Action, SignedTransaction};
-use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode};
-use evm::{FinalizationResult, Finalize, CallType, CostType};
-use evm::interpreter::stack::{VecStack};
+use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode, Ext};
+use evm::{Finalize, CallType, CostType};
 use ethcore_io::LOCAL_STACK_SIZE;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use ethcore::externalities::*;
+use extensions::factory_ext::FactoryExt;
+use emulator::Action as EmulatorAction;
+use extensions::interpreter_ext::ExecInfo;
+use emulator::FinalizationResult;
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -27,14 +31,13 @@ use ethcore::externalities::*;
 // is preferable to iterating through a variably-sized BTree everytime a state change
 // may occur
 
-#[derive(Debug,  PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
     pub executed: Option<Executed<T,V>>,
     is_complete: bool,
-    pub mem: Vec<u8>,
-    pub pc: usize,
-    pub stack: VecStack<U256>,
+    exec_info: ExecInfo,
 }
+
 
 
 pub trait ExecutiveExt<'a, B: StateBackend> {
@@ -79,7 +82,8 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                           unconfirmed_substate: &mut Substate, 
                           output_policy: OutputPolicy, 
                           tracer: &'a mut T, 
-                          vm_tracer: &'a mut V);
+                          vm_tracer: &'a mut V
+        ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
        /* -> vm::Result<FinalizationResult> where T: Tracer, V:VMTracer */
  /*   {   
         // LOCAL_STACK_SIZE is a `Cell`
@@ -204,9 +208,21 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Separate,
                 };
                 let mut out = vec![]; //debug_call here, but fails when unimplemented!()
-                (self.debug_call(params, &mut substate, BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
+                (self.debug_call(pc, 
+                                 params, 
+                                 &mut substate, 
+                                 BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
             }
         };
+        
+        Ok(
+            DebugFinalize {
+                executed: self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain()?,
+                is_complete: )
+            
+            }
+
+           )
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
 
@@ -243,40 +259,52 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                           unconfirmed_substate: &mut Substate, 
                           output_policy: OutputPolicy, 
                           tracer: &mut T, 
-                          vm_tracer: &mut V) {
-
+                          vm_tracer: &mut V
+    ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer {
+        
         let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
-		let depth_threshold = local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
-		let static_call = params.call_type == CallType::StaticCall;
+        let depth_threshold = local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
+        let static_call = params.call_type == CallType::StaticCall;
+        
+        // Ordinary execution - keep VM in same thread
+        if self.depth != depth_threshold {
+            let vm_factory = self.state.vm_factory();
+            let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
+            trace!(target: "executive", "ext.schedule.have_delegate_call: {}", ext.schedule().have_delegate_call);
+            let vm = vm_factory.create_debug(params, &ext);
+            return match vm {
+                Ok(mut vm) => { 
+                    let res = vm.fire(EmulatorAction::RunUntil, &mut ext, pc).unwrap();
+                    match res.gas_left() {
+                        Some(x) => Ok(FinalizationResult::new(Some(x.finalize(ext)), true, Ok(res))), // execution ended
+                        None => Ok(FinalizationResult::new(None, false, Ok(res)))                     // still needs to resume exec
+                    }
+                },
+                Err(e) => Ok(FinalizationResult::new(None,
+                                                    true,
+                                                    Err(ExecutionError::Internal(e.to_string())))),
+            };
+        }
 
-		// Ordinary execution - keep VM in same thread
-		if self.depth != depth_threshold {
-			let vm_factory = self.state.vm_factory();
-			let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
-			trace!(target: "executive", "ext.schedule.have_delegate_call: {}", ext.schedule().have_delegate_call);
-			let vm = vm_factory.create(params, &ext);
-			return match vm {
-				Ok(mut vm) => vm.exec(&mut ext).finalize(ext),
-				Err(e) => e.finalize(ext),
-			}
-		}
+        // Start in new thread with stack size needed up to max depth
+        crossbeam::scope(|scope| {
+                let vm_factory = self.state.vm_factory();
+                let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
 
-		// Start in new thread with stack size needed up to max depth
-		crossbeam::scope(|scope| {
-			let vm_factory = self.state.vm_factory();
-			let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
-
-			scope.builder().stack_size(::std::cmp::max(schedule.max_depth.saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size)).spawn(move || {
-				let vm = vm_factory.create(params, &ext);
-				match vm {
-					Ok(mut vm) => vm.exec(&mut ext).finalize(ext),
-					Err(e) => e.finalize(ext),
-				}
-			}).expect("Sub-thread creation cannot fail; the host might run out of resources; qed")
-		}).join()
-
+                scope.builder().stack_size(::std::cmp::max(schedule.max_depth.saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size)).spawn(move || {
+                        let vm = vm_factory.create_debug(params, &ext);
+                        match vm {
+                                Ok(mut vm) => {
+                                    match vm.fire(EmulatorAction::RunUntil, &mut ext, pc) {
+                                        Some(x) => Some(x.finalize(ext)),
+                                        None => None
+                                    }
+                                },
+                                Err(e) => Some(e.finalize(ext)),
+                        }
+                }).expect("Sub-thread creation cannot fail; the host might run out of resources; qed")
+        }).join()
     }
-
 }
 
 
