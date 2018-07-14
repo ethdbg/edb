@@ -25,6 +25,42 @@ pub trait ExternalitiesExt {
     // fn consume_ext(self) -> vm::Ext;
 }
 
+pub trait ConsumeExt<'a, T: 'a, V: 'a, B: 'a> {
+    fn consume(self) -> Externalities<'a, T, V, B>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend;
+}
+
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for Externalities<'a, T, V, B> {
+    fn consume(self) -> Externalities<'a, T, V, B>
+        where   T: Tracer, 
+                V: VMTracer, 
+                B: StateBackend, 
+    {
+        self
+    }
+}
+
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt<'a, T, V, B> {
+    fn consume(self) -> Externalities<'a, T, V, B>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+    {
+        self.externalities
+    }
+}
+
+
+/*
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for ExternalitiesExt {
+    fn consume(self
+    ) -> Externalities<'a, T, V, B> where T: Tracer, V: VMTracer,B: StateBackend {
+        self
+    }
+}*/
+
 impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B> 
     where T: Tracer,
           V: VMTracer,
@@ -76,9 +112,5 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
     fn externalities(&mut self) -> &mut Ext {
         &mut self.externalities
     }
-
-    /*fn consume_ext(self) -> Externalities<'a, T, V, B> {
-        self.externalities
-    }*/
 }
 

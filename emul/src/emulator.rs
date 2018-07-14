@@ -9,9 +9,12 @@ use evm::{CostType, Finalize};
 use ethcore::executed::ExecutionError;
 use evm::interpreter::{Interpreter, SharedCache};
 use extensions::interpreter_ext::{InterpreterExt, ExecInfo};
-use debug_externalities::ExternalitiesExt;
+use debug_externalities::{ConsumeExt, ExternalitiesExt};
 use std::vec::Vec;
 use std::sync::Arc;
+use ethcore::trace::{Tracer, VMTracer};
+use ethcore::state::Backend as StateBackend;
+
 
 #[derive(Debug)]
 pub struct FinalizationResult {
@@ -59,31 +62,37 @@ pub enum Action {
     WithWorldState,
     EvmOnly
 }*/
-/*
-pub trait EDBFinalize {
-    fn finalize(self, ext: ExternalitiesExt) -> vm::Result<FinalizationResult>;
+
+pub trait EDBFinalize<'a, T: 'a, V: 'a, B: 'a> {
+    fn finalize<E>(self, ext: E) -> vm::Result<FinalizationResult>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>;
 }
 
-impl EDBFinalize for vm::Result<ExecInfo> {
-    fn finalize<E: ExternalitiesExt>(self, ext: E) -> vm::Result<FinalizationResult> {
+impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> {
+    fn finalize<E>(self, ext: E) -> vm::Result<FinalizationResult> 
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>
+    {
         match self {
             Ok(x) => {
                 Ok(FinalizationResult {
-    /*pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
-    pub is_complete: bool,
-    pub exec_info: Result<ExecInfo, ExecutionError>,*/
                     finalization_result: if x.gas_left().is_some() {
-                        Some(x.gas_left().unwrap().finalize(ext.externalities()))
-                    } else {None}
-
+                        Some(x.gas_left().to_owned().unwrap().finalize(ext.consume()))
+                    } else {None},
+                    is_complete: if x.gas_left().is_some() {true} else {false},
+                    exec_info: Ok(x)
                 })
-            
-            }
-        
+            },
+            Err(e) => Err(vm::Error::Internal(e.to_string()))
         }
     }
 }
-*/
+
 pub trait VMEmulator {
     fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo>;
