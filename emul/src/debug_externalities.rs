@@ -1,10 +1,11 @@
 use delegate;
 use vm;
+use vm::Ext;
 use ethcore::externalities::{Externalities, OriginInfo, OutputPolicy};
 use ethcore::state::{Backend as StateBackend, State, Substate};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
-use vm::{EnvInfo, Schedule, Ext, CreateContractAddress, CallType, MessageCallResult};
+use vm::{EnvInfo, Schedule, CreateContractAddress, CallType, MessageCallResult};
 use evm::interpreter::Interpreter;
 use evm::CostType;
 use std::any::Any;
