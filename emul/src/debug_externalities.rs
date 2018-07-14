@@ -17,7 +17,7 @@ pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
     pub externalities: Externalities<'a, T, V, B>,
     snapshots: InterpreterSnapshots,
 }
-pub trait ExternalitiesExt<'a> {
+pub trait ExternalitiesExt {
     fn push_snapshot(&mut self, interpreter: Box<InterpreterExt>);
     fn step_back(&mut self) -> Box<InterpreterExt>;
     fn snapshots_len(&self) -> usize;
@@ -49,7 +49,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B>
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt<'a> for DebugExt<'a, T, V, B> 
+impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B> 
     where T: Tracer,
           V: VMTracer,
           B: StateBackend,

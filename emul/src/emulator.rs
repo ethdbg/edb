@@ -59,14 +59,13 @@ pub enum Action {
     WithWorldState,
     EvmOnly
 }*/
-
 /*
 pub trait EDBFinalize {
     fn finalize(self, ext: ExternalitiesExt) -> vm::Result<FinalizationResult>;
 }
 
 impl EDBFinalize for vm::Result<ExecInfo> {
-    fn finalize(self, ext: ExternalitiesExt) -> vm::Result<FinalizationResult> {
+    fn finalize<E: ExternalitiesExt>(self, ext: E) -> vm::Result<FinalizationResult> {
         match self {
             Ok(x) => {
                 Ok(FinalizationResult {
@@ -85,7 +84,6 @@ impl EDBFinalize for vm::Result<ExecInfo> {
     }
 }
 */
-
 pub trait VMEmulator {
     fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo>;
