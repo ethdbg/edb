@@ -13,9 +13,13 @@
 
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
+#![recursion_limit="512"]
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate delegate;
+
 extern crate vm;
 extern crate evm;
 extern crate parity_bytes as bytes;

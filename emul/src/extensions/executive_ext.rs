@@ -1,24 +1,22 @@
 use crossbeam;
 use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
-use ethcore::executed::{Executed, ExecutionResult};
+use ethcore::executed::{Executed};
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
-use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{self, Tracer, VMTracer, FlatTrace, VMTrace};
 use ethcore::error::ExecutionError;
 use ethereum_types::{U256, U512};
-use bytes::{Bytes, BytesRef};
+use bytes::BytesRef;
 use transaction::{Action, SignedTransaction};
 use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode, Ext};
-use evm::{Finalize, CallType, CostType};
+use evm::{Finalize, CallType};
 use ethcore_io::LOCAL_STACK_SIZE;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 use ethcore::externalities::*;
 use extensions::factory_ext::FactoryExt;
 use emulator::Action as EmulatorAction;
 use extensions::interpreter_ext::ExecInfo;
 use emulator::FinalizationResult;
+use debug_externalities::{DebugExt, ExternalitiesExt};
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -31,7 +29,7 @@ use emulator::FinalizationResult;
 // is preferable to iterating through a variably-sized BTree everytime a state change
 // may occur
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
     pub executed: Option<Executed<T,V>>,
     is_complete: bool,
@@ -42,6 +40,16 @@ pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
 
 pub trait ExecutiveExt<'a, B: StateBackend> {
    
+    fn as_dbg_externalities<'any, T, V>(&'any mut self,
+                                        origin_info: OriginInfo,
+                                        substate: &'any mut Substate,
+                                        output: OutputPolicy<'any, 'any>,
+                                        tracer: &'any mut T,
+                                        vm_tracer: &'any mut V,
+                                        static_call: bool
+    ) -> DebugExt<'any, T, V, B> where T: Tracer, V: VMTracer;
+        
+    
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     /// pc = Program Counter (where to stop execution)
@@ -53,6 +61,7 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                            mut vm_tracer: V,
                            pc: usize
     ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
+
                                          // returns a result with InstructionSnapshot
                                          // if no breakpoints set, returns error
     // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
@@ -93,10 +102,23 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
     }*/
 }
 
-
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
 // validation
 impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
+
+    fn as_dbg_externalities<'any, T, V>(&'any mut self,
+                                        origin_info: OriginInfo,
+                                        substate: &'any mut Substate,
+                                        output: OutputPolicy<'any, 'any>,
+                                        tracer: &'any mut T,
+                                        vm_tracer: &'any mut V,
+                                        static_call: bool
+    ) -> DebugExt<'any, T, V, B> where T: Tracer, V: VMTracer {
+        let is_static = self.static_flag || static_call;
+        DebugExt::new(self.state, self.info, self.machine, self.depth, origin_info, substate,
+                      output, tracer, vm_tracer, is_static)
+    }
+ 
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
@@ -269,21 +291,13 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         // Ordinary execution - keep VM in same thread
         if self.depth != depth_threshold {
             let vm_factory = self.state.vm_factory();
-            let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
+            let mut ext = self.as_dbg_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
             trace!(target: "executive", "ext.schedule.have_delegate_call: {}", ext.schedule().have_delegate_call);
             let vm = vm_factory.create_debug(params, &ext);
             return match vm {
-                Ok(mut vm) => { 
-                    let res = vm.fire(EmulatorAction::RunUntil, &mut ext, pc).unwrap();
-                    match res.gas_left() {
-                        Some(x) => Ok(FinalizationResult::new(Some(x.finalize(ext)), true, Ok(res))), // execution ended
-                        None => Ok(FinalizationResult::new(None, false, Ok(res)))                     // still needs to resume exec
-                    }
-                },
-                Err(e) => Ok(FinalizationResult::new(None,
-                                                    true,
-                                                    Err(ExecutionError::Internal(e.to_string())))),
-            };
+                Ok(mut vm) => vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext),
+                Err(e) => e.finalize(ext)
+            }
         }
 
         // Start in new thread with stack size needed up to max depth
