@@ -41,7 +41,7 @@ extern crate kvdb_memorydb;
 
 pub mod emulator;
 mod debug_externalities;
-mod instruction_manager;
+//mod instruction_manager;
 mod extensions;
 mod tests;
 // mod factory;

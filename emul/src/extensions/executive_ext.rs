@@ -1,21 +1,22 @@
 use crossbeam;
 use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
 use ethcore::executed::{Executed};
+use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, State, Substate, CleanupMode};
 use ethcore::trace::{self, Tracer, VMTracer, FlatTrace, VMTrace};
 use ethcore::error::ExecutionError;
-use ethereum_types::{U256, U512};
-use bytes::BytesRef;
-use transaction::{Action, SignedTransaction};
+use ethcore_io::LOCAL_STACK_SIZE;
 use vm::{self, Schedule, ActionParams, ActionValue, EnvInfo, CleanDustMode, Ext};
 use evm::{Finalize, CallType};
-use ethcore_io::LOCAL_STACK_SIZE;
+use ethereum_types::{U256, U512};
+use bytes::{Bytes, BytesRef};
+use transaction::{Action, SignedTransaction};
 use std::sync::Arc;
-use ethcore::externalities::*;
+
 use extensions::factory_ext::FactoryExt;
 use emulator::Action as EmulatorAction;
 use extensions::interpreter_ext::ExecInfo;
-use emulator::FinalizationResult;
+use emulator::{FinalizationResult, EDBFinalize};
 use debug_externalities::{DebugExt, ExternalitiesExt};
 
 // TODO: replace static strings with actual errors
@@ -71,7 +72,18 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                              pc: usize
         ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
             where T: Tracer, V: VMTracer; 
-    
+
+    /// creates a contract with given parameters
+    /// does not finalize transaction (no refunds or suicides)
+    /// modified substate
+    fn debug_create<T, V>(&mut self,
+                          params: ActionParams,
+                          substate: &mut Substate,
+                          output: &mut Option<Bytes>,
+                          tracer: &mut T,
+                          vm_tracer: &mut V
+        ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
+
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
     fn debug_call<T,V>(&'a mut self,
@@ -211,7 +223,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Embedded,
                 };
                 let mut out = if output_from_create { Some(vec![])} else { None };
-                (self.create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), 
+                (self.debug_create(params, &mut substate, &mut out, &mut tracer, &mut vm_tracer), 
                     out.unwrap_or_else(Vec::new))
             },
             Action::Call(ref address) => {
@@ -237,14 +249,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             }
         };
         
-        Ok(
-            DebugFinalize {
-                executed: self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain()?,
-                is_complete: )
-            
-            }
-
-           )
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
 
@@ -258,8 +262,20 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     {
         unimplemented!();
     }
-
     
+    fn debug_create<T, V>(&mut self,
+                          params: ActionParams,
+                          substate: &mut Substate,
+                          output: &mut Option<Bytes>,
+                          tracer: &mut T,
+                          vm_tracer: &mut V
+    ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer {
+        let res = self.create(params, substate, output, tracer, vm_tracer);
+        // TODO: this needs to be simplified. this ain't Lisp. stop using Option<> to tell if
+        // something is done executing
+        Ok(FinalizationResult::new(Some(res), true, Ok(ExecInfo::empty(Some(Ok(vm::GasLeft::Known(res.unwrap().gas_left)))))))
+    }   
+
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
     fn debug_call<T,V>(&mut self,
@@ -291,36 +307,30 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         // Ordinary execution - keep VM in same thread
         if self.depth != depth_threshold {
             let vm_factory = self.state.vm_factory();
-            let mut ext = self.as_dbg_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
-            trace!(target: "executive", "ext.schedule.have_delegate_call: {}", ext.schedule().have_delegate_call);
-            let vm = vm_factory.create_debug(params, &ext);
-            return match vm {
-                Ok(mut vm) => vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext),
-                Err(e) => e.finalize(ext)
-            }
+            let mut ext = self.as_dbg_externalities(OriginInfo::from(&params), unconfirmed_substate, 
+                                                    output_policy, tracer, vm_tracer, static_call);
+            trace!(target: "executive", "ext.schedule.have_delegate_call: {}", 
+                   ext.schedule().have_delegate_call);
+            let vm = vm_factory.create_debug(params, &ext).unwrap();
+
+            return vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext);
         }
 
         // Start in new thread with stack size needed up to max depth
         crossbeam::scope(|scope| {
-                let vm_factory = self.state.vm_factory();
-                let mut ext = self.as_externalities(OriginInfo::from(&params), unconfirmed_substate, output_policy, tracer, vm_tracer, static_call);
-
-                scope.builder().stack_size(::std::cmp::max(schedule.max_depth.saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size)).spawn(move || {
-                        let vm = vm_factory.create_debug(params, &ext);
-                        match vm {
-                                Ok(mut vm) => {
-                                    match vm.fire(EmulatorAction::RunUntil, &mut ext, pc) {
-                                        Some(x) => Some(x.finalize(ext)),
-                                        None => None
-                                    }
-                                },
-                                Err(e) => Some(e.finalize(ext)),
-                        }
+            let vm_factory = self.state.vm_factory();
+            let mut ext = self.as_dbg_externalities(OriginInfo::from(&params), unconfirmed_substate, 
+                                                    output_policy, tracer, vm_tracer, static_call);
+            scope.builder()
+                .stack_size(::std::cmp::max(schedule.max_depth
+                            .saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size))
+                .spawn(move || {
+                    let mut vm = vm_factory.create_debug(params, &ext).unwrap();
+                    return vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext);
                 }).expect("Sub-thread creation cannot fail; the host might run out of resources; qed")
         }).join()
     }
 }
-
 
 // serves as example of how executive should be used
 #[cfg(test)]

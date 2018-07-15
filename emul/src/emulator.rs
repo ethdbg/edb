@@ -4,7 +4,7 @@
 //! the EVM
 use vm;
 use evm;
-use vm::{Ext, Vm};
+use vm::{Ext};
 use evm::{CostType, Finalize};
 use ethcore::executed::ExecutionError;
 use evm::interpreter::{Interpreter, SharedCache};
@@ -94,13 +94,13 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> 
 }
 
 pub trait VMEmulator {
-    fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
+    fn fire(self, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo>;
 }
 
-pub struct Emulator<C: CostType + 'static>(Interpreter<C>);
+pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 
-impl<C: CostType + 'static> VMEmulator for Emulator<C> {
+impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
     fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo> {
@@ -114,7 +114,7 @@ impl<C: CostType + 'static> VMEmulator for Emulator<C> {
     }
 }
 
-impl<Cost: CostType> Emulator<Cost> {
+impl<Cost: CostType + Send> Emulator<Cost> {
     pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &Ext) -> Self {
         Emulator(Interpreter::new(params, cache, ext).unwrap())
     }

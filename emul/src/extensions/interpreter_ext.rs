@@ -25,6 +25,7 @@ use evm::interpreter::stack::VecStack;
 use evm::{CostType};
 use vm::{GasLeft, Vm};
 use std::any::Any;
+use std::marker::Send;
 
 pub trait InterpreterExt {
     fn step_back(self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
@@ -32,16 +33,17 @@ pub trait InterpreterExt {
         -> vm::Result<ExecInfo>;
     fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo>;
     fn get_curr_pc(&self) -> usize;
-    fn as_any(&self) -> Box<Any>;
+    fn as_any(&self) -> Box<Any + Send>;
 }
 
 pub trait AsInterpreter<C: CostType> {
     fn as_interpreter(self) -> Option<Interpreter<C>>;
 }
-
+// this might be a very bad idea
+// unsafe impl Send for InterpreterExt {}
 // TODO change from returning Option to Result, for error handling
-impl<C> AsInterpreter<C> for Box<Any> 
-    where C: CostType + 'static,
+impl<C> AsInterpreter<C> for Box<Any + Send> 
+    where C: CostType + Send + 'static,
 {
     fn as_interpreter(self) -> Option<Interpreter<C>> {
         if let Ok(interpreter) = self.downcast::<Interpreter<C>>() {
@@ -50,7 +52,7 @@ impl<C> AsInterpreter<C> for Box<Any>
     }
 }
 
-impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
+impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
     fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>{
@@ -88,7 +90,7 @@ impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
         else { self.reader.position - 1 }
     }
     
-    fn as_any(&self) -> Box<Any> {
+    fn as_any(&self) -> Box<Any + Send> {
         Box::new(self.clone())
     }
 }
@@ -112,7 +114,7 @@ impl ExecInfo {
         ExecInfo {mem, stack, pc, gas_left, finished: false}
     }
 
-    pub fn from_vm<C: CostType + 'static>(interpreter: &Interpreter<C>, gas_left: Option<vm::Result<GasLeft>>
+    pub fn from_vm<C: CostType + Send + 'static>(interpreter: &Interpreter<C>, gas_left: Option<vm::Result<GasLeft>>
     ) -> Self {
         ExecInfo {
             mem: interpreter.mem.clone(),
@@ -121,6 +123,16 @@ impl ExecInfo {
             finished: if gas_left.is_none() {false} else {true},
             gas_left,
        }
+    }
+
+    pub fn empty(gas_left: Option<vm::Result<GasLeft>>) -> Self {
+        ExecInfo {
+            mem: Vec::default(),
+            stack: VecStack::with_capacity(0usize, U256::zero()),
+            pc: 0,
+            finished: true,
+            gas_left,
+        }
     }
 
     pub fn mem(&self) -> &Vec<u8> {&self.mem}

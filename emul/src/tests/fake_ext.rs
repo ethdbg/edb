@@ -16,8 +16,7 @@
 
 
 //! Fake Ext
-//! Taken straight from Parity; modified to add functions which communicate with 
-//! the InstructionManager in trace_ method calls
+//! Taken straight from Parity
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 
@@ -28,7 +27,7 @@ use vm::{
 	ReturnData, Ext, ContractCreateResult, MessageCallResult,
 	CreateContractAddress, Result, GasLeft,
 };
-use instruction_manager::InstructionManager;
+// use instruction_manager::InstructionManager;
 
 pub struct FakeLogEntry {
 	pub topics: Vec<H256>,
