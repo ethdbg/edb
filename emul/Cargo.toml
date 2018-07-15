@@ -44,5 +44,3 @@ branch = "edb"
 [dependencies.ethcore-io]
 git = "https://github.com/ethdbg/parity"
 branch = "edb"
-
-

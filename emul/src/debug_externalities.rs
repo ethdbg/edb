@@ -149,7 +149,11 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B>
     */
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> vm::Ext for DebugExt<'a, T, V, B> {
+impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a, T, V, B> 
+    where T: Tracer,
+          V: VMTracer,
+          B: StateBackend
+{
     delegate! {
         target self.externalities {
             fn storage_at(&self, key: &H256) -> vm::Result<H256>;
@@ -215,7 +219,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> vm::Ext for DebugExt<'a, T, V, B> {
 
             fn is_static(&self) -> bool;
         }
-    }    
+    }
 }
 
 impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B> 
