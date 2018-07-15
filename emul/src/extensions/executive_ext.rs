@@ -257,7 +257,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                               tracer.drain(), 
                               vm_tracer.drain())?)
             } else { None },
-            is_complete: true,
+            is_complete: result.unwrap().is_complete,
             exec_info: result.unwrap().exec_info.unwrap()
         })
     }
