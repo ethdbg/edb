@@ -1,6 +1,6 @@
 use crossbeam;
 use evm;
-use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
+use ethcore::executive::{Executive, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
 use ethcore::executed::{Executed};
 use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, Substate, CleanupMode};
@@ -15,10 +15,10 @@ use transaction::{Action, SignedTransaction};
 use std::sync::Arc;
 
 use extensions::factory_ext::FactoryExt;
-use emulator::Action as EmulatorAction;
+use emulator::{Action as EmulatorAction, Emulator, VMEmulator};
 use extensions::interpreter_ext::ExecInfo;
 use emulator::{FinalizationResult, EDBFinalize};
-use debug_externalities::{DebugExt};
+use debug_externalities::{DebugExt, ExternalitiesExt };
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -40,7 +40,7 @@ pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
 
 
 
-pub trait ExecutiveExt<'a, B: StateBackend> {
+pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
    
     fn as_dbg_externalities<'any, T, V>(&'any mut self,
                                         origin_info: OriginInfo,
@@ -55,7 +55,9 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     /// pc = Program Counter (where to stop execution)
-    fn begin_debug_transact<T: 'a, V: 'a>(&'a mut self, 
+    // TODO: prefer TransactOptions to writing out params
+    // Prefer enum over two different functions
+    fn begin_debug_transact<T, V>(&'a mut self, 
                            t: &SignedTransaction, 
                            check_nonce: bool,
                            output_from_create: bool,
@@ -63,17 +65,17 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                            vm_tracer: V,
                            pc: usize
     ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
-
+    /*
                                          // returns a result with InstructionSnapshot
                                          // if no breakpoints set, returns error
     // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
-    fn resume_debug_transact<T,V>(&'a mut self, 
+    fn resume_debug_transact<T, V>(&'a mut self, 
                              t: &SignedTransaction, 
                              options: TransactOptions<T, V>, 
                              pc: usize
         ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
             where T: Tracer, V: VMTracer; 
-
+    */
     /// creates a contract with given parameters
     /// does not finalize transaction (no refunds or suicides)
     /// modified substate
@@ -97,14 +99,14 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
     ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
     
     /// Execute VM until it hits the program counter
-    fn exec_step_vm<T, V>(&'a mut self, 
+    fn exec_step_vm<T, V>(&mut self, 
                           pc: usize, 
                           schedule: Schedule, 
                           params: ActionParams, 
                           unconfirmed_substate: &mut Substate, 
                           output_policy: OutputPolicy, 
-                          tracer: &'a mut T, 
-                          vm_tracer: &'a mut V
+                          tracer: &mut T, 
+                          vm_tracer: &mut V
     ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
 
     fn debug_finalize<T, V>(&mut self,
@@ -144,7 +146,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn begin_debug_transact<T:'a, V: 'a>(&'a mut self, 
+    // TODO: use transact options instead of listing out params
+    fn begin_debug_transact<T, V>(&'a mut self, 
                                  t: &SignedTransaction,
                                  check_nonce: bool,
                                  output_from_create: bool,
@@ -261,6 +264,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         Ok(self.debug_finalize(t,substate, result, output, tracer, vm_tracer)?)
     }
 
+    /*
     /// continue until next breakpoint
     fn resume_debug_transact<T,V>(&mut self, 
                              t: &SignedTransaction, 
@@ -271,7 +275,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     {
         unimplemented!();
     }
-    
+    */ 
+
     fn debug_create<T, V>(&mut self,
                           params: ActionParams,
                           substate: &mut Substate,
@@ -343,8 +348,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             trace!(target: "executive", "res={:?}", res);
             let traces = subtracer.drain();
             
-            if res.unwrap().is_complete() {
-                match res.unwrap().finalization_result().unwrap() {
+            if res.as_ref().unwrap().is_complete() {
+                match res.as_ref().unwrap().finalization_result().unwrap() {
                     Ok(ref res) if res.apply_state => tracer.trace_call(trace_info,
                                                                         gas - res.gas_left,
                                                                         trace_output,
@@ -355,11 +360,11 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                 };
                 trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, unconfirmed_substate);
                                     // TODO: this *will* panic. Error Handling.
-                self.enact_result(&res.unwrap().finalization_result().unwrap(), substate, unconfirmed_substate);
+                self.enact_result(&res.as_ref().unwrap().finalization_result().unwrap(), substate, unconfirmed_substate);
                 trace!(target: "executive", "enacted: substate={:?} \n", substate);
                 res
             } else {
-                Ok(FinalizationResult::new(None, false, res.unwrap().exec_info))
+                Ok(FinalizationResult::new(None, false, res.unwrap().exec_info.clone()))
             }
         } else {
             self.state.discard_checkpoint();
@@ -399,7 +404,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                                                     output_policy, tracer, vm_tracer, static_call);
             trace!(target: "executive", "ext.schedule.have_delegate_call: {}", 
                    ext.schedule().have_delegate_call);
-            let vm = vm_factory.create_debug(params, &ext).unwrap();
+            let vm: Box<VMEmulator> = vm_factory.create_debug(params, &ext);
 
             return vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext);
         }
@@ -413,7 +418,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                 .stack_size(::std::cmp::max(schedule.max_depth
                             .saturating_sub(depth_threshold) * STACK_SIZE_PER_DEPTH, local_stack_size))
                 .spawn(move || {
-                    let mut vm = vm_factory.create_debug(params, &ext).unwrap();
+                    let vm = vm_factory.create_debug(params, &ext);
                     return vm.fire(EmulatorAction::RunUntil, &mut ext, pc).finalize(ext);
                 }).expect("Sub-thread creation cannot fail; the host might run out of resources; qed")
         }).join()
