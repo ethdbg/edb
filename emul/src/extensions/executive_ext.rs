@@ -104,7 +104,7 @@ pub trait ExecutiveExt<'a, B: StateBackend> {
                           output_policy: OutputPolicy, 
                           tracer: &'a mut T, 
                           vm_tracer: &'a mut V
-        ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
+    ) -> vm::Result<FinalizationResult> where T: Tracer, V: VMTracer;
        /* -> vm::Result<FinalizationResult> where T: Tracer, V:VMTracer */
  /*   {   
         // LOCAL_STACK_SIZE is a `Cell`
@@ -140,9 +140,9 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                                  output_from_create: bool,
                                  mut tracer: T,
                                  mut vm_tracer: V,
-                                 pc: usize) 
-        -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
-            where T: Tracer, V: VMTracer
+                                 pc: usize
+    ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
+        where T: Tracer, V: VMTracer
     {
         /* setup a virtual transaction */
         let sender = t.sender();
@@ -248,8 +248,18 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                                  BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer), out)
             }
         };
-        
-        Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
+        Ok(DebugExecuted {
+            executed: if result.unwrap().is_complete {
+                Some(self.finalize(t, 
+                              substate, 
+                              result.unwrap().finalization_result.unwrap(), 
+                              output, 
+                              tracer.drain(), 
+                              vm_tracer.drain())?)
+            } else { None },
+            is_complete: true,
+            exec_info: result.unwrap().exec_info.unwrap()
+        })
     }
 
     /// continue until next breakpoint

@@ -36,7 +36,7 @@ pub trait InterpreterExt {
     fn as_any(&self) -> Box<Any + Send>;
 }
 
-pub trait AsInterpreter<C: CostType> {
+pub trait AsInterpreter<C: CostType + Send> {
     fn as_interpreter(self) -> Option<Interpreter<C>>;
 }
 // this might be a very bad idea
