@@ -1,15 +1,11 @@
-use delegate;
 use vm;
 use ethcore::externalities::{Externalities, OriginInfo, OutputPolicy};
 use ethcore::state::{Backend as StateBackend, State, Substate};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
 use vm::{EnvInfo, Schedule, Ext, CreateContractAddress, CallType, MessageCallResult, ContractCreateResult, ReturnData};
-use evm::interpreter::Interpreter;
-use evm::CostType;
 use bytes::Bytes;
 use std::sync::Arc;
-use std::any::Any;
 use ethereum_types::{H256, U256, Address};
 use emulator::InterpreterSnapshots;
 use extensions::interpreter_ext::InterpreterExt;
@@ -23,8 +19,8 @@ pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
 }
 
 pub trait ExternalitiesExt {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt>);
-    fn step_back(&mut self) -> Box<InterpreterExt>;
+    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>);
+    fn step_back(&mut self) -> Box<InterpreterExt + Send>;
     fn snapshots_len(&self) -> usize;
     fn externalities(&mut self) -> &mut vm::Ext;
     // fn consume_ext(self) -> vm::Ext;
@@ -157,11 +153,11 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
           V: VMTracer,
           B: StateBackend,
 {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt>) {
+    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
 
-    fn step_back(&mut self) -> Box<InterpreterExt> {
+    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
          if self.snapshots.states.len() <= 1 {
             self.snapshots.states.pop().unwrap()
         } else {

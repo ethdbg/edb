@@ -6,7 +6,6 @@ use vm;
 use evm;
 use vm::{Ext};
 use evm::{CostType, Finalize};
-use ethcore::executed::ExecutionError;
 use evm::interpreter::{Interpreter, SharedCache};
 use extensions::interpreter_ext::{InterpreterExt, ExecInfo};
 use debug_externalities::{ConsumeExt, ExternalitiesExt};
@@ -20,14 +19,14 @@ use ethcore::state::Backend as StateBackend;
 pub struct FinalizationResult {
     pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
     pub is_complete: bool,
-    pub exec_info: Result<ExecInfo, ExecutionError>,
+    pub exec_info: ExecInfo,
 }
 
 
 impl FinalizationResult {
     pub fn new(final_res: Option<Result<evm::FinalizationResult, vm::Error>>, 
                is_complete: bool, 
-               exec_info: Result<ExecInfo, ExecutionError>
+               exec_info: ExecInfo,
     ) -> Self {
         FinalizationResult {
             finalization_result: final_res,
@@ -35,12 +34,24 @@ impl FinalizationResult {
         }
     }
 
+    pub fn is_complete(&self) -> bool {
+        self.is_complete
+    }
+
+    pub fn finalization_result(&self) -> Option<Result<evm::FinalizationResult, vm::Error>> {
+        match self.finalization_result {
+            Some(ref x) => Some(x.clone()),
+            None => None,
+        }
+    }
+
+
 }
 
 // 0 state is before interpreter did anything
 #[derive(Default)]
 pub struct InterpreterSnapshots {
-    pub states: Vec<Box<InterpreterExt>>,
+    pub states: Vec<Box<InterpreterExt + Send>>,
 }
 
 impl InterpreterSnapshots {
@@ -85,7 +96,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> 
                         Some(x.gas_left().to_owned().unwrap().finalize(ext.consume()))
                     } else {None},
                     is_complete: if x.gas_left().is_some() {true} else {false},
-                    exec_info: Ok(x)
+                    exec_info: x
                 })
             },
             Err(e) => Err(vm::Error::Internal(e.to_string()))

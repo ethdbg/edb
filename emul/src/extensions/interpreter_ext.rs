@@ -18,7 +18,7 @@
 //! An Extension to the parity interpreter for debugging 
 
 use vm;
-use debug_externalities::{ExternalitiesExt, DebugExt};
+use debug_externalities::ExternalitiesExt;
 use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
 use evm::interpreter::stack::VecStack;
