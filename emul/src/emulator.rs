@@ -113,6 +113,7 @@ pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 
 impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
+    // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
     fn fire(mut self: Box<Self>, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo> {
 

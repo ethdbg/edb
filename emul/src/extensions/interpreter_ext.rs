@@ -28,7 +28,7 @@ use std::any::Any;
 use std::marker::Send;
 
 pub trait InterpreterExt {
-    fn step_back(self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
+    fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
     fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
         -> vm::Result<ExecInfo>;
     fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo>;
