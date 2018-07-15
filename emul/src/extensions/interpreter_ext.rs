@@ -153,7 +153,6 @@ mod tests {
     use std::sync::Arc;
     use evm::interpreter::{SharedCache, Interpreter};
     use std::str::FromStr;
-    use instruction_manager::InstructionManager;
     use emulator::InterpreterSnapshots;
     use std::rc::Rc;
 
@@ -181,11 +180,10 @@ mod tests {
     }
     
     // just random code
-    // contains bad instruction
     // this code segment becomes important in InstructionManager and Emulator
     #[test]
     #[should_panic]
-    fn it_should_and_panic() {
+    fn it_should_panic() {
         let address = Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
         let code = "60806040526004361061006d576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b1146100725780636d4ce63c1461009f5780639fc8192c146100ca578063c2d2c2ea146100f7578063dffeadd014610122575b600080fd5b34801561007e57600080fd5b5061009d60048036038101908080359060200190929190505050610139565b005b3480156100ab57600080fd5b506100b461014d565b6040518082815260200191505060405180910390f35b3480156100d657600080fd5b506100f560048036038101908080359060200190929190505050610156565b005b34801561010357600080fd5b5061010c610179565b6040518082815260200191505060405180910390f35b34801561012e57600080fd5b50610137610183565b005b806000819055506001810160018190555050565b60008054905090565b80600281905550600a600254016002819055506000546002540360028190555050565b6000600154905090565b61018d6014610139565b6101976032610156565b5600a165627a7a7230582073220057da31267f028c5802e52e8b0f18aac96f30d1dcc4cc9c9d2cfe5b28d40029".from_hex().unwrap();
 
@@ -218,8 +216,8 @@ mod tests {
         let mut vm = Interpreter::<usize>::new(params, cache.clone(), &ext).unwrap();
         let mut i_hist = InterpreterSnapshots::new();
         
-        let gas_left = vm.run_code_until(&mut ext, 2, &mut i_hist);
-        assert!(gas_left.is_none());
+        let exec_info = vm.run_code_until(&mut ext, 2).unwrap();
+        assert!(exec_info.gas_left.is_none() && !exec_info.finished);
         assert!(vm.get_curr_pc() >= 2);
         println!("VM Program Counter: {}", vm.get_curr_pc());
     }
@@ -238,14 +236,17 @@ mod tests {
         let mut vm = Interpreter::<usize>::new(params, cache.clone(), &ext).unwrap();
         let mut i_hist = InterpreterSnapshots::new();
         
-        let gas_left = vm.run_code_until(&mut ext, 2, &mut i_hist);
-        match gas_left {
-            Some(x) => panic!("Execution should not have finished"),
-            None => {
-                println!("Program Counter before stepping back: {}", vm.get_curr_pc());
-                vm = vm.step_back(&mut i_hist);
-                println!("Program Counter after stepping back: {}", vm.get_curr_pc());
-            }
+        let exec_info = vm.run_code_until(&mut ext, 2);
+        match exec_info {
+            Ok(x) => {
+                let before_pc = x.pc;
+                println!("Program Counter before stepping back: {}", before_pc);
+                let info = vm.step_back(&mut ext).unwrap();
+                let after_pc = info.pc;
+                println!("Program  counter after stepping back: {}", after_pc);
+                assert!(before_pc > after_pc);
+            },
+            Err(e) => panic!("Something terrible occured in run_code_until(): {}", e.to_string())
         }
     }
 

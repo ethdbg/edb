@@ -43,6 +43,6 @@ pub mod emulator;
 mod debug_externalities;
 //mod instruction_manager;
 mod extensions;
-// mod tests;
+mod tests;
 // mod factory;
  
