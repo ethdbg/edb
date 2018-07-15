@@ -105,7 +105,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> 
 }
 
 pub trait VMEmulator {
-    fn fire(self, action: Action, ext: &mut ExternalitiesExt, pos: usize
+    fn fire(self: Box<Self>, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo>;
 }
 
@@ -113,7 +113,7 @@ pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 
 impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
-    fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
+    fn fire(mut self: Box<Self>, action: Action, ext: &mut ExternalitiesExt, pos: usize
     ) -> vm::Result<ExecInfo> {
 
         match action {
