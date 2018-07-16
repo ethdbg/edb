@@ -4,28 +4,28 @@
 //! the EVM
 use vm;
 use evm;
-use vm::{Ext};
+use vm::{Ext, GasLeft};
 use evm::{CostType, Finalize};
 use ethcore::trace::{Tracer, VMTracer};
 use ethcore::state::Backend as StateBackend;
 use evm::interpreter::{Interpreter, SharedCache};
 use std::vec::Vec;
 use std::sync::Arc;
-
+use err::{Result, Error};
 use extensions::{InterpreterExt, ExecInfo};
 use externalities::{ConsumeExt, ExternalitiesExt};
 
 // possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]
 pub struct FinalizationResult {
-    pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
+    pub finalization_result: Option<evm::FinalizationResult>,
     pub is_complete: bool,
     pub exec_info: ExecInfo,
 }
 
 
 impl FinalizationResult {
-    pub fn new(final_res: Option<Result<evm::FinalizationResult, vm::Error>>, 
+    pub fn new(final_res: Option<evm::FinalizationResult>,
                is_complete: bool, 
                exec_info: ExecInfo,
     ) -> Self {
@@ -39,7 +39,7 @@ impl FinalizationResult {
         self.is_complete
     }
 
-    pub fn finalization_result(&self) -> Option<Result<evm::FinalizationResult, vm::Error>> {
+    pub fn finalization_result(&self) -> Option<evm::FinalizationResult> {
         match self.finalization_result {
             Some(ref x) => Some(x.clone()),
             None => None,
@@ -76,15 +76,15 @@ pub enum Action {
 }*/
 
 pub trait EDBFinalize<'a, T: 'a, V: 'a, B: 'a> {
-    fn finalize<E>(self, ext: E) -> vm::Result<FinalizationResult>
+    fn finalize<E>(self, ext: E) -> Result<FinalizationResult>
         where T: Tracer,
               V: VMTracer,
               B: StateBackend,
               E: ExternalitiesExt + ConsumeExt<'a, T, V, B>;
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> {
-    fn finalize<E>(self, ext: E) -> vm::Result<FinalizationResult> 
+impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
+    fn finalize<E>(self, ext: E) -> Result<FinalizationResult> 
         where T: Tracer,
               V: VMTracer,
               B: StateBackend,
@@ -94,20 +94,21 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for vm::Result<ExecInfo> 
             Ok(x) => {
                 Ok(FinalizationResult {
                     finalization_result: if x.gas_left().is_some() {
-                        Some(x.gas_left().to_owned().unwrap().finalize(ext.consume()))
+                        let gas_left: vm::Result<GasLeft> = Ok(x.gas_left().expect("Will always be `Some` because of is_some() check; qed"));
+                        Some(gas_left.finalize(ext.consume())?)
                     } else {None},
                     is_complete: if x.gas_left().is_some() {true} else {false},
                     exec_info: x
                 })
             },
-            Err(e) => Err(vm::Error::Internal(e.to_string()))
+            Err(err) => Err(err)
         }
     }
 }
 
 pub trait VMEmulator {
     fn fire(self: Box<Self>, action: Action, ext: &mut ExternalitiesExt, pos: usize
-    ) -> vm::Result<ExecInfo>;
+    ) -> Result<ExecInfo>;
 }
 
 pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
@@ -116,7 +117,7 @@ impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
     // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
     fn fire(mut self: Box<Self>, action: Action, ext: &mut ExternalitiesExt, pos: usize
-    ) -> vm::Result<ExecInfo> {
+    ) -> Result<ExecInfo> {
 
         match action {
             Action::StepBack => self.0.step_back(ext),

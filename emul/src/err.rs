@@ -1,9 +1,42 @@
+//! Error descriptions and implementations for Emulator 
+use std;
 use std::fmt;
 use std::error;
+use ethcore::error::ExecutionError;
 use vm;
+use patricia_trie_ethereum as ethtrie;
 
-#[derive(Debug)]
+/// Generic Error
+/// Something happened in which Debugging cannot continue, but it cannot be attributed to
+/// any one part of Emulator crate. This Error type should be used sparingly. Hopefully, never.
+#[derive(Debug, Clone)]
 pub struct GenericError;
+
+/// An internal error occurred that is specific to EDB code
+#[derive(Debug, Clone)]
+pub struct InternalError(String);
+
+impl InternalError {
+    pub fn new(err: &str) -> Self {
+        InternalError(err.to_owned())
+    }
+}
+
+/// EVM Error. An error originated as vm::Error in Parity.
+#[derive(Debug, Clone)]
+pub struct EVMError(vm::Error);
+
+impl fmt::Display for InternalError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl error::Error for InternalError {
+    fn description(&self) -> &str {
+        &(String::from("An Internal Error has occurred specific to EDB internal code. ") + &self.0)
+    }
+}
 
 impl fmt::Display for GenericError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -19,19 +52,36 @@ impl error::Error for GenericError {
             Emulators 'Error' Enum."
     }
 }
+
+
+impl fmt::Display for EVMError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.to_string())
+    }
+}
+
+impl error::Error for EVMError {
+    fn description(&self) -> &str {
+        "An error originating as vm::Error in Parity (vm crate, in ethcore)."
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Error {
     // An error originating from Parity structures, (see: vm::Error)
-    EVM(vm::Error),
-    // Something happened in which Debugging cannot continue, but it cannot be attributed to
-    // any one part of Emulator crate. This Error type should be used sparingly. Hopefully, never.
-    Generic(String)
+    EVM(EVMError),
+    Execution(ExecutionError),
+    Internal(InternalError),
+    Generic(GenericError),
 }
 
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::EVM(ref err) => write!(f, "EVM Error: {}", err.to_string()),
+            Error::EVM(ref err) => write!(f, "EVM Error: {}", err),
+            Error::Execution(ref err) => write!(f, "Execution Error: {}", err),
+            Error::Internal(ref err) => write!(f, "Internal Error: {}", err),
             Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err)
         }
     }
@@ -40,27 +90,63 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::EVM(ref err) => write!(f, "EVM Error {}", err.to_string()),
-            Error::Generic(ref err) => write!(f, "")
+            Error::EVM(ref err) => err.description(),
+            Error::Execution(ref err) => err.description(),
+            Error::Internal(ref err) => err.description(),
+            Error::Generic(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            
+            Error::EVM(ref err) => Some(err),
+            Error::Execution(ref err) => Some(err),
+            Error::Internal(ref err) => Some(err),
+            Error::Generic(ref err) => Some(err),
         }
     }
+}
+impl From<Box<ethtrie::TrieError>> for Error {
+    fn from(err: Box<ethtrie::TrieError>) -> Self {
+        Error::EVM(EVMError(vm::Error::from(err)))
+    }
+}
 
+impl From<ethtrie::TrieError> for Error {
+    fn from(err: ethtrie::TrieError) ->  Self {
+        Error::EVM(EVMError(vm::Error::from(err)))
+    }
 }
 
 impl From<vm::Error> for Error {
     fn from(err: vm::Error) -> Self {
-        Error::EVM(err)
+        Error::EVM(EVMError(err))
     }
 }
 
 impl From<Box<vm::Error>> for Error {
     fn from(err: Box<vm::Error>) -> Self {
-        Error::EVM(err)
+        Error::EVM(EVMError(vm::Error::Internal(err.to_string())))
     }
 }
+
+impl From<InternalError> for Error {
+    fn from(err: InternalError) -> Self {
+        Error::Internal(err)
+    }
+}
+
+impl From<ExecutionError> for Error {
+    fn from(err: ExecutionError) -> Self {
+        Error::Execution(err)
+    }
+}
+
+impl From<Box<ExecutionError>> for Error {
+    fn from(err: Box<ExecutionError>) -> Self {
+        Error::Execution(ExecutionError::Internal(err.to_string()))
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+

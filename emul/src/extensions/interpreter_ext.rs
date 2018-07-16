@@ -16,9 +16,7 @@
 
 
 //! An Extension to the parity interpreter for debugging 
-
-use vm;
-use externalities::ExternalitiesExt;
+use {vm, err};
 use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
 use evm::interpreter::stack::VecStack;
@@ -27,42 +25,48 @@ use vm::{GasLeft, Vm};
 use std::any::Any;
 use std::marker::Send;
 
+use err::{Result, Error, InternalError};
+use externalities::ExternalitiesExt;
+
 pub trait InterpreterExt {
-    fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
+    fn step_back(mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
     fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
-        -> vm::Result<ExecInfo>;
-    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo>;
+        -> Result<ExecInfo>;
+    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo>;
     fn get_curr_pc(&self) -> usize;
     fn as_any(&self) -> Box<Any + Send>;
 }
 
 trait AsInterpreter<C: CostType + Send> {
-    fn as_interpreter(self) -> Option<Interpreter<C>>;
+    fn as_interpreter(self) -> Result<Interpreter<C>>;
 }
-// this might be a very bad idea
-// unsafe impl Send for InterpreterExt {}
-// TODO change from returning Option to Result, for error handling
+
 impl<C> AsInterpreter<C> for Box<Any + Send> 
     where C: CostType + Send + 'static,
 {
-    fn as_interpreter(self) -> Option<Interpreter<C>> {
+    fn as_interpreter(self) -> Result<Interpreter<C>> {
         if let Ok(interpreter) = self.downcast::<Interpreter<C>>() {
-            Some(*interpreter)
-        } else { None }
+            Ok(*interpreter)
+        } else {
+            Err(
+                Error::from(InternalError::new("Could not downcast to Interpreter Type for \
+                                            implementation of trait `AsInterpreter` in file \
+                                            `extensions/interpreter_ext.rs`")))
+        }
     }
 }
 
 impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
-    fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>{
+    fn step_back(mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>{
         self = ext.step_back().as_any().as_interpreter()?;
         Ok(ExecInfo::from_vm(&self, None))
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> vm::Result<ExecInfo> {   
+    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> Result<ExecInfo> {   
         if ext.snapshots_len() <= 0 {
             ext.push_snapshot(Box::new(self.clone())); // empty state
         }
@@ -71,7 +75,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
             ext.push_snapshot(Box::new(self.clone()));
             match result {
                 InterpreterResult::Continue => {},
-                InterpreterResult::Done(value) => return Ok(ExecInfo::from_vm(&self, Some(value))),
+                InterpreterResult::Done(value) => return Ok(ExecInfo::from_vm(&self, Some(value?))),
                 InterpreterResult::Stopped 
                     => panic!("Attempted to execute an already stopped VM.")
             }
@@ -80,8 +84,8 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
     }
 
     /// passthrough for vm::Vm exec()
-    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo> {
-        let gas_left = self.exec(ext);
+    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo> {
+        let gas_left = self.exec(ext)?;
         Ok(ExecInfo::from_vm(&self, Some(gas_left)))
     }
 
@@ -102,19 +106,19 @@ pub struct ExecInfo {
     stack: VecStack<U256>,
     pc: usize,
     finished: bool,
-    gas_left: Option<vm::Result<GasLeft>>
+    gas_left: Option<GasLeft>
 }
 
 impl ExecInfo {
     pub fn new(mem: Vec<u8>, 
                stack: VecStack<U256>, 
                pc: usize, 
-               gas_left: Option<vm::Result<GasLeft>>
+               gas_left: Option<GasLeft>
     ) -> Self {
         ExecInfo {mem, stack, pc, gas_left, finished: false}
     }
 
-    pub fn from_vm<C: CostType + Send + 'static>(interpreter: &Interpreter<C>, gas_left: Option<vm::Result<GasLeft>>
+    pub fn from_vm<C: CostType + Send + 'static>(interpreter: &Interpreter<C>, gas_left: Option<GasLeft>
     ) -> Self {
         ExecInfo {
             mem: interpreter.mem.clone(),
@@ -125,7 +129,7 @@ impl ExecInfo {
        }
     }
 
-    pub fn empty(gas_left: Option<vm::Result<GasLeft>>) -> Self {
+    pub fn empty(gas_left: Option<GasLeft>) -> Self {
         ExecInfo {
             mem: Vec::default(),
             stack: VecStack::with_capacity(0usize, U256::zero()),
@@ -137,7 +141,7 @@ impl ExecInfo {
 
     pub fn mem(&self) -> &Vec<u8> {&self.mem}
     pub fn stack(&self) -> &VecStack<U256>{&self.stack}
-    pub fn gas_left(&self) -> &Option<vm::Result<GasLeft>> {&self.gas_left}
+    pub fn gas_left(&self) -> &Option<GasLeft> {&self.gas_left}
     pub fn pc(&self) -> &usize {&self.pc}
     pub fn finished(&self) -> bool {self.finished}
 }

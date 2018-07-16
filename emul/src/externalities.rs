@@ -7,6 +7,8 @@ use vm::{EnvInfo, Schedule, Ext, CreateContractAddress, CallType, MessageCallRes
 use bytes::Bytes;
 use std::sync::Arc;
 use ethereum_types::{H256, U256, Address};
+
+use err::Result;
 use emulator::InterpreterSnapshots;
 use extensions::InterpreterExt;
 

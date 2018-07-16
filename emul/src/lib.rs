@@ -38,6 +38,7 @@ extern crate blooms_db;
 extern crate tempdir;
 extern crate journaldb;
 extern crate kvdb_memorydb;
+extern crate patricia_trie_ethereum;
 
 pub mod emulator;
 mod externalities;
