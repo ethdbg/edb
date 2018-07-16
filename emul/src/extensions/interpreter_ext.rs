@@ -18,7 +18,7 @@
 //! An Extension to the parity interpreter for debugging 
 
 use vm;
-use debug_externalities::ExternalitiesExt;
+use externalities::ExternalitiesExt;
 use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
 use evm::interpreter::stack::VecStack;
@@ -36,7 +36,7 @@ pub trait InterpreterExt {
     fn as_any(&self) -> Box<Any + Send>;
 }
 
-pub trait AsInterpreter<C: CostType + Send> {
+trait AsInterpreter<C: CostType + Send> {
     fn as_interpreter(self) -> Option<Interpreter<C>>;
 }
 // this might be a very bad idea
@@ -56,7 +56,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
     fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>{
-        self = ext.step_back().as_any().as_interpreter().unwrap();
+        self = ext.step_back().as_any().as_interpreter()?;
         Ok(ExecInfo::from_vm(&self, None))
     }
 

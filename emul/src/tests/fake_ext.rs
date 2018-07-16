@@ -29,8 +29,8 @@ use vm::{
 	CreateContractAddress, Result, GasLeft,
 };
 use emulator::InterpreterSnapshots;
-use debug_externalities::ExternalitiesExt;
-use extensions::interpreter_ext::InterpreterExt;
+use externalities::ExternalitiesExt;
+use extensions::InterpreterExt;
 
 // use instruction_manager::InstructionManager;
 

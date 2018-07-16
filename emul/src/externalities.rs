@@ -8,7 +8,7 @@ use bytes::Bytes;
 use std::sync::Arc;
 use ethereum_types::{H256, U256, Address};
 use emulator::InterpreterSnapshots;
-use extensions::interpreter_ext::InterpreterExt;
+use extensions::InterpreterExt;
 
 //TODO move debug_externalities to extensions under externalities_ext;
 //will require refactoring of use's

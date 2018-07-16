@@ -6,13 +6,14 @@ use vm;
 use evm;
 use vm::{Ext};
 use evm::{CostType, Finalize};
-use evm::interpreter::{Interpreter, SharedCache};
-use extensions::interpreter_ext::{InterpreterExt, ExecInfo};
-use debug_externalities::{ConsumeExt, ExternalitiesExt};
-use std::vec::Vec;
-use std::sync::Arc;
 use ethcore::trace::{Tracer, VMTracer};
 use ethcore::state::Backend as StateBackend;
+use evm::interpreter::{Interpreter, SharedCache};
+use std::vec::Vec;
+use std::sync::Arc;
+
+use extensions::{InterpreterExt, ExecInfo};
+use externalities::{ConsumeExt, ExternalitiesExt};
 
 // possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]

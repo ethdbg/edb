@@ -21,7 +21,7 @@ use extensions::factory_ext::FactoryExt;
 use emulator::{Action as EmulatorAction, Emulator, VMEmulator};
 use extensions::interpreter_ext::ExecInfo;
 use emulator::{FinalizationResult, EDBFinalize};
-use debug_externalities::{DebugExt, ExternalitiesExt };
+use externalities::{DebugExt, ExternalitiesExt };
 
 // TODO: replace static strings with actual errors
 // a composition struct of Executive
@@ -40,8 +40,6 @@ pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
     is_complete: bool,
     exec_info: ExecInfo,
 }
-
-
 
 pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
    
