@@ -1,6 +1,9 @@
 use crossbeam;
 use evm;
-use ethcore::executive::{Executive, contract_address, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
+use ethcore::executive::{
+    Executive, contract_address, TransactOptions,
+    STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD
+};
 use ethcore::executed::{Executed};
 use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, Substate, CleanupMode};
@@ -55,27 +58,13 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     /// pc = Program Counter (where to stop execution)
-    // TODO: prefer TransactOptions to writing out params
     // Prefer enum over two different functions
-    fn begin_debug_transact<T, V>(&'a mut self, 
-                           t: &SignedTransaction, 
-                           check_nonce: bool,
-                           output_from_create: bool,
-                           tracer: T,
-                           vm_tracer: V,
+    fn transact_debug<T, V>(&'a mut self, 
+                           t: &SignedTransaction,
+                           options: TransactOptions<T,V>,
                            pc: usize
     ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
-    /*
-                                         // returns a result with InstructionSnapshot
-                                         // if no breakpoints set, returns error
-    // returns result with Output (Completed Tx) or InstructionSnapshot (still needs resume)
-    fn resume_debug_transact<T, V>(&'a mut self, 
-                             t: &SignedTransaction, 
-                             options: TransactOptions<T, V>, 
-                             pc: usize
-        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
-            where T: Tracer, V: VMTracer; 
-    */
+
     /// creates a contract with given parameters
     /// does not finalize transaction (no refunds or suicides)
     /// modified substate
@@ -117,13 +106,6 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
                             trace: T,
                             vm_trace: V
     ) -> Result<DebugExecuted<T::Output,V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
-       /* -> vm::Result<FinalizationResult> where T: Tracer, V:VMTracer */
- /*   {   
-        // LOCAL_STACK_SIZE is a `Cell`
-        let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
-        println!("STACK SIZE {}", local_stack_size);
-        
-    }*/
 }
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
@@ -147,16 +129,16 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     // TODO: use transact options instead of listing out params
-    fn begin_debug_transact<T, V>(&'a mut self, 
-                                 t: &SignedTransaction,
-                                 check_nonce: bool,
-                                 output_from_create: bool,
-                                 mut tracer: T,
-                                 mut vm_tracer: V,
-                                 pc: usize
+    fn transact_debug<T, V>(&'a mut self, t: &SignedTransaction, options: 
+                                  TransactOptions<T,V>,
+                                  pc: usize
     ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError>
         where T: Tracer, V: VMTracer
-    {
+    {   
+        let output_from_create = options.output_from_init_contract;
+        let mut tracer = options.tracer;
+        let mut vm_tracer = options.vm_tracer;
+
         /* setup a virtual transaction */
         let sender = t.sender();
         let balance = self.state.balance(&sender)?;
@@ -175,7 +157,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             return Err(ExecutionError::NotEnoughBaseGas { required: base_gas_required, got: t.gas }); 
         }
 
-        if !t.is_unsigned() && check_nonce && schedule.kill_dust != CleanDustMode::Off && 
+        if !t.is_unsigned() && options.check_nonce && schedule.kill_dust != CleanDustMode::Off && 
             !self.state.exists(&sender)? {
                 return Err(ExecutionError::SenderMustExist);
         }
@@ -183,7 +165,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         let init_gas = t.gas - base_gas_required;
         
         // tx nonce validation
-        if check_nonce && t.nonce != nonce {
+        if options.check_nonce && t.nonce != nonce {
             return Err(ExecutionError::InvalidNonce { expected: nonce, got: t.nonce });
         }
 
@@ -264,19 +246,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         Ok(self.debug_finalize(t,substate, result, output, tracer, vm_tracer)?)
     }
 
-    /*
-    /// continue until next breakpoint
-    fn resume_debug_transact<T,V>(&mut self, 
-                             t: &SignedTransaction, 
-                             options: TransactOptions<T, V>, 
-                             pc: usize
-        ) -> Result<DebugExecuted<T::Output, V::Output>, ExecutionError> 
-            where T: Tracer, V: VMTracer
-    {
-        unimplemented!();
-    }
-    */ 
-
     fn debug_create<T, V>(&mut self,
                           params: ActionParams,
                           substate: &mut Substate,
@@ -295,10 +264,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                 Err(vm::Error::Internal(e.to_string()))
             }
         }
-
-        // TODO: this needs to be simplified. this ain't Lisp. stop using Option<> to tell if
-        // something is done executing
-        // Ok(FinalizationResult::new(Some(res), true, ExecInfo::empty(Some(Ok(vm::GasLeft::Known(res.unwrap().gas_left))))))
     }   
 
     /// call a contract function with contract params
@@ -437,24 +402,27 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 {
         let finalization_result = match result {
             Ok(ref x) => if x.is_complete() && x.finalization_result.is_some() {
-                Ok(self.finalize(t, 
+                Some(Ok(self.finalize(t, 
                               substate, 
                               x.finalization_result().unwrap(), 
                               output, 
                               tracer.drain(), 
-                              vm_tracer.drain())?)
-            } else {
+                              vm_tracer.drain())?))
+            } else if !x.is_complete() && x.finalization_result.is_none() {
                 // TODO: fix error handling
                 // this should never happen
-                panic!("Execution may have completed, but Finalization result is 'None'")
+                // panic!("Execution may have completed, but Finalization result is 'None'")
+                None
+            } else {
+                panic!("Execution may have completed, but finalization result is of None");
             },
-            Err(ref e) => Err(ExecutionError::Internal(e.to_string()))
+            Err(ref e) => Some(Err(ExecutionError::Internal(e.to_string())))
         };
         
         match result {
             Ok(x) => {
                 Ok(DebugExecuted {
-                    executed: Some(finalization_result),
+                    executed: finalization_result,
                     is_complete: x.is_complete(),
                     exec_info: x.exec_info
                 })
@@ -550,7 +518,7 @@ mod tests {
     #[should_panic]
     fn it_should_panic_on_unimplemented() {
         let (mut state, info, machine) = get_params();
-        // Executive::new(&mut state, &info, &machine).begin_debug_transact();
+        //Executive::new(&mut state, &info, &machine).begin_debug_transact();
         panic!("Definitely not implemented"); // placeholder
     }
 }

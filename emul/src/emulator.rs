@@ -14,7 +14,7 @@ use std::sync::Arc;
 use ethcore::trace::{Tracer, VMTracer};
 use ethcore::state::Backend as StateBackend;
 
-
+// possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]
 pub struct FinalizationResult {
     pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
