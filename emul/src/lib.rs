@@ -39,6 +39,8 @@ extern crate tempdir;
 extern crate journaldb;
 extern crate kvdb_memorydb;
 extern crate patricia_trie_ethereum;
+extern crate rayon;
+// extern crate tokio;
 
 pub mod emulator;
 mod externalities;

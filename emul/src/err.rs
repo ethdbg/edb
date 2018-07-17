@@ -1,19 +1,18 @@
 //! Error descriptions and implementations for Emulator 
-use std;
+use {std, vm, patricia_trie_ethereum as ethtrie};
 use std::fmt;
 use std::error;
 use ethcore::error::ExecutionError;
-use vm;
-use patricia_trie_ethereum as ethtrie;
+use rayon::ThreadPoolBuildError;
 
 /// Generic Error
 /// Something happened in which Debugging cannot continue, but it cannot be attributed to
 /// any one part of Emulator crate. This Error type should be used sparingly. Hopefully, never.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GenericError;
 
 /// An internal error occurred that is specific to EDB code
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InternalError(String);
 
 impl InternalError {
@@ -23,7 +22,7 @@ impl InternalError {
 }
 
 /// EVM Error. An error originated as vm::Error in Parity.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct EVMError(vm::Error);
 
 impl fmt::Display for InternalError {
@@ -66,13 +65,14 @@ impl error::Error for EVMError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Error {
     // An error originating from Parity structures, (see: vm::Error)
     EVM(EVMError),
     Execution(ExecutionError),
     Internal(InternalError),
     Generic(GenericError),
+    Thread(ThreadPoolBuildError),
 }
 
 
@@ -82,7 +82,8 @@ impl fmt::Display for Error {
             Error::EVM(ref err) => write!(f, "EVM Error: {}", err),
             Error::Execution(ref err) => write!(f, "Execution Error: {}", err),
             Error::Internal(ref err) => write!(f, "Internal Error: {}", err),
-            Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err)
+            Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err),
+            Error::Thread(ref err) => write!(f, "Error Building Threads: {}", err),
         }
     }
 }
@@ -94,6 +95,7 @@ impl error::Error for Error {
             Error::Execution(ref err) => err.description(),
             Error::Internal(ref err) => err.description(),
             Error::Generic(ref err) => err.description(),
+            Error::Thread(ref err) => err.description(),
         }
     }
 
@@ -103,9 +105,17 @@ impl error::Error for Error {
             Error::Execution(ref err) => Some(err),
             Error::Internal(ref err) => Some(err),
             Error::Generic(ref err) => Some(err),
+            Error::Thread(ref err) => Some(err),
         }
     }
 }
+
+impl From<ThreadPoolBuildError> for Error {
+    fn from(err: ThreadPoolBuildError) -> Self {
+        Error::Thread(err)
+    }
+}
+
 impl From<Box<ethtrie::TrieError>> for Error {
     fn from(err: Box<ethtrie::TrieError>) -> Self {
         Error::EVM(EVMError(vm::Error::from(err)))
