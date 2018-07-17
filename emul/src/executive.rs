@@ -1,4 +1,4 @@
-use {crossbeam, evm, err, std, vm};
+use {evm, err, std, vm, rayon};
 use ethcore::executive::{
     Executive as ParityExecutive, contract_address, TransactOptions,
     STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD
@@ -14,7 +14,7 @@ use ethereum_types::{U256, U512};
 use bytes::{Bytes, BytesRef};
 use transaction::{Action as TxAction, SignedTransaction};
 use std::sync::Arc;
-use raton;
+use std::sync::mpsc;
 
 use emulator::{Action, Emulator, VMEmulator, EDBFinalize, FinalizationResult};
 use externalities::{DebugExt, ExternalitiesExt};
@@ -33,7 +33,7 @@ pub struct Executive<'a, B: 'a> {
 
 /* where our executive diverges from  parity */
 impl<'a, B: 'a + StateBackend> Executive<'a, B> {
-    pub fn new(state: &'a mut State<B>, info ; &'a EnvInfo, machine: &'a Machine) -> Result<Self> {
+    pub fn new(state: &'a mut State<B>, info: &'a EnvInfo, machine: &'a Machine) -> Result<Self> {
     
         Ok(Executive {
             inner: ParityExecutive::new(state, info, machine),
@@ -41,8 +41,13 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
        })
     }
 
-    fn transact_debug<T, V>(&mut self, t: &SignedTransaction, 
-                            options: TransactOptions) -> err::Result<Executed<T:: Output, V::Output>> {
+    fn transact_debug<T, V>(&mut self, 
+                            t: &SignedTransaction, 
+                            options: TransactOptions, 
+                            rx: mpsc::Receiver<Action>,
+                            tx: mpsc::Sender<ExecInfo>
+    ) -> err::Result<Executed<T:: Output, V::Output>> {
+
         let output_from_create = options.output_from_init_contract;
         let(sender, init_gas, substate, 
             tracer, vm_tracer, substate) = self._transact_debug(t, options)?;
@@ -96,20 +101,27 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
        
     fn debug_call<T,V>(&mut self, params: ActionParams, substate: &mut Substate, output: BytesRef,
                        tracer: &mut T, 
-                       vm_tracer: &mut V
+                       vm_tracer: &mut V,
+                       rx: mpsc::Receiver<Action>,
+                       tx: mpsc::Sender<ExecInfo>,
     ) -> Result<evm::FinalizationResult> where T: Tracer, V: VMTracer {
-        if let Some(schedule, params, unconfirmed_substate, output_policy, tracer, vm_tracer) 
-                = self._debug_call(params, substate, output, tracer, vm_tracer) 
+        if let Some(schedule, 
+                    params, 
+                    unconfirmed_substate, substate, 
+                    output_policy, 
+                    trace_output, trace_info, 
+                    subtracer, subvmtracer) = self._debug_call(params, substate, output, tracer, vm_tracer) 
         {
-            let (ext, vm) = self.init_vm(schedule, 
-                                         params, 
-                                         unconfirmed_substate, 
-                                         output_policy, 
-                                         tracer, 
-                                         vm_tracer);
-            // poll for events
-            // execute debug_resume() on events
-            //
+            let (ext, vm) = self.init_vm(schedule, params, unconfirmed_substate, output_policy, 
+                                         tracer, vm_tracer);
+            let info;
+            for x in rx.iter() {
+                info = self.resume_debug(x, ext, vm);
+                tx.send(info);
+            }
+            let res = info.gas_left.ok_or(Err(Error::DebugError("Could not finalize result, as Gas Left was `None`"))).finalize(ext)?;
+            self._end_call(tracer, vm_tracer, trace_output, trace_info, subtracer, subvmtracer, res, 
+                           substate, unconfirmed_substate, params.gas)
         } else {
             self.state.discard_checkpoint();
             tracer.trace_call(trace_info, U256::zero(), trace_output, vec![]);
@@ -152,7 +164,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
     fn debug_resume(action: Action, ext: impl ExternalitiesExt, vm: Box<VMEmulator>
     ) -> Result<ExecInfo> { // should return ExecInfo
         // this will run in a threadpool
-        self.pool.install(move | | vm.fire(action, &mut ext))?;
+        self.pool.install(move | | vm.fire(action, &mut ext))?
     }
 
 

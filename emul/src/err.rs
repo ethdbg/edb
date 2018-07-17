@@ -15,6 +15,21 @@ pub struct GenericError;
 #[derive(Debug)]
 pub struct InternalError(String);
 
+#[derive(Debug)]
+pub struct DebugError(String);
+
+impl fmt::Display for DebugError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl error::Error for DebugError {
+    fn description(&self) -> &str {
+        &(String::from("An error occured while debugging the program, causing the process to exit") + &self.0)
+    }
+}
+
 impl InternalError {
     pub fn new(err: &str) -> Self {
         InternalError(err.to_owned())
@@ -73,6 +88,7 @@ pub enum Error {
     Internal(InternalError),
     Generic(GenericError),
     Thread(ThreadPoolBuildError),
+    Debug(DebugError),
 }
 
 
@@ -84,6 +100,7 @@ impl fmt::Display for Error {
             Error::Internal(ref err) => write!(f, "Internal Error: {}", err),
             Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err),
             Error::Thread(ref err) => write!(f, "Error Building Threads: {}", err),
+            Error::Debug(ref err) => write!(f, "Error Debuggin: {}", err),
         }
     }
 }
@@ -96,17 +113,25 @@ impl error::Error for Error {
             Error::Internal(ref err) => err.description(),
             Error::Generic(ref err) => err.description(),
             Error::Thread(ref err) => err.description(),
+            Error::Debug(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            Error::EVM(ref err) => Some(err),
             Error::Execution(ref err) => Some(err),
             Error::Internal(ref err) => Some(err),
             Error::Generic(ref err) => Some(err),
             Error::Thread(ref err) => Some(err),
+            Error::Debug(ref err) => Some(err),
+            Error::EVM(ref err) => Some(err),
         }
+    }
+}
+
+impl From<DebugError> for Error {
+    fn from(err: DebugError) -> Self {
+        Error::Debug(err)
     }
 }
 

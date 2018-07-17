@@ -220,10 +220,10 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             let mut subvmtracer = vm_tracer.prepare_subtrace(params.code.as_ref().expect("scope is conditional on params.code.is_some(); qed"));
             Some(schedule, 
                  params, 
-                 &mut unconfirmed_substate, 
+                 &mut unconfirmed_substate, substate,
                  OutputPolicy::Return(output, trace_output.as_mut()),
-                 &mut subtracer, 
-                 &mut subvmtracer)
+                 trace_output,trace_info,
+                 &mut subtracer, &mut subvmtracer)
         } else { None }
     }
 
@@ -234,7 +234,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                       trace_info: Option<Call>,
                       subtracer: T,
                       subvmtracer: V,
-                      exec_result: Result<evm::FinalizationResult>,
+                      res: Result<evm::FinalizationResult>,
                       substate: &mut Substate,
                       unconfirmed_substate: &mut Substate,
                       gas: U256,
@@ -250,16 +250,16 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
          * seperate FinalizationResult and ExecInfo
          * */
 
-        match exec_result {
+        match res {
             Ok(ref res) if res.apply_state => tracer.trace_call(trace_info, gas - res.gas_left,
                                                                 trace_output,traces),
             Ok(_) => tracer.trace_failed_call(trace_info, traces, vm::Error::Reverted.into()),
             Err(ref e) => tracer.trace_failed_call(trace_info, traces, e.into()),
         };
         trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, unconfirmed_substate);
-        self.enact_result(&exec_result, substate, unconfirmed_substate);
+        self.enact_result(&res, substate, unconfirmed_substate);
         trace!(target: "executive", "enacted: substate={:?} \n", substate);
-        Ok(exec_result)
+        Ok(res)
     }
 }
 
