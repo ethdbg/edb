@@ -145,7 +145,6 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
                 let (mut vm, pool) = Self::init_vm(&ext, ret.schedule.unwrap(), params.clone(), vm_factory)?;
                 let mut vm: Arc<VMEmulator + Send + Sync> = Arc::from(vm);
-                // let mut vm: Arc<Mutex<RefCell<Box<VMEmulator + Send + Sync>>>> = Arc::new(Mutex::new(RefCell::new(vm)));
 
                 for x in rx.iter() {
                     info = Some(Self::debug_resume(x, &mut ext, &mut vm.clone(), &pool)?);
