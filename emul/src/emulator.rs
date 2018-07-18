@@ -109,7 +109,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
 }
 
 pub trait VMEmulator {
-    fn fire(self: Box<Self>, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
+    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
 }
 
 pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
@@ -117,7 +117,7 @@ pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
     // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
-    fn fire(mut self: Box<Self>, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
+    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
 
         match action {
             Action::StepBack => self.0.step_back(ext),

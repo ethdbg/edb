@@ -4,6 +4,7 @@ use std::fmt;
 use std::error;
 use ethcore::error::ExecutionError;
 use rayon::ThreadPoolBuildError;
+use std::error::Error as stdError;
 
 /// Generic Error
 /// Something happened in which Debugging cannot continue, but it cannot be attributed to
@@ -26,13 +27,20 @@ impl fmt::Display for DebugError {
 
 impl error::Error for DebugError {
     fn description(&self) -> &str {
-        &(String::from("An error occured while debugging the program, causing the process to exit") + &self.0)
+        &self.0
+        //concat!("An error occured while debugging the program, causing the process to exit: ", self.0.into())
     }
 }
 
 impl InternalError {
     pub fn new(err: &str) -> Self {
         InternalError(err.to_owned())
+    }
+}
+
+impl DebugError  {
+    pub fn new(err: &str) -> Self {
+        DebugError(err.to_owned())
     }
 }
 
@@ -48,7 +56,8 @@ impl fmt::Display for InternalError {
 
 impl error::Error for InternalError {
     fn description(&self) -> &str {
-        &(String::from("An Internal Error has occurred specific to EDB internal code. ") + &self.0)
+        &self.0
+        //concat!("An Internal Error has occurred specific to EDB internal code: ", self.0.into())
     }
 }
 
@@ -129,6 +138,21 @@ impl error::Error for Error {
     }
 }
 
+// unfavorable conversion
+impl From<Error> for vm::Error {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::EVM(err) => err.0,
+            Error::Internal(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::Generic(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::Thread(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::Debug(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::EVM(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::Execution(err) => vm::Error::Internal(err.description().to_owned()),
+        }
+    }
+}
+
 impl From<DebugError> for Error {
     fn from(err: DebugError) -> Self {
         Error::Debug(err)
@@ -182,6 +206,8 @@ impl From<Box<ExecutionError>> for Error {
         Error::Execution(ExecutionError::Internal(err.to_string()))
     }
 }
+
+
 
 pub type Result<T> = std::result::Result<T, Error>;
 

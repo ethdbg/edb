@@ -24,12 +24,13 @@ use evm::{CostType};
 use vm::{GasLeft, Vm};
 use std::any::Any;
 use std::marker::Send;
+use std::mem;
 
 use err::{Result, Error, InternalError};
 use externalities::ExternalitiesExt;
 
 pub trait InterpreterExt {
-    fn step_back(mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
+    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
     fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
         -> Result<ExecInfo>;
     fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo>;
@@ -59,8 +60,8 @@ impl<C> AsInterpreter<C> for Box<Any + Send>
 impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
-    fn step_back(mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>{
-        self = ext.step_back().as_any().as_interpreter()?;
+    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
+        mem::swap(self, &mut ext.step_back().as_any().as_interpreter()?);
         Ok(ExecInfo::from_vm(&self, None))
     }
 
@@ -141,7 +142,7 @@ impl ExecInfo {
 
     pub fn mem(&self) -> &Vec<u8> {&self.mem}
     pub fn stack(&self) -> &VecStack<U256>{&self.stack}
-    pub fn gas_left(&self) -> &Option<GasLeft> {&self.gas_left}
+    pub fn gas_left(&self) -> Option<GasLeft> {self.gas_left.clone()}
     pub fn pc(&self) -> &usize {&self.pc}
     pub fn finished(&self) -> bool {self.finished}
 }
