@@ -9,6 +9,9 @@ ethereum-types = "0.3"
 log = "0.3"
 crossbeam = "0.3"
 tempdir = "0.3"
+delegate = "0.1.3"
+# tokio = "0.1.7"
+rayon = "1.0.2"
 keccak-hash = { git = "https://github.com/paritytech/parity-common" }
 kvdb = { git = "https://github.com/paritytech/parity-common" }
 kvdb-rocksdb = { git = "https://github.com/paritytech/parity-common" }
@@ -44,4 +47,6 @@ branch = "edb"
 git = "https://github.com/ethdbg/parity"
 branch = "edb"
 
-
+[dependencies.patricia-trie-ethereum]
+git = "https://github.com/ethdbg/parity"
+branch = "edb"

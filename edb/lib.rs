@@ -1,3 +1,5 @@
+extern crate emul;
+
 
 #[cfg(test)]
 mod tests {

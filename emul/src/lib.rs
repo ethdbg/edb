@@ -13,9 +13,13 @@
 
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
+#![recursion_limit="512"]
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate delegate;
+
 extern crate vm;
 extern crate evm;
 extern crate parity_bytes as bytes;
@@ -34,11 +38,15 @@ extern crate blooms_db;
 extern crate tempdir;
 extern crate journaldb;
 extern crate kvdb_memorydb;
+extern crate patricia_trie_ethereum;
+extern crate rayon;
 
 pub mod emulator;
-mod debug_externalities;
-mod instruction_manager;
+mod externalities;
+mod executive;
 mod extensions;
 mod tests;
+mod err;
+mod utils;
 // mod factory;
  

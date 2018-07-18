@@ -4,27 +4,30 @@
 //! the EVM
 use vm;
 use evm;
-use vm::{Ext, Vm};
+use vm::{Ext, GasLeft};
 use evm::{CostType, Finalize};
-use ethcore::executed::ExecutionError;
+use ethcore::trace::{Tracer, VMTracer};
+use ethcore::state::Backend as StateBackend;
 use evm::interpreter::{Interpreter, SharedCache};
-use extensions::interpreter_ext::{InterpreterExt, ExecInfo};
-use debug_externalities::ExternalitiesExt;
 use std::vec::Vec;
 use std::sync::Arc;
+use err::Result;
+use extensions::{InterpreterExt, ExecInfo};
+use externalities::{ConsumeExt, ExternalitiesExt};
 
+// possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]
 pub struct FinalizationResult {
-    pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
+    pub finalization_result: Option<evm::FinalizationResult>,
     pub is_complete: bool,
-    pub exec_info: Result<ExecInfo, ExecutionError>,
+    pub exec_info: ExecInfo,
 }
 
 
 impl FinalizationResult {
-    pub fn new(final_res: Option<Result<evm::FinalizationResult, vm::Error>>, 
+    pub fn new(final_res: Option<evm::FinalizationResult>,
                is_complete: bool, 
-               exec_info: Result<ExecInfo, ExecutionError>
+               exec_info: ExecInfo,
     ) -> Self {
         FinalizationResult {
             finalization_result: final_res,
@@ -32,12 +35,24 @@ impl FinalizationResult {
         }
     }
 
+    pub fn is_complete(&self) -> bool {
+        self.is_complete
+    }
+
+    pub fn finalization_result(&self) -> Option<evm::FinalizationResult> {
+        match self.finalization_result {
+            Some(ref x) => Some(x.clone()),
+            None => None,
+        }
+    }
+
+
 }
 
 // 0 state is before interpreter did anything
 #[derive(Default)]
 pub struct InterpreterSnapshots {
-    pub states: Vec<Box<InterpreterExt>>,
+    pub states: Vec<Box<InterpreterExt + Send>>,
 }
 
 impl InterpreterSnapshots {
@@ -51,7 +66,9 @@ impl InterpreterSnapshots {
 
 pub enum Action {
     StepBack,
-    RunUntil,
+    StepForward,
+    RunUntil(usize),
+    Finish,
     Exec,
 }
 
@@ -60,54 +77,58 @@ pub enum Action {
     EvmOnly
 }*/
 
-/*
-pub trait EDBFinalize {
-    fn finalize(self, ext: ExternalitiesExt) -> vm::Result<FinalizationResult>;
+pub trait EDBFinalize<'a, T: 'a, V: 'a, B: 'a> {
+    fn finalize<E>(self, ext: E) -> Result<FinalizationResult>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>;
 }
 
-impl EDBFinalize for vm::Result<ExecInfo> {
-    fn finalize(self, ext: ExternalitiesExt) -> vm::Result<FinalizationResult> {
+impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
+    fn finalize<E>(self, ext: E) -> Result<FinalizationResult> 
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>
+    {
         match self {
             Ok(x) => {
                 Ok(FinalizationResult {
-    /*pub finalization_result: Option<Result<evm::FinalizationResult, vm::Error>>,
-    pub is_complete: bool,
-    pub exec_info: Result<ExecInfo, ExecutionError>,*/
                     finalization_result: if x.gas_left().is_some() {
-                        Some(x.gas_left().unwrap().finalize(ext.externalities()))
-                    } else {None}
-
+                        let gas_left: vm::Result<GasLeft> = Ok(x.gas_left().expect("Will always be `Some` because of is_some() check; qed"));
+                        Some(gas_left.finalize(ext.consume())?)
+                    } else {None},
+                    is_complete: x.gas_left().is_some(),
+                    exec_info: x
                 })
-            
-            }
-        
+            },
+            Err(err) => Err(err)
         }
     }
 }
-*/
 
 pub trait VMEmulator {
-    fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
-    ) -> vm::Result<ExecInfo>;
+    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
 }
 
-pub struct Emulator<C: CostType + 'static>(Interpreter<C>);
+pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 
-impl<C: CostType + 'static> VMEmulator for Emulator<C> {
+impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
-    fn fire(mut self, action: Action, ext: &mut ExternalitiesExt, pos: usize
-    ) -> vm::Result<ExecInfo> {
+    // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
+    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
 
         match action {
             Action::StepBack => self.0.step_back(ext),
-            Action::RunUntil => self.0.run_code_until(ext, pos),
+            Action::RunUntil(pc) => self.0.run_code_until(ext, pc),
             Action::Exec => self.0.run(ext.externalities()),
             _ => panic!("Action not found")
         }
     }
 }
 
-impl<Cost: CostType> Emulator<Cost> {
+impl<Cost: CostType + Send> Emulator<Cost> {
     pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &Ext) -> Self {
         Emulator(Interpreter::new(params, cache, ext).unwrap())
     }

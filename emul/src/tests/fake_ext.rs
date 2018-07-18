@@ -16,19 +16,23 @@
 
 
 //! Fake Ext
-//! Taken straight from Parity; modified to add functions which communicate with 
-//! the InstructionManager in trace_ method calls
+//! Taken straight from Parity
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 
 use ethereum_types::{U256, H256, Address};
 use bytes::Bytes;
+use vm;
 use vm::{
 	CallType, Schedule, EnvInfo,
 	ReturnData, Ext, ContractCreateResult, MessageCallResult,
 	CreateContractAddress, Result, GasLeft,
 };
-use instruction_manager::InstructionManager;
+use emulator::InterpreterSnapshots;
+use externalities::ExternalitiesExt;
+use extensions::InterpreterExt;
+
+// use instruction_manager::InstructionManager;
 
 pub struct FakeLogEntry {
 	pub topics: Vec<H256>,
@@ -69,7 +73,7 @@ pub struct FakeExt {
 	pub balances: HashMap<Address, U256>,
 	pub tracing: bool,
 	pub is_static: bool,
-        // pub inst_manager: &'a InstructionManager,
+        pub snapshots: InterpreterSnapshots,
 }
 
 // similar to the normal `finalize` function, but ignoring NeedsReturn.
@@ -84,22 +88,7 @@ pub fn test_finalize(res: Result<GasLeft>) -> Result<U256> {
 impl FakeExt {
 	/// New fake externalities
 	pub fn new() -> Self {
-        FakeExt {
-            store: HashMap::default(),
-            suicides: HashSet::default(),
-            calls: HashSet::default(),
-            sstore_clears: 0,
-            depth: 0,
-            blockhashes: HashMap::default(),
-            codes: HashMap::default(),
-            logs: Vec::default(),
-            info: EnvInfo::default(),
-            schedule: Schedule::default(),
-            balances: HashMap::default(),
-            tracing: true,
-            is_static: false,
-            // inst_manager,
-        }
+            Self::default()
 	}
 
 	/// New fake externalities with byzantium schedule rules
@@ -122,6 +111,33 @@ impl FakeExt {
 		self
 	}
 }
+
+
+impl ExternalitiesExt for FakeExt {
+    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
+        self.snapshots.states.push(interpreter);
+    }
+
+    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
+        if self.snapshots.states.len() <= 1 {
+            self.snapshots.states.pop().unwrap()
+        } else {
+            // pop latest step
+            self.snapshots.states.pop();
+            // state = one step back
+            self.snapshots.states.pop().unwrap()
+        }
+    }
+
+    fn snapshots_len(&self) -> usize {
+        self.snapshots.states.len()
+    }
+
+    fn externalities(&mut self) -> &mut vm::Ext {
+        self
+    }
+}
+
 
 impl Ext for FakeExt {
 	fn storage_at(&self, key: &H256) -> Result<H256> {

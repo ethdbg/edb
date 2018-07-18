@@ -16,52 +16,59 @@
 
 
 //! An Extension to the parity interpreter for debugging 
-
-use vm;
-use debug_externalities::{ExternalitiesExt, DebugExt};
+use {vm, err};
 use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
 use evm::interpreter::stack::VecStack;
 use evm::{CostType};
 use vm::{GasLeft, Vm};
 use std::any::Any;
+use std::marker::Send;
+use std::mem;
+
+use err::{Result, Error, InternalError};
+use externalities::ExternalitiesExt;
 
 pub trait InterpreterExt {
-    fn step_back(self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>;
+    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
     fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
-        -> vm::Result<ExecInfo>;
-    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo>;
+        -> Result<ExecInfo>;
+    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo>;
     fn get_curr_pc(&self) -> usize;
-    fn as_any(&self) -> Box<Any>;
+    fn as_any(&self) -> Box<Any + Send>;
 }
 
-pub trait AsInterpreter<C: CostType> {
-    fn as_interpreter(self) -> Option<Interpreter<C>>;
+trait AsInterpreter<C: CostType + Send> {
+    fn as_interpreter(self) -> Result<Interpreter<C>>;
 }
 
-// TODO change from returning Option to Result, for error handling
-impl<C> AsInterpreter<C> for Box<Any> 
-    where C: CostType + 'static,
+impl<C> AsInterpreter<C> for Box<Any + Send> 
+    where C: CostType + Send + 'static,
 {
-    fn as_interpreter(self) -> Option<Interpreter<C>> {
+    fn as_interpreter(self) -> Result<Interpreter<C>> {
         if let Ok(interpreter) = self.downcast::<Interpreter<C>>() {
-            Some(*interpreter)
-        } else { None }
+            Ok(*interpreter)
+        } else {
+            Err(
+                Error::from(InternalError::new("Could not downcast to Interpreter Type for \
+                                            implementation of trait `AsInterpreter` in file \
+                                            `extensions/interpreter_ext.rs`")))
+        }
     }
 }
 
-impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
+impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
-    fn step_back(mut self, ext: &mut ExternalitiesExt) -> vm::Result<ExecInfo>{
-        self = ext.step_back().as_any().as_interpreter().unwrap();
+    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
+        mem::swap(self, &mut ext.step_back().as_any().as_interpreter()?);
         Ok(ExecInfo::from_vm(&self, None))
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> vm::Result<ExecInfo> {   
-        if ext.snapshots_len() <= 0 {
+    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> Result<ExecInfo> {   
+        if ext.snapshots_len() == 0 {
             ext.push_snapshot(Box::new(self.clone())); // empty state
         }
         while (self.reader.position) < pos {
@@ -69,7 +76,7 @@ impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
             ext.push_snapshot(Box::new(self.clone()));
             match result {
                 InterpreterResult::Continue => {},
-                InterpreterResult::Done(value) => return Ok(ExecInfo::from_vm(&self, Some(value))),
+                InterpreterResult::Done(value) => return Ok(ExecInfo::from_vm(&self, Some(value?))),
                 InterpreterResult::Stopped 
                     => panic!("Attempted to execute an already stopped VM.")
             }
@@ -78,17 +85,17 @@ impl<C: CostType + 'static> InterpreterExt for Interpreter<C> {
     }
 
     /// passthrough for vm::Vm exec()
-    fn run(&mut self, ext: &mut vm::Ext) -> vm::Result<ExecInfo> {
-        let gas_left = self.exec(ext);
+    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo> {
+        let gas_left = self.exec(ext)?;
         Ok(ExecInfo::from_vm(&self, Some(gas_left)))
     }
 
     fn get_curr_pc(&self) -> usize {
-        if self.reader.position <= 0 { self.reader.position}
+        if self.reader.position == 0 { self.reader.position}
         else { self.reader.position - 1 }
     }
     
-    fn as_any(&self) -> Box<Any> {
+    fn as_any(&self) -> Box<Any + Send> {
         Box::new(self.clone())
     }
 }
@@ -100,19 +107,19 @@ pub struct ExecInfo {
     stack: VecStack<U256>,
     pc: usize,
     finished: bool,
-    gas_left: Option<vm::Result<GasLeft>>
+    gas_left: Option<GasLeft>
 }
 
 impl ExecInfo {
     pub fn new(mem: Vec<u8>, 
                stack: VecStack<U256>, 
                pc: usize, 
-               gas_left: Option<vm::Result<GasLeft>>
+               gas_left: Option<GasLeft>
     ) -> Self {
         ExecInfo {mem, stack, pc, gas_left, finished: false}
     }
 
-    pub fn from_vm<C: CostType + 'static>(interpreter: &Interpreter<C>, gas_left: Option<vm::Result<GasLeft>>
+    pub fn from_vm<C: CostType + Send + 'static>(interpreter: &Interpreter<C>, gas_left: Option<GasLeft>
     ) -> Self {
         ExecInfo {
             mem: interpreter.mem.clone(),
@@ -123,9 +130,19 @@ impl ExecInfo {
        }
     }
 
+    pub fn empty(gas_left: Option<GasLeft>) -> Self {
+        ExecInfo {
+            mem: Vec::default(),
+            stack: VecStack::with_capacity(0usize, U256::zero()),
+            pc: 0,
+            finished: true,
+            gas_left,
+        }
+    }
+
     pub fn mem(&self) -> &Vec<u8> {&self.mem}
     pub fn stack(&self) -> &VecStack<U256>{&self.stack}
-    pub fn gas_left(&self) -> &Option<vm::Result<GasLeft>> {&self.gas_left}
+    pub fn gas_left(&self) -> Option<GasLeft> {self.gas_left.clone()}
     pub fn pc(&self) -> &usize {&self.pc}
     pub fn finished(&self) -> bool {self.finished}
 }
@@ -141,7 +158,6 @@ mod tests {
     use std::sync::Arc;
     use evm::interpreter::{SharedCache, Interpreter};
     use std::str::FromStr;
-    use instruction_manager::InstructionManager;
     use emulator::InterpreterSnapshots;
     use std::rc::Rc;
 
@@ -169,11 +185,10 @@ mod tests {
     }
     
     // just random code
-    // contains bad instruction
     // this code segment becomes important in InstructionManager and Emulator
     #[test]
     #[should_panic]
-    fn it_should_and_panic() {
+    fn it_should_panic() {
         let address = Address::from_str("0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6").unwrap();
         let code = "60806040526004361061006d576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b1146100725780636d4ce63c1461009f5780639fc8192c146100ca578063c2d2c2ea146100f7578063dffeadd014610122575b600080fd5b34801561007e57600080fd5b5061009d60048036038101908080359060200190929190505050610139565b005b3480156100ab57600080fd5b506100b461014d565b6040518082815260200191505060405180910390f35b3480156100d657600080fd5b506100f560048036038101908080359060200190929190505050610156565b005b34801561010357600080fd5b5061010c610179565b6040518082815260200191505060405180910390f35b34801561012e57600080fd5b50610137610183565b005b806000819055506001810160018190555050565b60008054905090565b80600281905550600a600254016002819055506000546002540360028190555050565b6000600154905090565b61018d6014610139565b6101976032610156565b5600a165627a7a7230582073220057da31267f028c5802e52e8b0f18aac96f30d1dcc4cc9c9d2cfe5b28d40029".from_hex().unwrap();
 
@@ -206,8 +221,8 @@ mod tests {
         let mut vm = Interpreter::<usize>::new(params, cache.clone(), &ext).unwrap();
         let mut i_hist = InterpreterSnapshots::new();
         
-        let gas_left = vm.run_code_until(&mut ext, 2, &mut i_hist);
-        assert!(gas_left.is_none());
+        let exec_info = vm.run_code_until(&mut ext, 2).unwrap();
+        assert!(exec_info.gas_left.is_none() && !exec_info.finished);
         assert!(vm.get_curr_pc() >= 2);
         println!("VM Program Counter: {}", vm.get_curr_pc());
     }
@@ -226,14 +241,17 @@ mod tests {
         let mut vm = Interpreter::<usize>::new(params, cache.clone(), &ext).unwrap();
         let mut i_hist = InterpreterSnapshots::new();
         
-        let gas_left = vm.run_code_until(&mut ext, 2, &mut i_hist);
-        match gas_left {
-            Some(x) => panic!("Execution should not have finished"),
-            None => {
-                println!("Program Counter before stepping back: {}", vm.get_curr_pc());
-                vm = vm.step_back(&mut i_hist);
-                println!("Program Counter after stepping back: {}", vm.get_curr_pc());
-            }
+        let exec_info = vm.run_code_until(&mut ext, 2);
+        match exec_info {
+            Ok(x) => {
+                let before_pc = x.pc;
+                println!("Program Counter before stepping back: {}", before_pc);
+                let info = vm.step_back(&mut ext).unwrap();
+                let after_pc = info.pc;
+                println!("Program  counter after stepping back: {}", after_pc);
+                assert!(before_pc > after_pc);
+            },
+            Err(e) => panic!("Something terrible occured in run_code_until(): {}", e.to_string())
         }
     }
 
