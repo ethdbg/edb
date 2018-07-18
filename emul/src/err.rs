@@ -1,5 +1,5 @@
 //! Error descriptions and implementations for Emulator 
-use {std, vm, patricia_trie_ethereum as ethtrie};
+use {std, vm, evm, patricia_trie_ethereum as ethtrie};
 use std::fmt;
 use std::error;
 use ethcore::error::ExecutionError;
@@ -147,7 +147,6 @@ impl From<Error> for vm::Error {
             Error::Generic(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Thread(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Debug(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::EVM(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Execution(err) => vm::Error::Internal(err.description().to_owned()),
         }
     }
@@ -206,8 +205,6 @@ impl From<Box<ExecutionError>> for Error {
         Error::Execution(ExecutionError::Internal(err.to_string()))
     }
 }
-
-
 
 pub type Result<T> = std::result::Result<T, Error>;
 

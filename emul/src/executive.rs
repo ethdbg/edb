@@ -7,23 +7,20 @@ use ethcore::executed::{Executed, ExecutionError};
 use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, Substate, State};
 use ethcore::trace::{Tracer, VMTracer};
-use ethcore::trace::trace::Call;
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::factory::VmFactory;
 use ethcore_io::LOCAL_STACK_SIZE;
-use vm::{Schedule, ActionParams, ActionValue, Ext, ReturnData, GasLeft, EnvInfo};
+use vm::{Schedule, ActionParams, ActionValue, ReturnData, GasLeft, EnvInfo};
 use evm::{Finalize, CallType};
 use ethereum_types::{U256, U512, Address};
 use bytes::{Bytes, BytesRef};
 use transaction::{Action as TxAction, SignedTransaction};
-use std::sync::{Arc, Mutex};
-use std::cell::RefCell;
+use std::sync::{Arc};
 use std::sync::mpsc;
 
-use emulator::{Action, VMEmulator, EDBFinalize, FinalizationResult};
+use emulator::{Action, VMEmulator};
 use externalities::{DebugExt, ExternalitiesExt};
 use extensions::{ExecInfo, FactoryExt, ExecutiveExt};
-use err::{Error, InternalError, DebugError};
 use utils::DebugReturn;
 
 pub enum ExecutionState {
@@ -33,8 +30,6 @@ pub enum ExecutionState {
 
 pub struct Executive<'a, B: 'a> {
     pub inner: ParityExecutive<'a, B>,
-    pool: Option<rayon::ThreadPool>, // a pool so we don't have to keep creating/uninstalling threads whenever debug_resume is called
-        // rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
 }
 
 /* where our executive diverges from  parity */
@@ -43,7 +38,6 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
     
         Ok(Executive {
             inner: ParityExecutive::new(state, info, machine),
-            pool: None,
        })
     }
 
@@ -81,11 +75,11 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     contract_address(self.inner.machine.create_address_scheme(self.inner.info.number), 
                         &sender, &nonce, &t.data);
                 let params = ActionParams {
-                    code_address: new_address.clone(),
+                    code_address: new_address,
                     code_hash,
                     address: new_address,
-                    sender: sender.clone(),
-                    origin: sender.clone(),
+                    sender: sender,
+                    origin: sender,
                     gas: init_gas,
                     gas_price: t.gas_price,
                     value: ActionValue::Transfer(t.value),
@@ -114,20 +108,20 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     params_type: vm::ParamsType::Separate,
                 };
                 let mut out = vec![];
-                (Ok(self.debug_call(params, &mut substate, 
-                                 BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer, rx, tx)?), out)
+                (Ok(self.debug_call(&params, &mut substate, 
+                                 BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer, &rx,& tx)?), out)
             }
         };
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
        
-    fn debug_call<T: 'a, V: 'a>(&mut self, params: ActionParams, substate: &mut Substate, output: BytesRef,
+    fn debug_call<T: 'a, V: 'a>(&mut self, params: &ActionParams, substate: &mut Substate, output: BytesRef,
                        tracer: &mut T, 
                        vm_tracer: &mut V,
-                       rx: mpsc::Receiver<Action>,
-                       tx: mpsc::Sender<ExecInfo>,
-    ) -> vm::Result<evm::FinalizationResult> where T: Tracer, V: VMTracer {
-        let mut ret = self._debug_call(&params, substate, tracer, vm_tracer)?;
+                       rx: &mpsc::Receiver<Action>,
+                       tx: &mpsc::Sender<ExecInfo>,
+    ) -> Result<evm::FinalizationResult, vm::Error> where T: Tracer, V: VMTracer {
+        let mut ret = self._debug_call(params, substate, tracer, vm_tracer)?;
         
         /* unwraps will never panic because is_code indicates whether values are of Some or None
          * type in `ret` struct */
@@ -138,7 +132,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                 let mut info: Option<ExecInfo> = None;
                 let vm_factory = self.inner.state.vm_factory();
                 let output_policy = OutputPolicy::Return(output, ret.trace_output.as_mut());
-                let mut ext = self.as_dbg_externalities(OriginInfo::from(&params), 
+                let mut ext = self.as_dbg_externalities(OriginInfo::from(params), 
                                                         &mut uncon_sub,
                                                         output_policy, tracer, vm_tracer, 
                                                         static_call);
@@ -148,7 +142,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
                 for x in rx.iter() {
                     info = Some(Self::debug_resume(x, &mut ext, &mut vm.clone(), &pool)?);
-                    tx.send(info.clone().expect("Info was just put into `Some`; qed"));
+                    tx.send(info.clone().expect("Info was just put into `Some`; qed")).unwrap(); // fix errors here
                 }
                 let info = info.ok_or_else(|| vm::Error::Internal("Execution Info returned as `None` Value".to_owned()))?;
 
@@ -260,20 +254,6 @@ impl<'a, B:  'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                                 tracer: &mut T,
                                 vm_tracer: &mut V
             ) -> vm::Result<DebugReturn<T, V>>
-                where T: Tracer, V: VMTracer;
-                   
-             fn _end_call<T, V>(&mut self, 
-                          tracer: &mut T,
-                          vm_tracer: &mut V,
-                          trace_output: Option<Bytes>,
-                          trace_info: Option<Call>,
-                          subtracer: T,
-                          subvmtracer: V,
-                          res: vm::Result<evm::FinalizationResult>,
-                          substate: &mut Substate,
-                          unconfirmed_substate: Substate,
-                          gas: U256
-            ) -> vm::Result<evm::FinalizationResult>
                 where T: Tracer, V: VMTracer;
         }
     }

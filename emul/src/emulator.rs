@@ -11,7 +11,7 @@ use ethcore::state::Backend as StateBackend;
 use evm::interpreter::{Interpreter, SharedCache};
 use std::vec::Vec;
 use std::sync::Arc;
-use err::{Result, Error};
+use err::Result;
 use extensions::{InterpreterExt, ExecInfo};
 use externalities::{ConsumeExt, ExternalitiesExt};
 
@@ -99,7 +99,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
                         let gas_left: vm::Result<GasLeft> = Ok(x.gas_left().expect("Will always be `Some` because of is_some() check; qed"));
                         Some(gas_left.finalize(ext.consume())?)
                     } else {None},
-                    is_complete: if x.gas_left().is_some() {true} else {false},
+                    is_complete: x.gas_left().is_some(),
                     exec_info: x
                 })
             },

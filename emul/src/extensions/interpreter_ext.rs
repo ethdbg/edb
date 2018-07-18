@@ -68,7 +68,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
     /// run code until an instruction
     /// stops before instruction execution (PC)
     fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> Result<ExecInfo> {   
-        if ext.snapshots_len() <= 0 {
+        if ext.snapshots_len() == 0 {
             ext.push_snapshot(Box::new(self.clone())); // empty state
         }
         while (self.reader.position) < pos {
@@ -91,7 +91,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
     }
 
     fn get_curr_pc(&self) -> usize {
-        if self.reader.position <= 0 { self.reader.position}
+        if self.reader.position == 0 { self.reader.position}
         else { self.reader.position - 1 }
     }
     

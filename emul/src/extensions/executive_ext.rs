@@ -1,19 +1,16 @@
-use {crossbeam, evm, vm};
-use ethcore::executive::{Executive, contract_address, TransactOptions, STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD};
+use {vm, err};
+use ethcore::executive::Executive;
 use ethcore::executed::{Executed, ExecutionError};
 use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, Substate, CleanupMode};
-use ethcore::trace::{Tracer, VMTracer, FlatTrace, VMTrace, Call};
-use vm::{Schedule, ActionParams, ActionValue, CleanDustMode, Ext, ReturnData, GasLeft};
-use evm::{Finalize, CallType};
+use ethcore::trace::{Tracer, VMTracer, FlatTrace, VMTrace};
+use vm::{ActionParams, ActionValue, CleanDustMode};
+use evm::CallType;
 use ethereum_types::{U256, U512, Address};
-use bytes::{Bytes, BytesRef};
 use transaction::{SignedTransaction};
-
-use emulator::{Action, Emulator, VMEmulator, FinalizationResult, EDBFinalize};
-use externalities::{ExternalitiesExt, DebugExt};
-use extensions::{ExecInfo, FactoryExt};
-use err::{Result, Error};
+use externalities::DebugExt;
+use extensions::ExecInfo;
+use err::Error;
 use utils::DebugReturn;
 
 /* any functions here should be taken directly from parity; no modification. We only split off
@@ -61,7 +58,7 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
     fn _transact_debug(&mut self, 
                            t: &SignedTransaction,
                            check_nonce: bool,
-    ) -> Result<(Address, U256, U512)>;
+    ) -> err::Result<(Address, U256, U512)>;
 
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
@@ -72,22 +69,6 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
                         vm_tracer: &mut V
     // find a better way to do these return arguments 
     ) -> vm::Result<DebugReturn<T, V>> where T: Tracer, V: VMTracer;
-
-    // debug_call is split up
-    // this is the 'end' of debug call
-    fn _end_call<T, V>(&mut self, 
-                      tracer: &mut T,
-                      vm_tracer: &mut V,
-                      trace_output: Option<Bytes>,
-                      trace_info: Option<Call>,
-                      subtracer: T,
-                      subvmtracer: V,
-                      res: vm::Result<evm::FinalizationResult>,
-                      substate: &mut Substate,
-                      unconfirmed_substate: Substate,
-                      gas: U256,
-        ) -> vm::Result<evm::FinalizationResult>
-        where T: Tracer, V: VMTracer;
 }
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
@@ -111,7 +92,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
     fn _transact_debug(&mut self, t: &SignedTransaction, check_nonce: bool) 
-        -> Result<(Address, U256, U512)> {  
+        -> err::Result<(Address, U256, U512)> {  
         /* setup a virtual transaction */
         let sender = t.sender();
         let balance = self.state.balance(&sender)?;
@@ -196,11 +177,9 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         let trace_output = tracer.prepare_trace_output();
         let subtracer = tracer.subtracer();
 
-        let gas = params.gas;
-
         if params.code.is_some() {
-            let mut unconfirmed_substate = Substate::new();
-            let mut subvmtracer = vm_tracer.prepare_subtrace(params.code.as_ref().expect("scope is conditional on params.code.is_some(); qed"));
+            let unconfirmed_substate = Substate::new();
+            let subvmtracer = vm_tracer.prepare_subtrace(params.code.as_ref().expect("scope is conditional on params.code.is_some(); qed"));
             Ok(DebugReturn {
                         schedule: Some(schedule),
                         unconfirmed_substate: Some(unconfirmed_substate),
@@ -221,38 +200,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     }
                 )
         }
-    }
-
-    fn _end_call<T, V>(&mut self, 
-                      tracer: &mut T,
-                      vm_tracer: &mut V,
-                      trace_output: Option<Bytes>,
-                      trace_info: Option<Call>,
-                      subtracer: T,
-                      subvmtracer: V,
-                      res: vm::Result<evm::FinalizationResult>,
-                      substate: &mut Substate,
-                      unconfirmed_substate: Substate,
-                      gas: U256,
-        ) -> vm::Result<evm::FinalizationResult>
-        where T: Tracer, V: VMTracer
-    {
-
-        vm_tracer.done_subtrace(subvmtracer);
-        trace!(target: "executive", "res={:?}", res);
-        let traces = subtracer.drain();
-
-        match res {
-            Ok(ref res) if res.apply_state => tracer.trace_call(trace_info, gas - res.gas_left,
-                                                                trace_output,traces),
-            Ok(_) => tracer.trace_failed_call(trace_info, traces, vm::Error::Reverted.into()),
-            Err(ref e) => tracer.trace_failed_call(trace_info, traces, e.into()),
-        };
-        
-        trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, unconfirmed_substate);
-        self.enact_result(&res, substate, unconfirmed_substate);
-        trace!(target: "executive", "enacted: substate={:?} \n", substate);
-        res
     }
 }
 
