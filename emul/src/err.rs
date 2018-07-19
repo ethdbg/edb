@@ -5,6 +5,7 @@ use std::error;
 use ethcore::error::ExecutionError;
 use rayon::ThreadPoolBuildError;
 use std::error::Error as stdError;
+use std::sync::mpsc::{SendError, RecvError};
 
 /// Generic Error
 /// Something happened in which Debugging cannot continue, but it cannot be attributed to
@@ -96,7 +97,9 @@ pub enum Error {
     Execution(ExecutionError),
     Internal(InternalError),
     Generic(GenericError),
-    Thread(ThreadPoolBuildError),
+    ThreadBuilder(ThreadPoolBuildError),
+    // ChannelSend(SendError<T>),
+    ChannelRecv(RecvError),
     Debug(DebugError),
 }
 
@@ -108,8 +111,10 @@ impl fmt::Display for Error {
             Error::Execution(ref err) => write!(f, "Execution Error: {}", err),
             Error::Internal(ref err) => write!(f, "Internal Error: {}", err),
             Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err),
-            Error::Thread(ref err) => write!(f, "Error Building Threads: {}", err),
-            Error::Debug(ref err) => write!(f, "Error Debuggin: {}", err),
+            Error::ThreadBuilder(ref err) => write!(f, "Error Building Threads: {}", err),
+            Error::Debug(ref err) => write!(f, "Error Debugging: {}", err),
+            // Error::ChannelSend(ref err) => write!(f, "{}", err),
+            Error::ChannelRecv(ref err) => write!(f, "{}", err)
         }
     }
 }
@@ -121,8 +126,10 @@ impl error::Error for Error {
             Error::Execution(ref err) => err.description(),
             Error::Internal(ref err) => err.description(),
             Error::Generic(ref err) => err.description(),
-            Error::Thread(ref err) => err.description(),
+            Error::ThreadBuilder(ref err) => err.description(),
             Error::Debug(ref err) => err.description(),
+            // Error::ChannelSend(ref err) => "Could not send data; channel closed", //change
+            Error::ChannelRecv(ref err) => err.description(),
         }
     }
 
@@ -131,12 +138,16 @@ impl error::Error for Error {
             Error::Execution(ref err) => Some(err),
             Error::Internal(ref err) => Some(err),
             Error::Generic(ref err) => Some(err),
-            Error::Thread(ref err) => Some(err),
+            Error::ThreadBuilder(ref err) => Some(err),
             Error::Debug(ref err) => Some(err),
             Error::EVM(ref err) => Some(err),
+            // Error::ChannelSend(ref err) => Some(err),
+            Error::ChannelRecv(ref err) => Some(err),
         }
     }
 }
+
+
 
 // unfavorable conversion
 impl From<Error> for vm::Error {
@@ -145,10 +156,17 @@ impl From<Error> for vm::Error {
             Error::EVM(err) => err.0,
             Error::Internal(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Generic(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::Thread(err) => vm::Error::Internal(err.description().to_owned()),
+            Error::ThreadBuilder(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Debug(err) => vm::Error::Internal(err.description().to_owned()),
             Error::Execution(err) => vm::Error::Internal(err.description().to_owned()),
+            _ =>  vm::Error::Internal(err.description().to_owned()),
         }
+    }
+}
+
+impl From<RecvError> for Error {
+    fn from(err: RecvError) -> Self {
+        Error::ChannelRecv(err)
     }
 }
 
@@ -160,7 +178,7 @@ impl From<DebugError> for Error {
 
 impl From<ThreadPoolBuildError> for Error {
     fn from(err: ThreadPoolBuildError) -> Self {
-        Error::Thread(err)
+        Error::ThreadBuilder(err)
     }
 }
 

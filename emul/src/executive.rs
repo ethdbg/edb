@@ -1,4 +1,5 @@
 use {err, evm, std, vm, rayon};
+//use tokio::prelude::*;
 use ethcore::executive::{
     Executive as ParityExecutive, contract_address, TransactOptions,
     STACK_SIZE_PER_DEPTH, STACK_SIZE_ENTRY_OVERHEAD
@@ -142,7 +143,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
                 for x in rx.iter() {
                     info = Some(Self::debug_resume(x, &mut ext, &mut vm.clone(), &pool)?);
-                    tx.send(info.clone().expect("Info was just put into `Some`; qed")).unwrap(); // fix errors here
+                    tx.send(info.clone().expect("Info was just put into `Some`; qed")).unwrap(); 
                 }
                 let info = info.ok_or_else(|| vm::Error::Internal("Execution Info returned as `None` Value".to_owned()))?;
 

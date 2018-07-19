@@ -40,11 +40,13 @@ extern crate journaldb;
 extern crate kvdb_memorydb;
 extern crate patricia_trie_ethereum;
 extern crate rayon;
+extern crate tokio;
 
 pub mod emulator;
 mod externalities;
 mod executive;
 mod extensions;
+mod debug_handler;
 mod tests;
 mod err;
 mod utils;
