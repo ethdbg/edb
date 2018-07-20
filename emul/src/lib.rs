@@ -47,6 +47,7 @@ mod externalities;
 mod executive;
 mod extensions;
 mod debug_handler;
+mod debug_client;
 mod tests;
 mod err;
 mod utils;

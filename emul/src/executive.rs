@@ -35,18 +35,21 @@ pub struct Executive<'a, B: 'a> {
 
 /* where our executive diverges from  parity */
 impl<'a, B: 'a + StateBackend> Executive<'a, B> {
-    pub fn new(state: &'a mut State<B>, info: &'a EnvInfo, machine: &'a Machine) -> err::Result<Self> {
-    
-        Ok(Executive {
-            inner: ParityExecutive::new(state, info, machine),
-       })
+    pub fn new(state: &'a mut State<B>, info: Arc<EnvInfo>, machine: Arc<Machine>) -> Self {
+        
+        // these arcs are going to cause many, many problems
+        Executive {
+            inner: ParityExecutive::new(state, 
+                       &Arc::try_unwrap(info).unwrap(), 
+                       &Arc::try_unwrap(machine).ok().unwrap())
+       }
     }
 
-    fn transact_debug<T: 'a, V: 'a>(&mut self, 
-                            t: &SignedTransaction, 
-                            options: TransactOptions<T, V>,
-                            rx: mpsc::Receiver<Action>,
-                            tx: mpsc::Sender<ExecInfo>
+    pub fn transact_debug<T: 'a, V: 'a>(&mut self, 
+                            t: Arc<SignedTransaction>, 
+                            options: Arc<TransactOptions<T, V>>,
+                            tx: mpsc::Sender<ExecInfo>,
+                            rx: mpsc::Receiver<Action>
     ) -> err::Result<Executed<T:: Output, V::Output>> where T: Tracer, V: VMTracer
     {
         let output_from_create = options.output_from_init_contract;
@@ -113,7 +116,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                                  BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer, &rx,& tx)?), out)
             }
         };
-        Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
+        Ok(self.finalize(&Arc::try_unwrap(t).ok().unwrap(), substate, result, output, tracer.drain(), vm_tracer.drain())?)
     }
        
     fn debug_call<T: 'a, V: 'a>(&mut self, params: &ActionParams, substate: &mut Substate, output: BytesRef,
@@ -245,7 +248,7 @@ impl<'a, B:  'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             ) -> DebugExt<'any, T, V, B> where T: Tracer, V: VMTracer;
 
             fn _transact_debug(&mut self, 
-                                    t: &SignedTransaction,
+                                    t: Arc<SignedTransaction>,
                                     check_nonce: bool
             ) -> err::Result<(Address, U256, U512)>;
 

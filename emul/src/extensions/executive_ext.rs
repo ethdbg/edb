@@ -12,6 +12,7 @@ use externalities::DebugExt;
 use extensions::ExecInfo;
 use err::Error;
 use utils::DebugReturn;
+use std::sync::Arc;
 
 /* any functions here should be taken directly from parity; no modification. We only split off
  * functions and put them into executive.rs if they need to be modified to fit our needs 
@@ -56,7 +57,7 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
     /// pc = Program Counter (where to stop execution)
     // Prefer enum over two different functions
     fn _transact_debug(&mut self, 
-                           t: &SignedTransaction,
+                           t: Arc<SignedTransaction>,
                            check_nonce: bool,
     ) -> err::Result<(Address, U256, U512)>;
 
@@ -91,7 +92,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn _transact_debug(&mut self, t: &SignedTransaction, check_nonce: bool) 
+    fn _transact_debug(&mut self, t: Arc<SignedTransaction>, check_nonce: bool) 
         -> err::Result<(Address, U256, U512)> {  
         /* setup a virtual transaction */
         let sender = t.sender();
