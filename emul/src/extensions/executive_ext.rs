@@ -17,7 +17,7 @@ use externalities::{DebugExt, ExternalitiesExt};
 use extensions::{ExecInfo, FactoryExt};
 use err::Error;
 // use utils::DebugReturn;
-use emulator::VMEmulator;
+use emulator::{VMEmulator, Action};
 /* any functions here should be taken directly from parity; no modification. We only split off
  * functions and put them into executive.rs if they need to be modified to fit our needs 
  * other then error types and extender functions (like as_dbg_externalities)
@@ -43,7 +43,10 @@ pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
     is_complete: bool,
     exec_info: ExecInfo,
 }
+enum ExecutionState {
+    Called(),
 
+}
 pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
    
     fn as_dbg_externalities<'any, T, V>(&'any mut self,
@@ -79,6 +82,9 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
                schedule: Schedule, params: ActionParams, 
                vm_factory: VmFactory
     ) -> err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)>;
+
+    fn debug_resume(action: Action, ext: &mut (ExternalitiesExt + Send), vm: &mut Arc<VMEmulator + Send + Sync>, pool: &rayon::ThreadPool
+    ) -> err::Result<ExecInfo>;
 }
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
@@ -214,8 +220,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             }
         };
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)
-
-        // Ok((sender, init_gas, gas_cost))
     }
 
     /// call a contract function with contract params
@@ -306,6 +310,17 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             })
         }
     }
+
+
+    fn debug_resume(action: Action, ext: &mut (ExternalitiesExt + Send), vm: &mut Arc<VMEmulator + Send + Sync>, pool: &rayon::ThreadPool
+    ) -> err::Result<ExecInfo> { // should return ExecInfo
+
+        Ok(pool.install(move ||
+                Arc::get_mut(vm).unwrap().fire(action, ext)
+            )?)
+    }
+
+
 
     fn init_vm(ext: &Ext,
                schedule: Schedule, params: ActionParams, 
