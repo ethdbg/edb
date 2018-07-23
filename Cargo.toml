@@ -10,6 +10,9 @@ authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 path = "edb/lib.rs"
 name = "edb"
 
+[dependencies]
+emul = {path = "emul"}
+
 [workspace]
 members = [
   "compiler/",

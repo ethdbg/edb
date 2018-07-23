@@ -109,7 +109,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                 };
                 let mut out = vec![];
                 (Ok(self.debug_call(&params, &mut substate, 
-                                 BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer, &rx,& tx)?), out)
+                                 BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer, &rx,&tx)?), out)
             }
         };
         Ok(self.finalize(t, substate, result, output, tracer.drain(), vm_tracer.drain())?)

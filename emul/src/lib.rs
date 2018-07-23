@@ -43,7 +43,7 @@ extern crate rayon;
 
 pub mod emulator;
 mod externalities;
-mod executive;
+// mod executive;
 mod extensions;
 mod tests;
 mod err;
