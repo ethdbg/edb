@@ -11,9 +11,10 @@ use ethcore::state::Backend as StateBackend;
 use evm::interpreter::{Interpreter, SharedCache};
 use std::vec::Vec;
 use std::sync::Arc;
-use err::Result;
-use extensions::{InterpreterExt, ExecInfo};
-use externalities::{ConsumeExt, ExternalitiesExt};
+
+use crate::err::Result;
+use crate::extensions::{InterpreterExt, ExecInfo};
+use crate::externalities::{ConsumeExt, ExternalitiesExt};
 
 // possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]
@@ -52,7 +53,7 @@ impl FinalizationResult {
 // 0 state is before interpreter did anything
 #[derive(Default)]
 pub struct InterpreterSnapshots {
-    pub states: Vec<Box<InterpreterExt + Send>>,
+    pub states: Vec<Box<dyn InterpreterExt + Send>>,
 }
 
 impl InterpreterSnapshots {
@@ -109,7 +110,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
 }
 
 pub trait VMEmulator {
-    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
+    fn fire(&mut self, action: Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo>;
 }
 
 pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
@@ -117,7 +118,7 @@ pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
     // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
-    fn fire(&mut self, action: Action, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
+    fn fire(&mut self, action: Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo> {
 
         match action {
             Action::StepBack => self.0.step_back(ext),
@@ -129,7 +130,7 @@ impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
 }
 
 impl<Cost: CostType + Send> Emulator<Cost> {
-    pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &Ext) -> Self {
+    pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &dyn Ext) -> Self {
         Emulator(Interpreter::new(params, cache, ext).unwrap())
     }
 }
