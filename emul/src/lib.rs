@@ -13,42 +13,15 @@
 
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
+#![feature(rust_2018_preview, use_extern_macros)]
+#![warn(rust_2018_idioms)]
 #![recursion_limit="512"]
-
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate delegate;
-
-extern crate vm;
-extern crate evm;
-extern crate parity_bytes as bytes;
-extern crate ethcore;
-extern crate ethcore_transaction as transaction;
-extern crate ethereum_types;
-extern crate keccak_hash as hash;
-extern crate rustc_hex;
-extern crate crossbeam;
-extern crate rlp;
-extern crate ethcore_io;
-//extern crate parity; // should really get rid of this dependency; all of parity is not needed
-extern crate kvdb; // key-value database
-extern crate kvdb_rocksdb;
-extern crate blooms_db;
-extern crate tempdir;
-extern crate journaldb;
-extern crate kvdb_memorydb;
-extern crate patricia_trie_ethereum;
-extern crate rayon;
-extern crate tokio;
 
 pub mod emulator;
 mod externalities;
-mod executive;
+// mod executive;
 mod extensions;
-mod debug_handler;
 mod tests;
 mod err;
-mod utils;
 // mod factory;
  
