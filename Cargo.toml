@@ -1,10 +1,12 @@
+cargo-features = ["edition"]
+
 [package]
 description = "Ethereum Debug"
 name = "edb"
 version = "0.0.1"
 license = "GPL-3.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
-
+edition = '2018'
 
 [lib]
 path = "edb/lib.rs"

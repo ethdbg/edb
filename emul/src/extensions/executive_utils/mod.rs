@@ -1,4 +1,3 @@
-use {vm, rayon};
 use vm::{Schedule, GasLeft, ActionParams};
 use ethcore::state::{Substate};
 use ethcore::trace::trace::Call;
@@ -6,7 +5,7 @@ use ethcore::trace::{Tracer, VMTracer};
 use ethereum_types::{U256};
 use bytes::{Bytes, BytesRef};
 use std::sync::Arc;
-use emulator::VMEmulator;
+use crate::emulator::VMEmulator;
 
 
 

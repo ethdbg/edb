@@ -1,3 +1,6 @@
+//macros
+use log::{trace, log};
+// usual imports
 use bytes::{Bytes, BytesRef};
 use ethcore::executed::{Executed, ExecutionError};
 use ethcore::executive::{
@@ -12,14 +15,15 @@ use ethereum_types::{U256, U512};
 use evm::{CallType, Finalize};
 use transaction::{Action as TxAction, SignedTransaction};
 use vm::{ActionParams, ActionValue, CleanDustMode, Ext, GasLeft, ReturnData, Schedule};
-use {err, evm, rayon, std, vm};
 
-use emulator::{Action, VMEmulator};
-use err::Error;
-use extensions::{ExecInfo, FactoryExt};
-use externalities::{DebugExt, ExternalitiesExt};
+// crate imports
+use crate::emulator::{Action, VMEmulator};
+use crate::err::Error;
+use crate::extensions::{ExecInfo, FactoryExt};
+use crate::extensions::executive_utils::{FinalizeInfo, FinalizeNoCode, ResumeInfo, TransactInfo};
+use crate::externalities::{DebugExt, ExternalitiesExt};
+// std
 use std::sync::Arc;
-use extensions::executive_utils::{FinalizeInfo, FinalizeNoCode, ResumeInfo, TransactInfo};
 
 /*  TODO: A new executive is currently being created by user `sorpaas`. This executive will contain `resume` functionality. Once that is merged into parity master, Major refactoring of this code will occur. #p2
 */
@@ -56,7 +60,7 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
         &mut self,
         t: &SignedTransaction,
         options: TransactOptions<T, V>,
-    ) -> err::Result<ExecutionState<T, V>>
+    ) -> crate::err::Result<ExecutionState<T, V>>
     where
         T: Tracer,
         V: VMTracer;
@@ -80,14 +84,14 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
         schedule: Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
-    ) -> err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)>;
+    ) -> crate::err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)>;
 
     fn debug_resume(
         action: Action,
         ext: &mut (ExternalitiesExt + Send),
         vm: &mut Arc<VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,
-    ) -> err::Result<ExecInfo>;
+    ) -> crate::err::Result<ExecInfo>;
 
     fn debug_finish<T, V, E>(
         &mut self,
@@ -155,7 +159,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         &mut self,
         t: &SignedTransaction,
         options: TransactOptions<T, V>,
-    ) -> err::Result<ExecutionState<T,V>>
+    ) -> crate::err::Result<ExecutionState<T,V>>
     where
         T: Tracer,
         V: VMTracer,
@@ -393,7 +397,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         ext: &mut (ExternalitiesExt + Send),
         vm: &mut Arc<VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,
-    ) -> err::Result<ExecInfo> {
+    ) -> crate::err::Result<ExecInfo> {
 
         Ok(pool.install(move || Arc::get_mut(vm).unwrap().fire(action, ext))?)
     }
@@ -474,7 +478,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         schedule: Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
-    ) -> err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)> {
+    ) -> crate::err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)> {
         let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
         let depth_threshold =
             local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;

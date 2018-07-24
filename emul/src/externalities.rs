@@ -1,4 +1,5 @@
-use vm;
+// macros
+use delegate::*;
 use ethcore::externalities::{Externalities, OriginInfo, OutputPolicy};
 use ethcore::state::{Backend as StateBackend, State, Substate};
 use ethcore::machine::EthereumMachine as Machine;
@@ -7,8 +8,8 @@ use vm::{EnvInfo, Schedule, Ext, CreateContractAddress, CallType, MessageCallRes
 use bytes::Bytes;
 use std::sync::Arc;
 use ethereum_types::{H256, U256, Address};
-use emulator::InterpreterSnapshots;
-use extensions::InterpreterExt;
+use crate::emulator::InterpreterSnapshots;
+use crate::extensions::InterpreterExt;
 
 //TODO move debug_externalities to extensions under externalities_ext;
 //will require refactoring of use's

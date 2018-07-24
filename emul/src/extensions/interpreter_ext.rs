@@ -14,9 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
 
-
 //! An Extension to the parity interpreter for debugging 
-use {vm};
 use ethereum_types::U256;
 use evm::interpreter::{Interpreter, InterpreterResult};
 use evm::interpreter::stack::VecStack;
@@ -26,8 +24,8 @@ use std::any::Any;
 use std::marker::Send;
 use std::mem;
 
-use err::{Result, Error, InternalError};
-use externalities::ExternalitiesExt;
+use crate::err::{Result, Error, InternalError};
+use crate::externalities::ExternalitiesExt;
 
 pub trait InterpreterExt {
     fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;

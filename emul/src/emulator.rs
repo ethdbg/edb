@@ -11,9 +11,10 @@ use ethcore::state::Backend as StateBackend;
 use evm::interpreter::{Interpreter, SharedCache};
 use std::vec::Vec;
 use std::sync::Arc;
-use err::Result;
-use extensions::{InterpreterExt, ExecInfo};
-use externalities::{ConsumeExt, ExternalitiesExt};
+
+use crate::err::Result;
+use crate::extensions::{InterpreterExt, ExecInfo};
+use crate::externalities::{ConsumeExt, ExternalitiesExt};
 
 // possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]

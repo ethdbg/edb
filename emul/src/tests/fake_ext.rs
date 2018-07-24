@@ -28,9 +28,9 @@ use vm::{
 	ReturnData, Ext, ContractCreateResult, MessageCallResult,
 	CreateContractAddress, Result, GasLeft,
 };
-use emulator::InterpreterSnapshots;
-use externalities::ExternalitiesExt;
-use extensions::InterpreterExt;
+use crate::emulator::InterpreterSnapshots;
+use crate::externalities::ExternalitiesExt;
+use crate::extensions::InterpreterExt;
 
 // use instruction_manager::InstructionManager;
 

@@ -1,6 +1,7 @@
-use extensions::ExecutiveExt;
 use extensions::executive_utils::FinalizeInfo;
 use ethcore::trace::{Tracer, VMTracer};
+use crate::extensions::ExecutiveExt;
+
 pub struct DebugExecutive<T: Tracer, V: VMTracer> {
   finalization_info: Option<FinalizeInfo<T, V>>,
 

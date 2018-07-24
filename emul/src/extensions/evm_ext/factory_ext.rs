@@ -1,8 +1,8 @@
 use vm::{ActionParams, Ext};
-//use evm::CostType;
 use evm::factory::Factory;
-use emulator::{Emulator, VMEmulator};
 use ethereum_types::U256;
+
+use crate::emulator::{Emulator, VMEmulator};
 
 pub trait FactoryExt {
     fn create_debug(&self, params: ActionParams, ext: &Ext) -> Box<VMEmulator + Send + Sync>;
