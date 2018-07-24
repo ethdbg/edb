@@ -257,9 +257,9 @@ impl Ext for FakeExt {
     /// Prepare to trace an operation. Passthrough for the VM trace
     fn trace_prepare_execute(
         &mut self, 
-        pc: usize, 
-        instruction: u8, 
-        gas_cost: U256) 
+        _pc: usize, 
+        _instruction: u8, 
+        _gas_cost: U256) 
     {   
         //self.inst_manager.trace_prepare(pc, instruction, gas_cost);
     }
@@ -267,10 +267,10 @@ impl Ext for FakeExt {
     /// Trace the finalised execution of a single instruction
     fn trace_executed(
         &mut self, 
-        gas_used: U256, 
-        stack_push: &[U256], 
-        mem_diff: Option<(usize, &[u8])>, 
-        store_diff: Option<(U256, U256)>) 
+        _gas_used: U256, 
+        _stack_push: &[U256], 
+        _mem_diff: Option<(usize, &[u8])>, 
+        _store_diff: Option<(U256, U256)>) 
     {   
         // self.inst_manager.trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
     }
