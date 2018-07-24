@@ -6,7 +6,7 @@ use ethcore::executive::{
 use ethcore::externalities::*;
 use ethcore::factory::VmFactory;
 use ethcore::state::{Backend as StateBackend, CleanupMode, Substate};
-use ethcore::trace::{Call, FlatTrace, Tracer, VMTrace, VMTracer};
+use ethcore::trace::{Call, Tracer, VMTracer};
 use ethcore_io::LOCAL_STACK_SIZE;
 use ethereum_types::{U256, U512};
 use evm::{CallType, Finalize};
@@ -19,22 +19,15 @@ use err::Error;
 use extensions::{ExecInfo, FactoryExt};
 use externalities::{DebugExt, ExternalitiesExt};
 use std::sync::Arc;
-use utils::{FinalizeInfo, FinalizeNoCode, ResumeInfo, TransactInfo};
-/*
-    A new executive is currently being created by user `sorpaas`. This executive will contain `resume` functionality. Once that is merged into parity master, Major refactoring of this code will occur.
+use extensions::executive_utils::{FinalizeInfo, FinalizeNoCode, ResumeInfo, TransactInfo};
+
+/*  TODO: A new executive is currently being created by user `sorpaas`. This executive will contain `resume` functionality. Once that is merged into parity master, Major refactoring of this code will occur. #p2
 */
-#[derive(Debug, Clone)]
-pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
-    pub executed: Option<Executed<T, V>>,
-    is_complete: bool,
-    exec_info: ExecInfo,
-}
 
 pub enum ExecutionState<T: Tracer, V: VMTracer>{
     Create(vm::Result<evm::FinalizationResult>, TransactInfo<T, V>),
     Call(CallState<T,V>, TransactInfo<T, V>)
 }
-
 
 pub enum CallState<T: Tracer, V: VMTracer> {
     Called(FinalizeInfo<T, V>, ResumeInfo),
@@ -126,8 +119,7 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
     ) -> Result<Executed<T::Output, V::Output>, ExecutionError> where T: Tracer, V: VMTracer;
 }
 
-// TODO: add enum type that allows a config option to choose whether to execute with or without
-// validation
+// TODO: add enum type that allows a config option to choose whether to execute with or without validation #p3
 impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     fn as_dbg_externalities<'any, T, V>(
         &'any mut self,
@@ -324,7 +316,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         V: VMTracer,
     {
         // skip builtin contracts
-        // TODO: Add builtin contracts
+        // TODO: Add builtin contracts #p3
         trace!(
             "Executive::call(params={:?}) self.env_info={:?}, static={}",
             params,
@@ -349,6 +341,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         }
 
         /* skip builtins (for now) */
+        // TODO: add builtins #p3
         let trace_info = tracer.prepare_trace_call(&params);
         let mut trace_output = tracer.prepare_trace_output();
         let subtracer = tracer.subtracer();

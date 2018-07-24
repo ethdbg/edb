@@ -1,5 +1,5 @@
 //! Error descriptions and implementations for Emulator 
-use {std, vm, evm, patricia_trie_ethereum as ethtrie};
+use {std, vm, patricia_trie_ethereum as ethtrie};
 use std::fmt;
 use std::error;
 use ethcore::error::ExecutionError;

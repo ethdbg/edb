@@ -13,6 +13,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with EDB. If not, see <http://www.gnu.org/licenses/>.
+#![feature(rust_2018_preview)]
 #![recursion_limit="512"]
 
 #[macro_use]
@@ -47,6 +48,5 @@ mod externalities;
 mod extensions;
 mod tests;
 mod err;
-mod utils;
 // mod factory;
  
