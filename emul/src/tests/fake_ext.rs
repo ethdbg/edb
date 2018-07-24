@@ -114,11 +114,11 @@ impl FakeExt {
 
 
 impl ExternalitiesExt for FakeExt {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
 
-    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send> {
         if self.snapshots.states.len() <= 1 {
             self.snapshots.states.pop().unwrap()
         } else {
@@ -133,7 +133,7 @@ impl ExternalitiesExt for FakeExt {
         self.snapshots.states.len()
     }
 
-    fn externalities(&mut self) -> &mut vm::Ext {
+    fn externalities(&mut self) -> &mut dyn vm::Ext {
         self
     }
 }

@@ -28,19 +28,19 @@ use crate::err::{Result, Error, InternalError};
 use crate::externalities::ExternalitiesExt;
 
 pub trait InterpreterExt {
-    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo>;
-    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)
+    fn step_back(&mut self, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo>;
+    fn run_code_until(&mut self, ext: &mut dyn ExternalitiesExt, pos: usize)
         -> Result<ExecInfo>;
-    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo>;
+    fn run(&mut self, ext: &mut dyn vm::Ext) -> Result<ExecInfo>;
     fn get_curr_pc(&self) -> usize;
-    fn as_any(&self) -> Box<Any + Send>;
+    fn as_any(&self) -> Box<dyn Any + Send>;
 }
 
 trait AsInterpreter<C: CostType + Send> {
     fn as_interpreter(self) -> Result<Interpreter<C>>;
 }
 
-impl<C> AsInterpreter<C> for Box<Any + Send> 
+impl<C> AsInterpreter<C> for Box<dyn Any + Send> 
     where C: CostType + Send + 'static,
 {
     fn as_interpreter(self) -> Result<Interpreter<C>> {
@@ -58,14 +58,14 @@ impl<C> AsInterpreter<C> for Box<Any + Send>
 impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
 
     /// go back one step in execution
-    fn step_back(&mut self, ext: &mut ExternalitiesExt) -> Result<ExecInfo> {
+    fn step_back(&mut self, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo> {
         mem::swap(self, &mut ext.step_back().as_any().as_interpreter()?);
         Ok(ExecInfo::from_vm(&self, None))
     }
 
     /// run code until an instruction
     /// stops before instruction execution (PC)
-    fn run_code_until(&mut self, ext: &mut ExternalitiesExt, pos: usize)-> Result<ExecInfo> {   
+    fn run_code_until(&mut self, ext: &mut dyn ExternalitiesExt, pos: usize)-> Result<ExecInfo> {   
         if ext.snapshots_len() == 0 {
             ext.push_snapshot(Box::new(self.clone())); // empty state
         }
@@ -83,7 +83,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
     }
 
     /// passthrough for vm::Vm exec()
-    fn run(&mut self, ext: &mut vm::Ext) -> Result<ExecInfo> {
+    fn run(&mut self, ext: &mut dyn vm::Ext) -> Result<ExecInfo> {
         let gas_left = self.exec(ext)?;
         Ok(ExecInfo::from_vm(&self, Some(gas_left)))
     }
@@ -93,7 +93,7 @@ impl<C> InterpreterExt for Interpreter<C> where C: CostType + Send + 'static {
         else { self.reader.position - 1 }
     }
     
-    fn as_any(&self) -> Box<Any + Send> {
+    fn as_any(&self) -> Box<dyn Any + Send> {
         Box::new(self.clone())
     }
 }
@@ -152,11 +152,11 @@ mod tests {
     use vm::{Vm, ActionParams};
     use ethereum_types::{U256, H256, Address};
     use rustc_hex::FromHex;
-    use tests::fake_ext::{FakeExt, test_finalize};
+    use crate::tests::fake_ext::{FakeExt, test_finalize};
     use std::sync::Arc;
     use evm::interpreter::{SharedCache, Interpreter};
     use std::str::FromStr;
-    use emulator::InterpreterSnapshots;
+    use crate::emulator::InterpreterSnapshots;
     use std::rc::Rc;
 
     

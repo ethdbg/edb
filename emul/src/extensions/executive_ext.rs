@@ -28,17 +28,17 @@ use std::sync::Arc;
 /*  TODO: A new executive is currently being created by user `sorpaas`. This executive will contain `resume` functionality. Once that is merged into parity master, Major refactoring of this code will occur. #p2
 */
 
-pub enum ExecutionState<T: Tracer, V: VMTracer>{
+crate enum ExecutionState<T: Tracer, V: VMTracer>{
     Create(vm::Result<evm::FinalizationResult>, TransactInfo<T, V>),
     Call(CallState<T,V>, TransactInfo<T, V>)
 }
 
-pub enum CallState<T: Tracer, V: VMTracer> {
+crate enum CallState<T: Tracer, V: VMTracer> {
     Called(FinalizeInfo<T, V>, ResumeInfo),
     NoCodeCall(FinalizeNoCode),
 }
 
-pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
+crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
     fn as_dbg_externalities<'any, T, V>(
         &'any mut self,
         origin_info: OriginInfo,
@@ -71,7 +71,7 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
         &mut self,
         params: ActionParams,
         substate: &mut Substate,
-        output: BytesRef,
+        output: BytesRef<'_>,
         tracer: &mut T,
         vm_tracer: &mut V,
     ) -> vm::Result<CallState<T, V>>
@@ -80,16 +80,16 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
         V: VMTracer;
 
     fn init_vm(
-        ext: &Ext,
+        ext: &dyn Ext,
         schedule: Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
-    ) -> crate::err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)>;
+    ) -> crate::err::Result<(Box<dyn VMEmulator + Send + Sync>, rayon::ThreadPool)>;
 
     fn debug_resume(
         action: Action,
-        ext: &mut (ExternalitiesExt + Send),
-        vm: &mut Arc<VMEmulator + Send + Sync>,
+        ext: &mut (dyn ExternalitiesExt + Send),
+        vm: &mut Arc<dyn VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,
     ) -> crate::err::Result<ExecInfo>;
 
@@ -311,7 +311,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         &mut self,
         params: ActionParams,
         substate: &mut Substate,
-        output: BytesRef,
+        output: BytesRef<'_>,
         tracer: &mut T,
         vm_tracer: &mut V,
     ) -> vm::Result<CallState<T, V>>
@@ -371,7 +371,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     static_call,
                 );
                 let (vm, pool) = Self::init_vm(&ext, schedule, params.clone(), vm_factory)?;
-                let vm: Arc<VMEmulator + Send + Sync> = Arc::from(vm);
+                let vm: Arc<dyn VMEmulator + Send + Sync> = Arc::from(vm);
                 (vm, pool)
             };
             
@@ -394,8 +394,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     fn debug_resume(
         action: Action,
-        ext: &mut (ExternalitiesExt + Send),
-        vm: &mut Arc<VMEmulator + Send + Sync>,
+        ext: &mut (dyn ExternalitiesExt + Send),
+        vm: &mut Arc<dyn VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,
     ) -> crate::err::Result<ExecInfo> {
 
@@ -474,18 +474,18 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     } 
 
     fn init_vm(
-        ext: &Ext,
+        ext: &dyn Ext,
         schedule: Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
-    ) -> crate::err::Result<(Box<VMEmulator + Send + Sync>, rayon::ThreadPool)> {
+    ) -> crate::err::Result<(Box<dyn VMEmulator + Send + Sync>, rayon::ThreadPool)> {
         let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
         let depth_threshold =
             local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
 
         trace!(target: "executive", "ext.schedule.have_delegate_call: {}", 
         ext.schedule().have_delegate_call);
-        let vm: Box<VMEmulator + Send + Sync> = vm_factory.create_debug(params, ext);
+        let vm: Box<dyn VMEmulator + Send + Sync> = vm_factory.create_debug(params, ext);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)

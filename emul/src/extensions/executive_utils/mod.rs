@@ -9,7 +9,7 @@ use crate::emulator::VMEmulator;
 
 
 
-pub struct NewBytes(Bytes);
+crate struct NewBytes(Bytes);
 
 impl NewBytes {
   fn bytes(&self) -> Bytes {
@@ -18,63 +18,62 @@ impl NewBytes {
 }
 
 impl<'a> From<BytesRef<'a>> for NewBytes {
-  fn from(bytes: BytesRef) -> NewBytes {
+  fn from(bytes: BytesRef<'_>) -> NewBytes {
     match bytes {
       BytesRef::Flexible(bytes) => NewBytes(Vec::from(bytes.as_mut_slice())),
       BytesRef::Fixed(bytes) => NewBytes(Vec::from(bytes)),
-      _=> panic!("Unknown Bytes Type Conversion!")
     }
   }
 }
 
 
-pub struct DebugReturn<T: Tracer, V: VMTracer> {
-    pub schedule: Option<Schedule>,
-    pub unconfirmed_substate: Option<Substate>,
-    pub trace_output: Option<Bytes>,
-    pub trace_info: Option<Call>,
-    pub subtracer: Option<T>,
-    pub subvmtracer: Option<V>,
-    pub is_code: bool
+crate struct DebugReturn<T: Tracer, V: VMTracer> {
+    crate schedule: Option<Schedule>,
+    crate unconfirmed_substate: Option<Substate>,
+    crate trace_output: Option<Bytes>,
+    crate trace_info: Option<Call>,
+    crate subtracer: Option<T>,
+    crate subvmtracer: Option<V>,
+    crate is_code: bool
 }
 
 impl<T: Tracer, V: VMTracer> DebugReturn<T, V> {
-    pub fn is_code(&self) -> bool {
+    crate fn is_code(&self) -> bool {
         self.is_code
     }
 }
 
 
-pub struct FinalizeNoCode {
-    pub trace_info: Option<Call>,
-    pub trace_output: Option<Bytes>,
-    pub gas_given: U256
+crate struct FinalizeNoCode {
+    crate trace_info: Option<Call>,
+    crate trace_output: Option<Bytes>,
+    crate gas_given: U256
 }
 
 impl FinalizeNoCode {
-    pub fn new(trace_info: Option<Call>, trace_output: Option<Bytes>, gas_given: U256) -> Self {
+    crate fn new(trace_info: Option<Call>, trace_output: Option<Bytes>, gas_given: U256) -> Self {
         FinalizeNoCode {
             trace_info, trace_output, gas_given
         }
     }
 }
 
-pub struct FinalizeInfo<T: Tracer, V: VMTracer>
+crate struct FinalizeInfo<T: Tracer, V: VMTracer>
 {
-    pub gas: Option<vm::Result<GasLeft>>,
-    pub subtracer: T,
-    pub subvmtracer: V,
-    pub trace_info: Option<Call>,
-    pub trace_output: Option<Bytes>,
-    pub unconfirmed_substate: Substate,
-    pub is_code: bool
+    crate gas: Option<vm::Result<GasLeft>>,
+    crate subtracer: T,
+    crate subvmtracer: V,
+    crate trace_info: Option<Call>,
+    crate trace_output: Option<Bytes>,
+    crate unconfirmed_substate: Substate,
+    crate is_code: bool
 }
 
 impl<T, V> FinalizeInfo<T, V> 
     where T: Tracer,
           V: VMTracer,
 {
-    pub fn new(gas: Option<vm::Result<GasLeft>>, 
+    crate fn new(gas: Option<vm::Result<GasLeft>>, 
                subvmtracer: V, 
                subtracer: T,
                trace_info: Option<Call>, 
@@ -99,7 +98,7 @@ impl<T, V> FinalizeInfo<T, V>
     */
 }
 
-pub struct TransactInfo<T: Tracer, V: VMTracer> {
+crate struct TransactInfo<T: Tracer, V: VMTracer> {
   tracer: T,
   vm_tracer: V,
   output: Bytes,
@@ -108,22 +107,22 @@ pub struct TransactInfo<T: Tracer, V: VMTracer> {
 }
 
 impl<T,V> TransactInfo<T,V> where T: Tracer, V: VMTracer {
-  pub fn new(tracer: T, vm_tracer: V, output: Bytes, substate: Substate, params: ActionParams) -> Self  {
+  crate fn new(tracer: T, vm_tracer: V, output: Bytes, substate: Substate, params: ActionParams) -> Self  {
     TransactInfo {
       tracer, vm_tracer, output, substate, params
     }
   }
 }
 
-pub struct ResumeInfo {
-    vm: Arc<VMEmulator + Send + Sync>,
+crate struct ResumeInfo {
+    vm: Arc<dyn VMEmulator + Send + Sync>,
     pool: rayon::ThreadPool,
 }
 
 // need to create Externalities in layer above Executive and pass it in to things that need it
 impl ResumeInfo {
 
-    pub fn new(vm: Arc<VMEmulator + Send + Sync>, 
+    pub fn new(vm: Arc<dyn VMEmulator + Send + Sync>, 
                pool: rayon::ThreadPool
     ) -> Self {
         ResumeInfo {

@@ -20,10 +20,10 @@ pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
 }
 
 pub trait ExternalitiesExt {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>);
-    fn step_back(&mut self) -> Box<InterpreterExt + Send>;
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>);
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send>;
     fn snapshots_len(&self) -> usize;
-    fn externalities(&mut self) -> &mut vm::Ext;
+    fn externalities(&mut self) -> &mut dyn vm::Ext;
     // fn consume_ext(self) -> vm::Ext;
 }
 
@@ -154,11 +154,11 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
           V: VMTracer,
           B: StateBackend,
 {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
 
-    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send> {
          if self.snapshots.states.len() <= 1 {
             self.snapshots.states.pop().unwrap()
         } else {
@@ -173,7 +173,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
         self.snapshots.states.len()
     }
 
-    fn externalities(&mut self) -> &mut Ext {
+    fn externalities(&mut self) -> &mut dyn Ext {
         &mut self.externalities
     }
 }
