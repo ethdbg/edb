@@ -5,18 +5,18 @@ use ethcore::executive::{Executive, TransactOptions, contract_address, STACK_SIZ
 use ethcore::executed::{Executed, ExecutionError};
 use ethcore::externalities::*;
 use ethcore::state::{Backend as StateBackend, Substate, CleanupMode};
-use ethcore::trace::{Tracer, VMTracer, FlatTrace, VMTrace};
-use vm::{ActionParams, ActionValue, CleanDustMode, Schedule, ReturnData, Ext};
+use ethcore::trace::{Tracer, VMTracer, FlatTrace, VMTrace, Call};
+use vm::{ActionParams, ActionValue, CleanDustMode, Schedule, ReturnData, Ext, GasLeft};
 use evm::{CallType, Finalize};
 use ethereum_types::{U256, U512, Address};
 use bytes::{Bytes, BytesRef};
 use transaction::{SignedTransaction, Action as TxAction};
 
 use std::sync::Arc;
-use externalities::{DebugExt, ExternalitiesExt};
+use externalities::{DebugExt, ExternalitiesExt, ConsumeExt};
 use extensions::{ExecInfo, FactoryExt};
 use err::Error;
-// use utils::DebugReturn;
+use utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode};
 use emulator::{VMEmulator, Action};
 /* any functions here should be taken directly from parity; no modification. We only split off
  * functions and put them into executive.rs if they need to be modified to fit our needs 
@@ -43,9 +43,10 @@ pub struct DebugExecuted<T = FlatTrace, V = VMTrace> {
     is_complete: bool,
     exec_info: ExecInfo,
 }
-enum ExecutionState {
-    Called(),
 
+enum ExecutionState<T: Tracer, V: VMTracer, E: ExternalitiesExt + vm::Ext> {
+    Called(FinalizeInfo<T, V>, ResumeInfo<E>),
+    NoCodeCall(FinalizeNoCode<T>),
 }
 pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
    
@@ -63,21 +64,20 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
     /// functionality. Execute a transaction within the debug context
     /// pc = Program Counter (where to stop execution)
     // Prefer enum over two different functions
-    fn _transact_debug<T, V>(&mut self, t: &SignedTransaction, options: TransactOptions<T, V>) 
+    fn transact_debug<T, V>(&mut self, t: &SignedTransaction, options: TransactOptions<T, V>) 
         -> err::Result<Executed<T:: Output, V::Output>> where T: Tracer, V: VMTracer;
 
 
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
-    fn _debug_call<T, V>( &mut self,
+    fn debug_call<T, V>( &mut self,
                         params: &ActionParams,
-                        substate: &mut Substate,
+                        substate: Substate,
                         output: BytesRef,
                         tracer: &mut T,
                         vm_tracer: &mut V
     // find a better way to do these return arguments 
-    ) -> vm::Result<evm::FinalizationResult> where T: Tracer, V: VMTracer;
-
+    ) -> vm::Result<ExecutionState> where T: Tracer, V: VMTracer;
     fn init_vm(ext: &Ext,
                schedule: Schedule, params: ActionParams, 
                vm_factory: VmFactory
@@ -85,6 +85,21 @@ pub trait ExecutiveExt<'a, B: 'a + StateBackend> {
 
     fn debug_resume(action: Action, ext: &mut (ExternalitiesExt + Send), vm: &mut Arc<VMEmulator + Send + Sync>, pool: &rayon::ThreadPool
     ) -> err::Result<ExecInfo>;
+
+    fn debug_finish<T: 'a, V: 'a, E>(&mut self,
+                          gas: vm::Result<GasLeft>, 
+                          tracer: &mut T, 
+                          vm_tracer: &mut V, 
+                          traces: Vec<T::Output>,
+                          subvmtracer: V,
+                          trace_info: Option<Call>,
+                          trace_output: Option<Bytes>,
+                          gas_given: U256,
+                          substate: &mut Substate,
+                          un_substate: Substate,
+                          ext: Box<E>,
+                          is_code: bool,
+    ) -> vm::Result<evm::FinalizationResult> where T: Tracer, V: VMTracer, E: ExternalitiesExt + ConsumeExt<'a, T, V, B>;
 }
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without 
@@ -107,7 +122,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging 
     /// functionality. Execute a transaction within the debug context
-    fn _transact_debug<T, V>(&mut self, t: &SignedTransaction, options: TransactOptions<T, V>) 
+    fn transact_debug<T, V>(&mut self, t: &SignedTransaction, options: TransactOptions<T, V>) 
      -> err::Result<Executed<T:: Output, V::Output>> where T: Tracer, V: VMTracer {
 
         /* setup a virtual transaction */
@@ -215,7 +230,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     params_type: vm::ParamsType::Separate,
                 };
                 let mut out = vec![];
-                (Ok(self._debug_call(&params, &mut substate, 
+                (Ok(self.debug_call(&params, substate, 
                                  BytesRef::Flexible(&mut out), &mut tracer, &mut vm_tracer)?), out)
             }
         };
@@ -224,14 +239,16 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
 
     /// call a contract function with contract params
     /// until 'PC' (program counter) is hit
-    fn _debug_call<T,V>( &mut self,
+    fn debug_call<T,V,E>( &mut self,
                         params: &ActionParams,
-                        substate: &mut Substate,
+                        substate: Substate,
                         output: BytesRef,
                         tracer: &mut T,
                         vm_tracer: &mut V
     // ) -> Result<evm::FinalizationResult> where T: Tracer, V: VMTracer {
-    ) -> vm::Result<evm::FinalizationResult> where T: Tracer, V: VMTracer {
+    ) -> vm::Result<ExecutionState<T, V, E>>
+    where T: Tracer, V: VMTracer, E: ExternalitiesExt + vm::Ext
+{
         
         // skip builtin contracts
         // TODO: Add builtin contracts
@@ -259,57 +276,41 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             let mut unconfirmed_substate = Substate::new();
             let subvmtracer = vm_tracer.prepare_subtrace(params.code.as_ref().expect("scope is conditional on params.code.is_some(); qed"));
             let static_call = params.call_type == CallType::StaticCall;
-            let res = { 
-                let mut info: Option<ExecInfo> = None;
-                let vm_factory = self.state.vm_factory();
-                let output_policy = OutputPolicy::Return(output, trace_output.as_mut());
-                let mut ext = self.as_dbg_externalities(OriginInfo::from(params), 
-                                                        &mut unconfirmed_substate,
-                                                        output_policy, tracer, vm_tracer, 
-                                                        static_call);
+            let vm_factory = self.state.vm_factory();
+            let output_policy = OutputPolicy::Return(output, trace_output.as_mut());
+            let mut ext = 
+                self.as_dbg_externalities(OriginInfo::from(params), 
+                                          &mut unconfirmed_substate,
+                                          output_policy, 
+                                          tracer, 
+                                          vm_tracer, 
+                                          static_call);
+            let (mut vm, pool) = Self::init_vm(&ext, schedule, params.clone(), vm_factory)?;
+            let mut vm: Arc<VMEmulator + Send + Sync> = Arc::from(vm);
 
-                let (mut vm, pool) = Self::init_vm(&ext, schedule, params.clone(), vm_factory)?;
-                let mut vm: Arc<VMEmulator + Send + Sync> = Arc::from(vm);
+            let res_info = ResumeInfo::new(ext, vm, pool);
+            let fin_info = FinalizeInfo::new(None, tracer, vm_tracer, subvmtracer, subtracer, trace_info, trace_output, params.gas, substate, unconfirmed_substate, true);
+
+            Ok(ExecutionState::Called(fin_info, res_info))
                 /*
                 for x in rx.iter() {
                     info = Some(Self::debug_resume(x, &mut ext, &mut vm.clone(), &pool)?);
                     tx.send(info.clone().expect("Info was just put into `Some`; qed")).unwrap(); // fix errors here
                 }
                 */
-                let info = info.ok_or_else(|| vm::Error::Internal("Execution Info returned as `None` Value".to_owned()))?;
 
-                match info.gas_left() {
-                    Some(gas) => Ok(gas).finalize(ext),
-                    None => Err(vm::Error::Internal("Execution failed because gas has value `None`".to_string())).finalize(ext),
-                }
-            };
-        
-            vm_tracer.done_subtrace(subvmtracer);
-            trace!(target: "executive", "res={:?}", res);
-            let traces = subtracer.drain();
-            
-            match res {
-                Ok(ref res) if res.apply_state => tracer.trace_call(trace_info, params.gas - res.gas_left,
-                                                                    trace_output,traces),
-                Ok(_) => tracer.trace_failed_call(trace_info, traces, vm::Error::Reverted.into()),
-                Err(ref e) => tracer.trace_failed_call(trace_info, traces, e.into()),
-            };
-        
-            trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, unconfirmed_substate);
-            self.enact_result(&res, substate, unconfirmed_substate);
-            trace!(target: "executive", "enacted: substate={:?} \n", substate);
-            res
+                // return pool and vm
+               // let info = info.ok_or_else(|| vm::Error::Internal("Execution Info returned as `None` Value".to_owned()))?;
 
-        } else { 
-            self.state.discard_checkpoint();
-            tracer.trace_call(trace_info, U256::zero(), trace_output, vec![]);
-            Ok(evm::FinalizationResult {
-                gas_left: params.gas,
-                return_data: ReturnData::empty(),
-                apply_state: true
-            })
-        }
-    }
+                // Ok(ResumeInfo::new(ext, vm, pool))
+
+           } else {
+                let fin_info = FinalizeNoCode::new(tracer, trace_info, trace_output);
+                Ok(ExecutionState::NoCodeCall(fin_info))
+
+           }
+       }
+   }
 
 
     fn debug_resume(action: Action, ext: &mut (ExternalitiesExt + Send), vm: &mut Arc<VMEmulator + Send + Sync>, pool: &rayon::ThreadPool
@@ -318,6 +319,49 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         Ok(pool.install(move ||
                 Arc::get_mut(vm).unwrap().fire(action, ext)
             )?)
+    }
+
+    fn debug_finish<T: 'a, V: 'a, E>(&mut self,
+                          gas: vm::Result<GasLeft>, 
+                          tracer: &mut T, 
+                          vm_tracer: &mut V, 
+                          subvmtracer: V,
+                          subtracer: T,
+                          trace_info: Option<Call>,
+                          trace_output: Option<Bytes>,
+                          gas_given: U256,
+                          substate: &mut Substate,
+                          un_substate: Substate,
+                          ext: E,
+                          is_code: bool,
+    ) -> vm::Result<evm::FinalizationResult> where T: Tracer, V: VMTracer, E: ExternalitiesExt + vm::Ext {
+        if is_code {
+            let res = gas.finalize(ext);
+
+            vm_tracer.done_subtrace(subvmtracer);
+            trace!(target: "executive", "res={:?}", res);
+            let traces = subtracer.drain();
+        
+            match res {
+                Ok(ref res) if res.apply_state => tracer.trace_call(trace_info, gas_given - res.gas_left,
+                                                                    trace_output,traces),
+                Ok(_) => tracer.trace_failed_call(trace_info, traces, vm::Error::Reverted.into()),
+                Err(ref e) => tracer.trace_failed_call(trace_info, traces, e.into()),
+            };
+
+            trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, un_substate);
+            self.enact_result(&res, substate, un_substate);
+            trace!(target: "executive", "enacted: substate={:?} \n", substate);
+            res
+        } else {
+            self.state.discard_checkpoint();
+            tracer.trace_call(trace_info, U256::zero(), trace_output, vec![]);
+            Ok(evm::FinalizationResult {
+                gas_left: gas_given,
+                return_data: ReturnData::empty(),
+                apply_state: true
+            })
+        }
     }
 
 
