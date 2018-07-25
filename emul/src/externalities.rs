@@ -62,16 +62,17 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B>
     pub fn new( state: &'a mut  State<B>,
                 env_info: &'a EnvInfo,
                 machine: &'a Machine,
+                schedule: &'a Schedule,
                 depth: usize,
                 origin_info: OriginInfo,
                 substate: &'a mut Substate,
-                output: OutputPolicy<'a, 'a>,
+                output: OutputPolicy,
                 tracer: &'a mut T,
                 vm_tracer: &'a mut V,
                 static_flag: bool
     ) -> Self {
         DebugExt {
-            externalities: Externalities::new(state, env_info, machine, depth, origin_info, 
+            externalities: Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
                                               substate, output, tracer, vm_tracer, static_flag),
             snapshots: InterpreterSnapshots::new()
         }
@@ -107,7 +108,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a, T, V, B>
                     value: Option<U256>, 
                     data: &[u8], 
                     code_address: &Address, 
-                    output: &mut [u8], 
                     call_type: CallType
             ) -> MessageCallResult;
 

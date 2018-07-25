@@ -17,7 +17,8 @@
 #![warn(rust_2018_idioms)]
 #![recursion_limit="512"]
 
-pub mod emulator;
+mod debug_executive;
+mod emulator;
 mod externalities;
 // mod executive;
 mod extensions;

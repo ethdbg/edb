@@ -2,9 +2,7 @@
 //! Kind of like the Debug version of 'executive.rs' in Ethcore
 //! Does not change ethereum state. purely for debugging contracts by themselves with
 //! the EVM
-use vm;
-use evm;
-use vm::{Ext, GasLeft};
+use vm::{Ext, GasLeft, Schedule};
 use evm::{CostType, Finalize};
 use ethcore::trace::{Tracer, VMTracer};
 use ethcore::state::Backend as StateBackend;
@@ -130,7 +128,7 @@ impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
 }
 
 impl<Cost: CostType + Send> Emulator<Cost> {
-    pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, ext: &dyn Ext) -> Self {
-        Emulator(Interpreter::new(params, cache, ext).unwrap())
+    pub fn new(params: vm::ActionParams, cache: Arc<SharedCache>, schedule: &Schedule, depth: usize) -> Self {
+        Emulator(Interpreter::new(params, cache, schedule, depth))
     }
 }

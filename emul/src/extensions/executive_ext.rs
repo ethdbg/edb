@@ -43,7 +43,7 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
         &'any mut self,
         origin_info: OriginInfo,
         substate: &'any mut Substate,
-        output: OutputPolicy<'any, 'any>,
+        output: OutputPolicy,
         tracer: &'any mut T,
         vm_tracer: &'any mut V,
         static_call: bool,
@@ -80,10 +80,10 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
         V: VMTracer;
 
     fn init_vm(
-        ext: &dyn Ext,
-        schedule: Schedule,
+        schedule: &Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
+        depth: usize,
     ) -> crate::err::Result<(Box<dyn VMEmulator + Send + Sync>, rayon::ThreadPool)>;
 
     fn debug_resume(
@@ -129,7 +129,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         &'any mut self,
         origin_info: OriginInfo,
         substate: &'any mut Substate,
-        output: OutputPolicy<'any, 'any>,
+        output: OutputPolicy,
         tracer: &'any mut T,
         vm_tracer: &'any mut V,
         static_call: bool,
@@ -143,6 +143,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             self.state,
             self.info,
             self.machine,
+            self.schedule,
             self.depth,
             origin_info,
             substate,
@@ -269,13 +270,17 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
                     call_type: CallType::None,
                     params_type: vm::ParamsType::Embedded,
                 };
-                let mut out = if output_from_create {
+                let mut out: Option<Bytes> = if output_from_create {
                     Some(vec![])
                 } else {
                     None
                 };
-                let res = self.create(params.clone(), &mut substate, &mut out, &mut tracer, &mut vm_tracer);
-                Ok(ExecutionState::Create(res, TransactInfo::new(tracer, vm_tracer, out.unwrap_or_else(Vec::new), substate, params)))
+                let res = self.create(params.clone(), &mut substate, &mut tracer, &mut vm_tracer);
+                let out = match &res {
+                    Ok(res) if output_from_create => res.return_data.to_vec(),
+                    _ => Vec::new()
+                };
+                Ok(ExecutionState::Create(res, TransactInfo::new(tracer, vm_tracer, out, substate, params)))
             }
             TxAction::Call(ref address) => {
                 let params = ActionParams {
@@ -334,7 +339,8 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             return Err(vm::Error::MutableCallInStaticContext);
         }
         self.state.checkpoint();
-        let schedule = self.machine.schedule(self.info.number);
+        let schedule = self.schedule;
+        
         if let ActionValue::Transfer(val) = params.value {
             self.state.transfer_balance(
                 &params.sender,
@@ -360,20 +366,16 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             );
             let static_call = params.call_type == CallType::StaticCall;
             let vm_factory = self.state.vm_factory();
-            let (vm, pool) = {
-                let output_policy = OutputPolicy::Return(output, trace_output.as_mut()); /* HERE */
-                let ext = self.as_dbg_externalities(
-                    OriginInfo::from(&params),
-                    &mut unconfirmed_substate,
-                    output_policy,                                                         /* HERE */
-                    tracer,
-                    vm_tracer,
-                    static_call,
-                );
-                let (vm, pool) = Self::init_vm(&ext, schedule, params.clone(), vm_factory)?;
-                let vm: Arc<dyn VMEmulator + Send + Sync> = Arc::from(vm);
-                (vm, pool)
-            };
+            /*let ext = self.as_dbg_externalities(
+                OriginInfo::from(&params),
+                &mut unconfirmed_substate,
+                OutputPolicy::Return, 
+                tracer,
+                vm_tracer,
+                static_call,
+            ); */
+            let (vm, pool) = Self::init_vm(schedule, params.clone(), vm_factory, self.depth)?;
+            let vm: Arc<dyn VMEmulator + Send + Sync> = Arc::from(vm);
             
             let res_info = ResumeInfo::new(vm, pool);
             let fin_info = FinalizeInfo::new(
@@ -474,18 +476,17 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
     } 
 
     fn init_vm(
-        ext: &dyn Ext,
-        schedule: Schedule,
+        schedule: &Schedule,
         params: ActionParams,
         vm_factory: VmFactory,
+        depth: usize,
     ) -> crate::err::Result<(Box<dyn VMEmulator + Send + Sync>, rayon::ThreadPool)> {
         let local_stack_size = LOCAL_STACK_SIZE.with(|sz| sz.get());
         let depth_threshold =
             local_stack_size.saturating_sub(STACK_SIZE_ENTRY_OVERHEAD) / STACK_SIZE_PER_DEPTH;
 
-        trace!(target: "executive", "ext.schedule.have_delegate_call: {}", 
-        ext.schedule().have_delegate_call);
-        let vm: Box<dyn VMEmulator + Send + Sync> = vm_factory.create_debug(params, ext);
+        trace!(target: "executive", "ext.schedule.have_delegate_call: {}", schedule.have_delegate_call);
+        let vm: Box<dyn VMEmulator + Send + Sync> = vm_factory.create_debug(params, schedule, depth);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -512,7 +513,6 @@ mod tests {
     use std::sync::Arc;
     use tempdir::TempDir;
     use vm::EnvInfo;
-    use *;
     use {blooms_db, journaldb};
     // pub fn new(state: &'a mut State<B>, info: &'a EnvInfo, machine: &'a Machine) -> Self {
 

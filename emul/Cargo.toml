@@ -30,34 +30,34 @@ git = "https://github.com/paritytech/parity-common"
 
 [dependencies.journaldb]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.blooms-db]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.evm]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.vm]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.ethcore]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.transaction]
 package = "ethcore-transaction"
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.ethcore-io]
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
 
 [dependencies.ethtrie]
 package="patricia-trie-ethereum"
 git = "https://github.com/ethdbg/parity"
-branch = "edb"
+branch = "edb-experimental"
