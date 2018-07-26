@@ -11,25 +11,27 @@ use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;
 use crate::externalities::ExternalitiesExt;
 use crate::err::{Error, DebugError};
+
+use std::borrow::BorrowMut;
 // acts as a state machine for transaction execution
 // continually trying to reach the next Debug State until `finish()` can be called
 
-enum FinalizeType<T: Tracer, V: VMTracer> {
+enum FinalizeType {
     NoCode(FinalizeNoCode), // a transaction that does not require code to be executed (basic tx)
-    Code(FinalizeInfo<T,V>),    // tx that requires execution
+    Code(FinalizeInfo),    // tx that requires execution
     Create(vm::Result<evm::FinalizationResult>) // create a contract -- no debugging capability yet
 }
 
-enum DebugState <T: Tracer, V: VMTracer> {
-    Resumable(ResumeInfo, TransactInfo<T,V>, FinalizeType<T,V>), // -- execution can be manipulated
-    NeedsFinalization(FinalizeType<T,V>, TransactInfo<T,V>), // a transaction that needs to be finalized
+enum DebugState {
+    Resumable(ResumeInfo, TransactInfo, FinalizeType), // -- execution can be manipulated
+    NeedsFinalization(FinalizeType, TransactInfo), // a transaction that needs to be finalized
     Done(vm::Result<evm::FinalizationResult>), // a transaction that is finished
     Nil, // if unwrapped to `None` value, this is a default
 }
 
-trait DebugFields<T: Tracer, V: VMTracer> {
-    fn tx_info(&self) -> crate::err::Result<&TransactInfo<T,V>>;
-    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>>;
+trait DebugFields {
+    fn tx_info(&self) -> crate::err::Result<&TransactInfo>;
+    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo>;
     fn is_resumable(&self) -> bool;
 }
 const dbg_err_str: &'static str = "DebugState or DebugExecution Object not intitalized; \
@@ -37,10 +39,8 @@ const dbg_err_str: &'static str = "DebugState or DebugExecution Object not intit
                                    `Debug Fields` occured anyway";
 
 // defaults and error handling for Option<> fields on DebugExecutive
-impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>> 
-    where T: Tracer, V: VMTracer
-{
-    fn tx_info(&self) -> crate::err::Result<&TransactInfo<T,V>> {
+impl DebugFields for Option<DebugExecution> {
+    fn tx_info(&self) -> crate::err::Result<&TransactInfo> {
         let err_str = "Attempt to get Transaction Info from a state \
                        where Transaction Info does not exist";
 
@@ -51,7 +51,7 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
         }
     }
 
-    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>> {
+    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo> {
 
         let error_str = "Attempt to get Finalization Information from an object that was not `Resumable`";
 
@@ -74,16 +74,20 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     }
 }
 
-pub struct DebugExecution<T: Tracer, V: VMTracer> {
-    state: DebugState<T,V>,
+pub struct DebugExecution {
+    state: DebugState,
 }
 
-impl<T,V> DebugExecution<T,V> 
-where T: Tracer, V: VMTracer {
-    fn new<'a, B: 'a + StateBackend>(t: &SignedTransaction, 
+impl DebugExecution {
+
+    fn new<'a, B, T, V>(t: &SignedTransaction, 
            options: TransactOptions<T,V>, 
            executive: impl ExecutiveExt<'a, B>,
-    ) -> crate::err::Result<Self> {
+    ) -> crate::err::Result<Self> 
+        where B: 'a + StateBackend,
+              T: Tracer,
+              V: VMTracer
+    {
 
         let state = match executive.transact_debug(t, options)? {
             ExecutionState::Create(res, txinfo) => DebugState::NeedsFinalization(FinalizeType::Create(res), txinfo),
@@ -104,16 +108,14 @@ where T: Tracer, V: VMTracer {
         })
     }
 }
-pub struct DebugExecutive<'a, T: Tracer, V: VMTracer, B: 'a + StateBackend, E: ExternalitiesExt + vm::Ext> {
+pub struct DebugExecutive<'a, B: 'a + StateBackend, E: ExternalitiesExt + vm::Ext> {
     inner: Executive<'a, B>,
-    tx: Option<DebugExecution<T,V>>,
+    tx: Option<DebugExecution>,
     ext: Option<Box<E>>
 }
 
-impl<'a,T: 'a,V: 'a,B,E> DebugExecutive<'a,T,V,B,E> 
-where T: Tracer, 
-      V: VMTracer, 
-      B: 'a + StateBackend,
+impl<'a,B,E> DebugExecutive<'a,B,E> 
+where B: 'a + StateBackend,
       E: ExternalitiesExt + vm::Ext
 {
     pub fn new(state: &'a mut State<B>, 
@@ -129,8 +131,9 @@ where T: Tracer,
         }
     }
  
-    pub fn begin_transact(&'a mut self, t: &SignedTransaction, options: TransactOptions<T,V>
-    ) -> crate::err::Result<()> {
+    pub fn begin_transact<T,V>(&'a mut self, t: &SignedTransaction, options: TransactOptions<T,V>
+    ) -> crate::err::Result<()> where T: Tracer, V: VMTracer
+    {
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
         if self.tx.is_resumable() {
@@ -141,8 +144,8 @@ where T: Tracer,
                     OriginInfo::from(txinfo.params()),
                     &mut fininfo.unconfirmed_substate,
                     OutputPolicy::Return,
-                    &mut txinfo.tracer,
-                    &mut txinfo.vm_tracer,
+                    txinfo.tracer.borrow_mut(),
+                    txinfo.vm_tracer.borrow_mut(),
                     txinfo.params().call_type == evm::CallType::StaticCall
 
             );
@@ -155,8 +158,7 @@ where T: Tracer,
         unimplemented!();
     }
 
-    pub fn finish(&mut self
-    ) -> crate::err::Result<Executed<T::Output, V::Output>> where T: Tracer, V: VMTracer {
+    pub fn finish<T,V>(&mut self) -> crate::err::Result<Executed<T::Output, V::Output>> where T:Tracer, V:VMTracer {
         self.tx = None;
         self.ext = None;
         unimplemented!();

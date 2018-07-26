@@ -1,7 +1,7 @@
 use vm::{Schedule, GasLeft, ActionParams};
 use ethcore::state::{Substate};
 use ethcore::trace::trace::Call;
-use ethcore::trace::{Tracer, VMTracer};
+use ethcore::trace::{Tracer, VMTracer, FlatTrace, VMTrace};
 use ethereum_types::{U256};
 use bytes::{Bytes, BytesRef};
 use std::sync::Arc;
@@ -25,17 +25,17 @@ impl<'a> From<BytesRef<'a>> for NewBytes {
 }
 
 
-crate struct DebugReturn<T: Tracer, V: VMTracer> {
+crate struct DebugReturn {
     crate schedule: Option<Schedule>,
     crate unconfirmed_substate: Option<Substate>,
     crate trace_output: Option<Bytes>,
     crate trace_info: Option<Call>,
-    crate subtracer: Option<T>,
-    crate subvmtracer: Option<V>,
+    crate subtracer: Option<Box<dyn Tracer<Output=FlatTrace>>>,
+    crate subvmtracer: Option<Box<dyn VMTracer<Output=VMTrace>>>,
     crate is_code: bool
 }
 
-impl<T: Tracer, V: VMTracer> DebugReturn<T, V> {
+impl DebugReturn {
     crate fn is_code(&self) -> bool {
         self.is_code
     }
@@ -56,32 +56,33 @@ impl FinalizeNoCode {
     }
 }
 
-crate struct FinalizeInfo<T: Tracer, V: VMTracer>
-{
+crate struct FinalizeInfo {
     crate gas: Option<vm::Result<GasLeft>>,
-    crate subtracer: T,
-    crate subvmtracer: V,
+    crate subtracer: Box<dyn Tracer<Output=FlatTrace>>,
+    crate subvmtracer: Box<dyn VMTracer<Output=VMTrace>>,
     crate trace_info: Option<Call>,
     crate trace_output: Option<Bytes>,
     crate unconfirmed_substate: Substate,
     crate is_code: bool
 }
 
-impl<T, V> FinalizeInfo<T, V> 
-    where T: Tracer,
-          V: VMTracer,
-{
+impl FinalizeInfo {
     crate fn new(gas: Option<vm::Result<GasLeft>>, 
-               subvmtracer: V, 
-               subtracer: T,
+               subvmtracer: impl VMTracer,
+               subtracer: impl Tracer,
                trace_info: Option<Call>, 
                trace_output: Option<Bytes>, 
                unconfirmed_substate: Substate, 
                is_code: bool) -> Self {
 
         FinalizeInfo {
-            gas, subvmtracer, 
-            subtracer, trace_info, trace_output, unconfirmed_substate, is_code
+            gas, 
+            subvmtracer: Box::new(subvmtracer),
+            subtracer: Box::new(subtracer), 
+            trace_info, 
+            trace_output, 
+            unconfirmed_substate, 
+            is_code
         }
     }
     /*
@@ -96,18 +97,21 @@ impl<T, V> FinalizeInfo<T, V>
     */
 }
 
-crate struct TransactInfo<T: Tracer, V: VMTracer> {
-  pub tracer: T,
-  pub vm_tracer: V,
+crate struct TransactInfo {
+  pub tracer: Box<dyn Tracer<Output=FlatTrace>>,
+  pub vm_tracer: Box<dyn VMTracer<Output=VMTrace>>,
   output: Bytes,
   substate: Substate,
   params: ActionParams,
 }
 
-impl<T,V> TransactInfo<T,V> where T: Tracer, V: VMTracer {
-  crate fn new(tracer: T, vm_tracer: V, output: Bytes, substate: Substate, params: ActionParams) -> Self  {
+impl TransactInfo {
+  crate fn new(tracer: Box<dyn Tracer<Output=FlatTrace>>, vm_tracer: Box<dyn VMTracer<Output=VMTrace>>, output: Bytes, substate: Substate, params: ActionParams) -> Self  
+  {
     TransactInfo {
-      tracer, vm_tracer, output, substate, params
+      tracer: tracer,
+      vm_tracer: vm_tracer,
+      output, substate, params
     }
   }
 

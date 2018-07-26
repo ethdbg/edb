@@ -28,13 +28,13 @@ use std::sync::Arc;
 /*  TODO: A new executive is currently being created by user `sorpaas`. This executive will contain `resume` functionality. Once that is merged into parity master, Major refactoring of this code will occur. #p2
 */
 
-crate enum ExecutionState<T: Tracer, V: VMTracer>{
-    Create(vm::Result<evm::FinalizationResult>, TransactInfo<T, V>),
-    Call(CallState<T,V>, TransactInfo<T, V>)
+crate enum ExecutionState {
+    Create(vm::Result<evm::FinalizationResult>, TransactInfo),
+    Call(CallState, TransactInfo)
 }
 
-crate enum CallState<T: Tracer, V: VMTracer> {
-    Called(FinalizeInfo<T, V>, ResumeInfo),
+crate enum CallState {
+    Called(FinalizeInfo, ResumeInfo),
     NoCodeCall(FinalizeNoCode),
 }
 
@@ -57,7 +57,7 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
         &mut self,
         t: &SignedTransaction,
         options: TransactOptions<T, V>,
-    ) -> crate::err::Result<ExecutionState<T, V>>
+    ) -> crate::err::Result<ExecutionState>
     where
         T: Tracer,
         V: VMTracer;
@@ -71,7 +71,7 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
         output: BytesRef<'_>,
         tracer: &mut T,
         vm_tracer: &mut V,
-    ) -> vm::Result<CallState<T, V>>
+    ) -> vm::Result<CallState>
     where
         T: Tracer,
         V: VMTracer;
@@ -158,7 +158,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         &mut self,
         t: &SignedTransaction,
         options: TransactOptions<T, V>,
-    ) -> crate::err::Result<ExecutionState<T,V>>
+    ) -> crate::err::Result<ExecutionState>
     where
         T: Tracer,
         V: VMTracer,
@@ -317,7 +317,7 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         output: BytesRef<'_>,
         tracer: &mut T,
         vm_tracer: &mut V,
-    ) -> vm::Result<CallState<T, V>>
+    ) -> vm::Result<CallState>
     where
         T: Tracer,
         V: VMTracer,
