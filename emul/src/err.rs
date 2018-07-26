@@ -25,6 +25,12 @@ impl fmt::Display for DebugError {
     }
 }
 
+impl From<&str> for DebugError {
+    fn from(str: &str) -> DebugError {
+        DebugError(str.to_owned())
+    }
+}
+
 impl error::Error for DebugError {
     fn description(&self) -> &str {
         &self.0
@@ -101,7 +107,6 @@ pub enum Error {
     ChannelRecv(RecvError),
     Debug(DebugError),
 }
-
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

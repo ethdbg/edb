@@ -7,8 +7,6 @@ use bytes::{Bytes, BytesRef};
 use std::sync::Arc;
 use crate::emulator::VMEmulator;
 
-
-
 crate struct NewBytes(Bytes);
 
 impl NewBytes {
@@ -99,8 +97,8 @@ impl<T, V> FinalizeInfo<T, V>
 }
 
 crate struct TransactInfo<T: Tracer, V: VMTracer> {
-  tracer: T,
-  vm_tracer: V,
+  pub tracer: T,
+  pub vm_tracer: V,
   output: Bytes,
   substate: Substate,
   params: ActionParams,
@@ -111,6 +109,10 @@ impl<T,V> TransactInfo<T,V> where T: Tracer, V: VMTracer {
     TransactInfo {
       tracer, vm_tracer, output, substate, params
     }
+  }
+
+  crate fn params(&self) -> &ActionParams {
+    &self.params
   }
 }
 

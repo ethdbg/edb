@@ -39,18 +39,15 @@ crate enum CallState<T: Tracer, V: VMTracer> {
 }
 
 crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
-    fn as_dbg_externalities<'any, T, V>(
-        &'any mut self,
+    fn as_dbg_externalities<T: 'a, V: 'a>(
+        &'a mut self,
         origin_info: OriginInfo,
-        substate: &'any mut Substate,
+        substate: &'a mut Substate,
         output: OutputPolicy,
-        tracer: &'any mut T,
-        vm_tracer: &'any mut V,
+        tracer: &'a mut T,
+        vm_tracer: &'a mut V,
         static_call: bool,
-    ) -> DebugExt<'any, T, V, B>
-    where
-        T: Tracer,
-        V: VMTracer;
+    ) -> DebugExt<'a,T,V,B> where T: Tracer, V: VMTracer;
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging
     /// functionality. Execute a transaction within the debug context
@@ -125,19 +122,20 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without validation #p3
 impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
-    fn as_dbg_externalities<'any, T, V>(
-        &'any mut self,
+    fn as_dbg_externalities<'any, T: 'a, V: 'a>(
+        &'a mut self,
         origin_info: OriginInfo,
-        substate: &'any mut Substate,
+        substate: &'a mut Substate,
         output: OutputPolicy,
-        tracer: &'any mut T,
-        vm_tracer: &'any mut V,
+        tracer: &'a mut T,
+        vm_tracer: &'a mut V,
         static_call: bool,
-    ) -> DebugExt<'any, T, V, B>
-    where
-        T: Tracer,
-        V: VMTracer,
+    ) -> DebugExt<'a,T,V,B> 
+    where 
+        T: Tracer, 
+        V: VMTracer, 
     {
+        
         let is_static = self.static_flag || static_call;
         DebugExt::new(
             self.state,
@@ -353,11 +351,11 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
         /* skip builtins (for now) */
         // TODO: add builtins #p3
         let trace_info = tracer.prepare_trace_call(&params);
-        let mut trace_output = tracer.prepare_trace_output();
+        let trace_output = tracer.prepare_trace_output();
         let subtracer = tracer.subtracer();
 
         if params.code.is_some() {
-            let mut unconfirmed_substate = Substate::new();
+            let unconfirmed_substate = Substate::new();
             let subvmtracer = vm_tracer.prepare_subtrace(
                 params
                     .code
@@ -366,14 +364,6 @@ impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
             );
             let static_call = params.call_type == CallType::StaticCall;
             let vm_factory = self.state.vm_factory();
-            /*let ext = self.as_dbg_externalities(
-                OriginInfo::from(&params),
-                &mut unconfirmed_substate,
-                OutputPolicy::Return, 
-                tracer,
-                vm_tracer,
-                static_call,
-            ); */
             let (vm, pool) = Self::init_vm(schedule, params.clone(), vm_factory, self.depth)?;
             let vm: Arc<dyn VMEmulator + Send + Sync> = Arc::from(vm);
             
