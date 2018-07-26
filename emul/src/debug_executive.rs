@@ -27,35 +27,66 @@ enum DebugState <T: Tracer, V: VMTracer> {
     Nil, // if unwrapped to `None` value, this is a default
 }
 
+trait Info {
+    fn fin_info(&self) -> crate::err::Result<FinalizeInfo<dyn Tracer,dyn VMTracer>>;
+    fn tx_info<TT,VV>(&self) -> crate::err::Result<TransactInfo<TT,VV>> where TT: Tracer, VV: VMTracer;
+}
+
+impl<T,V> Info for DebugState<T,V> where T: Tracer, V: VMTracer {
+    fn fin_info<TT,VV>(&self) -> crate::err::Result<FinalizeInfo<TT,VV>> where TT: Tracer, VV: VMTracer {
+        unimplemented!();
+    }
+
+    fn tx_info<TT,VV>(&self) -> crate::err::Result<TransactInfo<TT,VV>> where TT: Tracer, VV: VMTracer {
+        unimplemented!();
+    }
+}
+
 trait DebugFields<T: Tracer, V: VMTracer> {
-    fn tx_info(&self) -> crate::err::Result<&TransactInfo<T,V>>;
-    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>>;
-    fn is_resumable(&self) -> bool;
+    fn tx_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()>;
+    fn fin_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
+    fn info<F>(self, f: F) -> crate::err::Result<()>
+    where 
+        F: FnMut(&mut FinalizeInfo<T,V>, &mut TransactInfo<T,V>) -> crate::err::Result<()>;
+    fn is_resumable(self) -> bool;
 }
 const dbg_err_str: &'static str = "DebugState or DebugExecution Object not intitalized; \
                                    but attempt to call a function defined on \
                                    `Debug Fields` occured anyway";
 
-// defaults and error handling for Option<> fields on DebugExecutive
-impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>> 
+/// defaults and error handling for Option<> fields on DebugExecutive
+/// higher order functions for using data in State
+impl<T,V> DebugFields<T,V> for Option<&mut DebugExecution<T,V>> 
     where T: Tracer, V: VMTracer
-{
-    fn tx_info(&self) -> crate::err::Result<&TransactInfo<T,V>> {
+{   
+    /// use TransactInfo by-mutable-reference
+    fn tx_info<F>(self, f: F) -> crate::err::Result<()> 
+    where 
+        F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()> 
+    {
+        
         let err_str = "Attempt to get Transaction Info from a state \
                        where Transaction Info does not exist";
 
-        match self.map(|s| s.state).ok_or(Error::Debug(DebugError::from(dbg_err_str)))? {
-            DebugState::Resumable(_,txinfo,_) => Ok(&txinfo),
-            DebugState::NeedsFinalization(_, txinfo) => Ok(&txinfo),
+        let txinfo = match self.map(|s| s.state).ok_or(Error::Debug(DebugError::from(dbg_err_str)))? {
+            DebugState::Resumable(_,txinfo,_) => Ok(&mut txinfo),
+            DebugState::NeedsFinalization(_, txinfo) => Ok(&mut txinfo),
             _=> Err(Error::Debug(DebugError::from(err_str)))
-        }
+        }?;
+
+        f(txinfo);
+        Ok(())
     }
 
-    fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>> {
+    /// use finalization info by-mutable-reference
+    fn fin_info<F>(self, f: F) -> crate::err::Result<()> 
+    where 
+        F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
+    {
 
         let error_str = "Attempt to get Finalization Information from an object that was not `Resumable`";
 
-        match self.map(|s| s.state).ok_or(Error::Debug(DebugError::from(dbg_err_str)))? {
+        let info = match self.map(|s| s.state).ok_or(Error::Debug(DebugError::from(dbg_err_str)))? {
             DebugState::Resumable(_, _, fin_type) => {
                 match fin_type {
                     FinalizeType::Code(fin_info) => Ok(&mut fin_info),
@@ -63,10 +94,22 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
                 }
             },
             _ => Err(Error::Debug(DebugError::from(error_str)))
-        }
+        }?;
+
+        f(info);
+        Ok(())
     }
 
-    fn is_resumable(&self) -> bool {
+    /// use both finalization info and transact info by mutable reference
+    fn info<F>(self, f: F) -> crate::err::Result<()>
+    where 
+        F: FnMut(&mut FinalizeInfo<T,V>, &mut TransactInfo<T,V>) -> crate::err::Result<()> 
+    {
+    }
+
+    //fn with_ext<F>(self, f: F) -> crate::err::Result<()>
+
+    fn is_resumable(self) -> bool {
         match self.map(|s| s.state).unwrap_or(DebugState::Nil) {
             DebugState::Resumable(_,_,_) => true,
             _ => false
@@ -133,7 +176,7 @@ where T: Tracer,
     ) -> crate::err::Result<()> {
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
-        if self.tx.is_resumable() {
+        if self.tx.as_mut().is_resumable() {
             let txinfo = self.tx.tx_info()?;
             let fininfo = self.tx.fin_info()?;
             let ext =

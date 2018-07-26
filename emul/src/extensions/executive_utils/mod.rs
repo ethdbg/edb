@@ -24,24 +24,6 @@ impl<'a> From<BytesRef<'a>> for NewBytes {
   }
 }
 
-
-crate struct DebugReturn<T: Tracer, V: VMTracer> {
-    crate schedule: Option<Schedule>,
-    crate unconfirmed_substate: Option<Substate>,
-    crate trace_output: Option<Bytes>,
-    crate trace_info: Option<Call>,
-    crate subtracer: Option<T>,
-    crate subvmtracer: Option<V>,
-    crate is_code: bool
-}
-
-impl<T: Tracer, V: VMTracer> DebugReturn<T, V> {
-    crate fn is_code(&self) -> bool {
-        self.is_code
-    }
-}
-
-
 crate struct FinalizeNoCode {
     crate trace_info: Option<Call>,
     crate trace_output: Option<Bytes>,
@@ -91,7 +73,7 @@ impl<T, V> FinalizeInfo<T, V>
     */
 /*
     pub fn boxed_output_policy<'any>(&self) -> OutputPolicy<'any, 'any> {
-      OutputPolicy::Return(BytesRef::from(self.output), self.trace_output.as_mut())
+      OutputPolicy::Return(BytesRef::from(self.output), self.tracej_output.as_mut())
     }
     */
 }
