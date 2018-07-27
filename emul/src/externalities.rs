@@ -1,4 +1,5 @@
-use vm;
+// macros
+use delegate::*;
 use ethcore::externalities::{Externalities, OriginInfo, OutputPolicy};
 use ethcore::state::{Backend as StateBackend, State, Substate};
 use ethcore::machine::EthereumMachine as Machine;
@@ -7,8 +8,8 @@ use vm::{EnvInfo, Schedule, Ext, CreateContractAddress, CallType, MessageCallRes
 use bytes::Bytes;
 use std::sync::Arc;
 use ethereum_types::{H256, U256, Address};
-use emulator::InterpreterSnapshots;
-use extensions::InterpreterExt;
+use crate::emulator::InterpreterSnapshots;
+use crate::extensions::InterpreterExt;
 
 //TODO move debug_externalities to extensions under externalities_ext;
 //will require refactoring of use's
@@ -18,11 +19,11 @@ pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
     snapshots: InterpreterSnapshots,
 }
 
-pub trait ExternalitiesExt {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>);
-    fn step_back(&mut self) -> Box<InterpreterExt + Send>;
+pub trait ExternalitiesExt: Ext {
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>);
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send>;
     fn snapshots_len(&self) -> usize;
-    fn externalities(&mut self) -> &mut vm::Ext;
+    fn externalities(&mut self) -> &mut dyn vm::Ext;
     // fn consume_ext(self) -> vm::Ext;
 }
 
@@ -61,16 +62,17 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B>
     pub fn new( state: &'a mut  State<B>,
                 env_info: &'a EnvInfo,
                 machine: &'a Machine,
+                schedule: &'a Schedule,
                 depth: usize,
                 origin_info: OriginInfo,
                 substate: &'a mut Substate,
-                output: OutputPolicy<'a, 'a>,
+                output: OutputPolicy,
                 tracer: &'a mut T,
                 vm_tracer: &'a mut V,
                 static_flag: bool
     ) -> Self {
         DebugExt {
-            externalities: Externalities::new(state, env_info, machine, depth, origin_info, 
+            externalities: Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
                                               substate, output, tracer, vm_tracer, static_flag),
             snapshots: InterpreterSnapshots::new()
         }
@@ -106,7 +108,6 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a, T, V, B>
                     value: Option<U256>, 
                     data: &[u8], 
                     code_address: &Address, 
-                    output: &mut [u8], 
                     call_type: CallType
             ) -> MessageCallResult;
 
@@ -153,11 +154,11 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
           V: VMTracer,
           B: StateBackend,
 {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
 
-    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send> {
          if self.snapshots.states.len() <= 1 {
             self.snapshots.states.pop().unwrap()
         } else {
@@ -172,7 +173,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
         self.snapshots.states.len()
     }
 
-    fn externalities(&mut self) -> &mut Ext {
+    fn externalities(&mut self) -> &mut dyn Ext {
         &mut self.externalities
     }
 }

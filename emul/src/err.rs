@@ -1,10 +1,10 @@
 //! Error descriptions and implementations for Emulator 
-use {std, vm, evm, patricia_trie_ethereum as ethtrie};
 use std::fmt;
 use std::error;
 use ethcore::error::ExecutionError;
 use rayon::ThreadPoolBuildError;
 use std::error::Error as stdError;
+use std::borrow::ToOwned;
 use std::sync::mpsc::{SendError, RecvError};
 
 /// Generic Error
@@ -21,8 +21,14 @@ pub struct InternalError(String);
 pub struct DebugError(String);
 
 impl fmt::Display for DebugError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for DebugError {
+    fn from(str: &str) -> DebugError {
+        DebugError(str.to_owned())
     }
 }
 
@@ -50,7 +56,7 @@ impl DebugError  {
 pub struct EVMError(vm::Error);
 
 impl fmt::Display for InternalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -63,7 +69,7 @@ impl error::Error for InternalError {
 }
 
 impl fmt::Display for GenericError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "An Error Occured OwO")
     }
 }
@@ -79,7 +85,7 @@ impl error::Error for GenericError {
 
 
 impl fmt::Display for EVMError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.to_string())
     }
 }
@@ -103,9 +109,8 @@ pub enum Error {
     Debug(DebugError),
 }
 
-
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::EVM(ref err) => write!(f, "EVM Error: {}", err),
             Error::Execution(ref err) => write!(f, "Execution Error: {}", err),
@@ -133,7 +138,7 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::Execution(ref err) => Some(err),
             Error::Internal(ref err) => Some(err),
@@ -146,7 +151,6 @@ impl error::Error for Error {
         }
     }
 }
-
 
 
 // unfavorable conversion

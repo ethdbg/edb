@@ -1,16 +1,15 @@
-use vm::{ActionParams, Ext};
-// use evm::CostType;
-use emulator::VMEmulator;
+use vm::{ActionParams, Schedule};
 use ethcore::factory::VmFactory;
-use extensions::evm_ext::factory_ext::FactoryExt as EvmFactoryExt;
+use crate::extensions::evm_ext::factory_ext::FactoryExt as EvmFactoryExt;
+use crate::emulator::VMEmulator;
 
 pub trait FactoryExt {
-    fn create_debug(&self, params: ActionParams, ext: &Ext) -> Box<VMEmulator + Send + Sync>;
+    fn create_debug(&self, _: ActionParams, _: &Schedule, _: usize) -> Box<dyn VMEmulator + Send + Sync>;
 }
 
 impl FactoryExt for VmFactory {
-    fn create_debug(&self, params: ActionParams, ext: &Ext) -> Box<VMEmulator + Send + Sync> {
-        self.evm.create_debug(params, ext)
+    fn create_debug(&self, params: ActionParams, schedule: &Schedule, depth: usize) -> Box<dyn VMEmulator + Send + Sync> {
+        self.evm.create_debug(params, schedule, depth)
     }
 }
 

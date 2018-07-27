@@ -28,9 +28,9 @@ use vm::{
 	ReturnData, Ext, ContractCreateResult, MessageCallResult,
 	CreateContractAddress, Result, GasLeft,
 };
-use emulator::InterpreterSnapshots;
-use externalities::ExternalitiesExt;
-use extensions::InterpreterExt;
+use crate::emulator::InterpreterSnapshots;
+use crate::externalities::ExternalitiesExt;
+use crate::extensions::InterpreterExt;
 
 // use instruction_manager::InstructionManager;
 
@@ -114,11 +114,11 @@ impl FakeExt {
 
 
 impl ExternalitiesExt for FakeExt {
-    fn push_snapshot(&mut self, interpreter: Box<InterpreterExt + Send>) {
+    fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
 
-    fn step_back(&mut self) -> Box<InterpreterExt + Send> {
+    fn step_back(&mut self) -> Box<dyn InterpreterExt + Send> {
         if self.snapshots.states.len() <= 1 {
             self.snapshots.states.pop().unwrap()
         } else {
@@ -133,7 +133,7 @@ impl ExternalitiesExt for FakeExt {
         self.snapshots.states.len()
     }
 
-    fn externalities(&mut self) -> &mut vm::Ext {
+    fn externalities(&mut self) -> &mut dyn vm::Ext {
         self
     }
 }
@@ -189,7 +189,6 @@ impl Ext for FakeExt {
 			value: Option<U256>,
 			data: &[u8],
 			code_address: &Address,
-			_output: &mut [u8],
 			_call_type: CallType
 		) -> MessageCallResult {
 
@@ -257,9 +256,9 @@ impl Ext for FakeExt {
     /// Prepare to trace an operation. Passthrough for the VM trace
     fn trace_prepare_execute(
         &mut self, 
-        pc: usize, 
-        instruction: u8, 
-        gas_cost: U256) 
+        _pc: usize, 
+        _instruction: u8, 
+        _gas_cost: U256) 
     {   
         //self.inst_manager.trace_prepare(pc, instruction, gas_cost);
     }
@@ -267,10 +266,10 @@ impl Ext for FakeExt {
     /// Trace the finalised execution of a single instruction
     fn trace_executed(
         &mut self, 
-        gas_used: U256, 
-        stack_push: &[U256], 
-        mem_diff: Option<(usize, &[u8])>, 
-        store_diff: Option<(U256, U256)>) 
+        _gas_used: U256, 
+        _stack_push: &[U256], 
+        _mem_diff: Option<(usize, &[u8])>, 
+        _store_diff: Option<(U256, U256)>) 
     {   
         // self.inst_manager.trace_add_instruction(gas_used, stack_push, mem_diff, store_diff);
     }
