@@ -19,7 +19,7 @@ pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
     snapshots: InterpreterSnapshots,
 }
 
-pub trait ExternalitiesExt {
+pub trait ExternalitiesExt: Ext {
     fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>);
     fn step_back(&mut self) -> Box<dyn InterpreterExt + Send>;
     fn snapshots_len(&self) -> usize;

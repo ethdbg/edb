@@ -24,6 +24,10 @@ impl<'a> From<BytesRef<'a>> for NewBytes {
   }
 }
 
+// TODO: Condense these into one struct that is a builder #p2
+  // https://stackoverflow.com/questions/28951503/how-can-i-create-a-function-with-a-variable-number-of-arguments
+  // then I can define a trait with shared funcs
+
 crate struct FinalizeNoCode {
     crate trace_info: Option<Call>,
     crate trace_output: Option<Bytes>,

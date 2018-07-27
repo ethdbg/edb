@@ -4,6 +4,7 @@ use std::error;
 use ethcore::error::ExecutionError;
 use rayon::ThreadPoolBuildError;
 use std::error::Error as stdError;
+use std::borrow::ToOwned;
 use std::sync::mpsc::{SendError, RecvError};
 
 /// Generic Error
@@ -150,7 +151,6 @@ impl error::Error for Error {
         }
     }
 }
-
 
 
 // unfavorable conversion
