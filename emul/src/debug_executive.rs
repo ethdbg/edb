@@ -74,8 +74,8 @@ impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
 }
 
 trait DebugFields<T: Tracer, V: VMTracer>: Sized {
-    fn t_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()>;
-    fn fi_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
+    fn tx_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()>;
+    fn fin_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
     fn info<F>(self, f: F) -> crate::err::Result<()>
     where 
         F: Fn(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
@@ -97,7 +97,7 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     where T: Tracer, V: VMTracer
 {   
     /// use TransactInfo by-mutable-reference
-    fn t_info<F>(self, mut f: F) -> crate::err::Result<()> 
+    fn tx_info<F>(self, mut f: F) -> crate::err::Result<()> 
     where 
         F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()> 
     {
@@ -109,7 +109,7 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     }
 
     /// use finalization info by-mutable-reference
-    fn fi_info<F>(self, mut f: F) -> crate::err::Result<()> 
+    fn fin_info<F>(self, mut f: F) -> crate::err::Result<()> 
     where 
         F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
     {
