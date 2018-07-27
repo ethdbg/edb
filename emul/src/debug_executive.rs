@@ -92,6 +92,7 @@ const dbg_err_str: &'static str = "DebugState or DebugExecution Object not intit
 
 /// defaults and error handling for Option<> fields on DebugExecutive
 /// higher order functions for using data in State
+/// consumes the Option<>
 impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>> 
     where T: Tracer, V: VMTracer
 {   
@@ -208,7 +209,7 @@ where T: Tracer,
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
         if self.tx.is_resumable() {
-            self.tx.t_info(|txinfo| {
+            self.tx.info(|txinfo, fin_info| {
                 let x = 5;
                 Ok(())
                 // do someting with tx info
