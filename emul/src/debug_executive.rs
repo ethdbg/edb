@@ -42,7 +42,6 @@ impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
             DebugState::NeedsFinalization(_,txinfo) => Ok(txinfo),
             _=> Err(Error::Debug(DebugError::from(err_str)))
         }
-        self
     }
 
     fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>> {
@@ -67,9 +66,9 @@ impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
     */
 }
 
-trait DebugFields<T: Tracer, V: VMTracer> {
-    fn tx_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()>;
-    fn fin_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
+trait DebugFields<T: Tracer, V: VMTracer>: Sized {
+    fn t_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()>;
+    fn fi_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
     fn info<F>(self, f: F) -> crate::err::Result<()>
     where 
         F: Fn(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
@@ -78,7 +77,7 @@ trait DebugFields<T: Tracer, V: VMTracer> {
         where F: FnMut(&mut dyn ExternalitiesExt),
         B: 'a + StateBackend;
 
-    fn is_resumable(self) -> bool;
+    fn is_resumable(&self) -> bool;
 }
 const dbg_err_str: &'static str = "DebugState or DebugExecution Object not intitalized; \
                                    but attempt to call a function defined on \
@@ -90,28 +89,26 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     where T: Tracer, V: VMTracer
 {   
     /// use TransactInfo by-mutable-reference
-    fn tx_info<F>(self, mut f: F) -> crate::err::Result<()> 
+    fn t_info<F>(self, mut f: F) -> crate::err::Result<()> 
     where 
         F: FnMut(&mut TransactInfo<T,V>) -> crate::err::Result<()> 
     {
         
         let err_str = "Attempt to get Transaction Info from struct `DebugExecution` that was not yet initialized";
         self.map(|s| s.state).as_mut()
-            .ok_or(Error::Debug(DebugError::from(err_str)))
-            .and_then(Info::tx_info)
-            .iter_mut()
-            .map(|mut t| f(&mut t)).collect()
+                .ok_or(Error::Debug(DebugError::from(err_str)))
+                .and_then(Info::tx_info).iter_mut().map(|mut t| f(&mut t)).collect()
     }
 
     /// use finalization info by-mutable-reference
-    fn fin_info<F>(self, mut f: F) -> crate::err::Result<()> 
+    fn fi_info<F>(self, mut f: F) -> crate::err::Result<()> 
     where 
         F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
     {
         let err_str = "Attempt to get Finalization Info from struct `DebugExecution` that was not yet initialized";
         self.map(|s| s.state).as_mut()
             .ok_or(Error::Debug(DebugError::from(err_str)))
-            .and_then(Info::fin_info).iter_mut().map(|mut t| f(&mut t)).collect()
+            .and_then(Info::fin_info).iter_mut().map(|mut fin| f(&mut fin)).collect()
     }
 
     /// use both finalization info and transact info by mutable reference
@@ -122,7 +119,7 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
         let err_str = "Attempt to get Finalization Info from struct `DebugExecution` \
                       that was not yet initialized";
         if let Some(exec) = self {
-            exec.
+            // exec.
         }
         Ok(())
     }
@@ -133,10 +130,15 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
         Ok(())
     }
 
-    fn is_resumable(self) -> bool {
-        match self.map(|s| s.state).unwrap_or(DebugState::Nil) {
-            DebugState::Resumable(_,_,_) => true,
-            _ => false
+    fn is_resumable(&self) -> bool {
+        match *self {
+            Some(ref v) => {
+                match v.state {
+                    DebugState::Resumable(_,_,_) => true,
+                    _ => false,
+                }
+            }
+            None => false,
         }
     }
 }
@@ -200,6 +202,11 @@ where T: Tracer,
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
         if self.tx.is_resumable() {
+            self.tx.t_info(|txinfo| {
+                let x = 5;
+                Ok(())
+                // do someting with tx info
+            });
             // let txinfo = self.tx.tx_info()?;
             // let fininfo = self.tx.fin_info()?;
             /*let ext =
