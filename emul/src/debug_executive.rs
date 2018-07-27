@@ -78,10 +78,10 @@ trait DebugFields<T: Tracer, V: VMTracer>: Sized {
     fn fin_info<F>(self, f: F) -> crate::err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
     fn info<F>(self, f: F) -> crate::err::Result<()>
     where 
-        F: Fn(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
+        F: FnMut(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()>;
 
     fn with_ext<'a, B, F>(self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> crate::err::Result<()> 
-        where F: FnMut(&mut dyn ExternalitiesExt),
+        where F: FnMut(&mut dyn ExternalitiesExt) -> crate::err::Result<()>,
         B: 'a + StateBackend;
 
     fn is_resumable(&self) -> bool;
@@ -120,9 +120,9 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     }
 
     /// use both finalization info and transact info by mutable reference
-    fn info<F>(self, f: F) -> crate::err::Result<()>
+    fn info<F>(self, mut f: F) -> crate::err::Result<()>
     where 
-        F: Fn(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
+        F: FnMut(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
     {       
         let err_str = "Attempt to get Finalization Info from struct `DebugExecution` \
                       that was not yet initialized";
@@ -131,10 +131,19 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
             .and_then(Info::info).iter_mut().map(|i| f(i.0, i.1)).collect()
     }
 
-    fn with_ext<'a, B, F>(self, f: F, _executive: &mut impl ExecutiveExt<'a, B>) -> crate::err::Result<()> 
-        where F: FnMut(&mut dyn ExternalitiesExt), B: 'a + StateBackend 
+    fn with_ext<'a, B, F>(self, mut f: F, executive: &mut impl ExecutiveExt<'a, B>) -> crate::err::Result<()> 
+        where F: FnMut(&mut dyn ExternalitiesExt) -> crate::err::Result<()>, B: 'a + StateBackend 
     {
-        Ok(())
+        self.info(|txinfo, fin_info| {
+            let static_call = txinfo.params().call_type == evm::CallType::StaticCall;
+            let mut ext = executive.as_dbg_externalities(OriginInfo::from(txinfo.params()),
+                &mut fin_info.unconfirmed_substate,
+                OutputPolicy::Return,
+                &mut txinfo.tracer,
+                &mut txinfo.vm_tracer,
+                static_call);
+            f(&mut ext)
+        })
     }
 
     fn is_resumable(&self) -> bool {

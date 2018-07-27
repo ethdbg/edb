@@ -39,15 +39,15 @@ crate enum CallState<T: Tracer, V: VMTracer> {
 }
 
 crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
-    fn as_dbg_externalities<T: 'a, V: 'a>(
-        &'a mut self,
+    fn as_dbg_externalities<'any, T, V>(
+        &'any mut self,
         origin_info: OriginInfo,
-        substate: &'a mut Substate,
+        substate: &'any mut Substate,
         output: OutputPolicy,
-        tracer: &'a mut T,
-        vm_tracer: &'a mut V,
+        tracer: &'any mut T,
+        vm_tracer: &'any mut V,
         static_call: bool,
-    ) -> DebugExt<'a,T,V,B> where T: Tracer, V: VMTracer;
+    ) -> DebugExt<'any,T,V,B> where T: Tracer, V: VMTracer;
 
     /// like transact_with_tracer + transact_virtual but with real-time debugging
     /// functionality. Execute a transaction within the debug context
@@ -122,15 +122,15 @@ crate trait ExecutiveExt<'a, B: 'a + StateBackend> {
 
 // TODO: add enum type that allows a config option to choose whether to execute with or without validation #p3
 impl<'a, B: 'a + StateBackend> ExecutiveExt<'a, B> for Executive<'a, B> {
-    fn as_dbg_externalities<'any, T: 'a, V: 'a>(
-        &'a mut self,
+    fn as_dbg_externalities<'any, T, V>(
+        &'any mut self,
         origin_info: OriginInfo,
-        substate: &'a mut Substate,
+        substate: &'any mut Substate,
         output: OutputPolicy,
-        tracer: &'a mut T,
-        vm_tracer: &'a mut V,
+        tracer: &'any mut T,
+        vm_tracer: &'any mut V,
         static_call: bool,
-    ) -> DebugExt<'a,T,V,B> 
+    ) -> DebugExt<'any,T,V,B> 
     where 
         T: Tracer, 
         V: VMTracer, 
