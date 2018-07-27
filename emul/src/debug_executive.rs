@@ -30,7 +30,7 @@ enum DebugState <T: Tracer, V: VMTracer> {
 trait Info<T,V> where T: Tracer, V: VMTracer {
     fn fin_info(&mut self) -> crate::err::Result<&mut FinalizeInfo<T,V>>;
     fn tx_info(&mut self) -> crate::err::Result<&mut TransactInfo<T,V>>;
-    //fn info(&self) -> crate::err::Result<(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>)>;
+    fn info(&mut self) -> crate::err::Result<(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>)>;
 }
 
 impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
@@ -57,13 +57,20 @@ impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
             _ => Err(Error::Debug(DebugError::from(err_str)))
         }
     }
-    /*
-    fn info(&self) -> crate::err::Result<(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>)> where T: Tracer, V: VMTracer {
-        let tx_info = self.tx_info()?;
-        let fin_info = self.fin_info()?;
-        Ok((tx_info, fin_info))
+
+    fn info(&mut self) -> crate::err::Result<(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>)> where T: Tracer, V: VMTracer {
+        let err_str = "Attempt to get Finalize Info and Transact Info, but either state is not `Resumable` or not initialized";
+
+        match self {
+            DebugState::Resumable(_, txinfo, fin_type) => {
+                match fin_type {
+                    FinalizeType::Code(fin_info) => Ok((txinfo, fin_info)),
+                    _=> Err(Error::Debug(DebugError::from(err_str)))
+                }
+            }
+            _=> Err(Error::Debug(DebugError::from(err_str)))
+        }
     }
-    */
 }
 
 trait DebugFields<T: Tracer, V: VMTracer>: Sized {
@@ -112,16 +119,15 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
     }
 
     /// use both finalization info and transact info by mutable reference
-    fn info<F>(mut self, f: F) -> crate::err::Result<()>
+    fn info<F>(self, f: F) -> crate::err::Result<()>
     where 
         F: Fn(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> crate::err::Result<()> 
     {       
         let err_str = "Attempt to get Finalization Info from struct `DebugExecution` \
                       that was not yet initialized";
-        if let Some(exec) = self {
-            // exec.
-        }
-        Ok(())
+        self.map(|s| s.state).as_mut()
+            .ok_or(Error::Debug(DebugError::from(err_str)))
+            .and_then(Info::info).iter_mut().map(|i| f(i.0, i.1)).collect()
     }
 
     fn with_ext<'a, B, F>(self, f: F, _executive: &mut impl ExecutiveExt<'a, B>) -> crate::err::Result<()> 
