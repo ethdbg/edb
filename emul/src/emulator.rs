@@ -11,39 +11,6 @@ use crate::err::Result;
 use crate::extensions::{InterpreterExt, ExecInfo};
 use crate::externalities::{ExternalitiesExt};
 
-// possibly combine is_complete and exec_info into an enum to track state
-#[derive(Debug)]
-pub struct FinalizationResult {
-    pub finalization_result: Option<evm::FinalizationResult>,
-    pub is_complete: bool,
-    pub exec_info: ExecInfo,
-}
-
-impl FinalizationResult {
-    pub fn new(final_res: Option<evm::FinalizationResult>,
-               is_complete: bool, 
-               exec_info: ExecInfo,
-    ) -> Self {
-        FinalizationResult {
-            finalization_result: final_res,
-            is_complete, exec_info,
-        }
-    }
-
-    pub fn is_complete(&self) -> bool {
-        self.is_complete
-    }
-
-    pub fn finalization_result(&self) -> Option<evm::FinalizationResult> {
-        match self.finalization_result {
-            Some(ref x) => Some(x.clone()),
-            None => None,
-        }
-    }
-
-
-}
-
 // 0 state is before interpreter did anything
 #[derive(Default)]
 pub struct InterpreterSnapshots {
