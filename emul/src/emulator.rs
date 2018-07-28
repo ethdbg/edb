@@ -2,14 +2,11 @@
 //! Kind of like the Debug version of 'executive.rs' in Ethcore
 //! Does not change ethereum state. purely for debugging contracts by themselves with
 //! the EVM
-use vm::{GasLeft, Schedule};
-use evm::{CostType, Finalize};
-use ethcore::trace::{Tracer, VMTracer};
-use ethcore::state::Backend as StateBackend;
+use vm::Schedule;
+use evm::CostType;
 use evm::interpreter::{Interpreter, SharedCache};
 use std::vec::Vec;
 use std::sync::Arc;
-
 use crate::err::Result;
 use crate::extensions::{InterpreterExt, ExecInfo};
 use crate::externalities::{ExternalitiesExt};
@@ -21,7 +18,6 @@ pub struct FinalizationResult {
     pub is_complete: bool,
     pub exec_info: ExecInfo,
 }
-
 
 impl FinalizationResult {
     pub fn new(final_res: Option<evm::FinalizationResult>,
@@ -76,38 +72,6 @@ pub enum Action {
     EvmOnly
 }*/
 
-/*
-pub trait EDBFinalize<'a, T: 'a, V: 'a, B: 'a> {
-    fn finalize<E>(self, ext: E) -> Result<FinalizationResult>
-        where T: Tracer,
-              V: VMTracer,
-              B: StateBackend,
-              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>;
-}
-
-impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
-    fn finalize<E>(self, ext: E) -> Result<FinalizationResult> 
-        where T: Tracer,
-              V: VMTracer,
-              B: StateBackend,
-              E: ExternalitiesExt + ConsumeExt<'a, T, V, B>
-    {
-        match self {
-            Ok(x) => {
-                Ok(FinalizationResult {
-                    finalization_result: if x.gas_left().is_some() {
-                        let gas_left: vm::Result<GasLeft> = Ok(x.gas_left().expect("Will always be `Some` because of is_some() check; qed"));
-                        Some(gas_left.finalize(ext.consume())?)
-                    } else {None},
-                    is_complete: x.gas_left().is_some(),
-                    exec_info: x
-                })
-            },
-            Err(err) => Err(err)
-        }
-    }
-}
-*/
 pub trait VMEmulator {
     fn fire(&mut self, action: &Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo>;
 }
