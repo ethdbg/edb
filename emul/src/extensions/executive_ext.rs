@@ -85,7 +85,7 @@ crate trait ExecutiveExt<'a, B> where B: StateBackend {
     ) -> crate::err::Result<(Box<dyn VMEmulator + Send + Sync>, rayon::ThreadPool)>;
 
     fn debug_resume(
-        action: Action,
+        action: &Action,
         ext: &mut (dyn ExternalitiesExt + Send),
         vm: &mut Arc<dyn VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,
@@ -386,7 +386,7 @@ impl<'a, B> ExecutiveExt<'a, B> for Executive<'a, B> where B: 'a + StateBackend 
     }
 
     fn debug_resume(
-        action: Action,
+        action: &Action,
         ext: &mut (dyn ExternalitiesExt + Send),
         vm: &mut Arc<dyn VMEmulator + Send + Sync>,
         pool: &rayon::ThreadPool,

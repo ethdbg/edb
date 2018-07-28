@@ -7,7 +7,7 @@ use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
 use transaction::SignedTransaction;
 use std::sync::Arc;
-use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo};
+use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo, debug_resume};
 use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;
 use crate::externalities::ExternalitiesExt;
@@ -272,10 +272,7 @@ where T: Tracer,
         let mut exec_info: Option<ExecInfo> = None;
         if self.tx.is_resumable() {
             self.tx.with_resumables(|ext, resume_info| {
-                let mut vm = resume_info.vm();
-                let res = resume_info.pool().install(||{
-                    Arc::get_mut(&mut vm).unwrap().fire(&action, ext)
-                })?;
+                let res = debug_resume(&action, ext, &mut resume_info.vm(), resume_info.pool())?;
                 exec_info = Some(res);
                 Ok(())
             }, &mut self.inner)?;

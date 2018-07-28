@@ -1,12 +1,13 @@
-use vm::{Schedule, GasLeft, ActionParams};
+use vm::{GasLeft, ActionParams};
 use ethcore::state::{Substate};
 use ethcore::trace::trace::Call;
 use ethcore::trace::{Tracer, VMTracer};
 use ethereum_types::{U256};
 use bytes::{Bytes, BytesRef};
 use std::sync::Arc;
-use crate::emulator::VMEmulator;
-
+use crate::emulator::{VMEmulator,Action};
+use crate::externalities::ExternalitiesExt;
+use crate::extensions::ExecInfo;
 crate struct NewBytes(Bytes);
 
 impl NewBytes {
@@ -125,4 +126,14 @@ impl ResumeInfo {
     pub fn vm(&self) -> Arc<dyn VMEmulator + Send + Sync> {
       self.vm.clone()
     }
+}
+
+
+crate fn debug_resume(action: &Action, 
+                      ext: &mut (dyn ExternalitiesExt + Send), 
+                      vm: &mut Arc<dyn VMEmulator + Send + Sync>, 
+                      pool: &rayon::ThreadPool,
+                    ) -> crate::err::Result<ExecInfo> 
+{
+  Ok(pool.install(move || Arc::get_mut(vm).unwrap().fire(&action, ext))?)
 }
