@@ -14,10 +14,6 @@ use crate::extensions::InterpreterExt;
 //TODO move debug_externalities to extensions under externalities_ext;
 //will require refactoring of use's
 
-pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> {
-    pub externalities: Externalities<'a, T, V, B>,
-    snapshots: InterpreterSnapshots,
-}
 
 pub trait ExternalitiesExt: Ext {
     fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>);
@@ -26,6 +22,12 @@ pub trait ExternalitiesExt: Ext {
     fn externalities(&mut self) -> &mut dyn vm::Ext;
     // fn consume_ext(self) -> vm::Ext;
 }
+
+pub struct DebugExt {
+    pub externalities: Box<dyn ExternalitiesExt>,
+    snapshots: InterpreterSnapshots,
+}
+
 
 pub trait ConsumeExt<'a, T: 'a, V: 'a, B: 'a> {
     fn consume(self) -> Externalities<'a, T, V, B>
@@ -44,7 +46,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for Externalities<'a, T, V
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt<'a, T, V, B> {
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt {
     fn consume(self) -> Externalities<'a, T, V, B>
         where T: Tracer,
               V: VMTracer,
@@ -54,7 +56,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt<'a, T, V, B> 
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B> 
+impl<'a, T: 'a, V: 'a, B: 'a> DebugExt 
     where T: Tracer,
           V: VMTracer,
           B: StateBackend,
@@ -72,14 +74,14 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a, T, V, B>
                 static_flag: bool
     ) -> Self {
         DebugExt {
-            externalities: Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
-                                              substate, output, tracer, vm_tracer, static_flag),
+            externalities: Box::new(Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
+                                              substate, output, tracer, vm_tracer, static_flag)),
             snapshots: InterpreterSnapshots::new()
         }
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a, T, V, B> 
+impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt 
     where T: Tracer, V: VMTracer, B: StateBackend 
 {
     delegate! {
@@ -149,11 +151,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a, T, V, B>
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B> 
-    where T: Tracer,
-          V: VMTracer,
-          B: StateBackend,
-{
+impl ExternalitiesExt for DebugExt {
     fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
@@ -174,7 +172,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ExternalitiesExt for DebugExt<'a, T, V, B>
     }
 
     fn externalities(&mut self) -> &mut dyn Ext {
-        &mut self.externalities
+        self.externalities.as_mut()
     }
 }
 
