@@ -1,10 +1,9 @@
 use vm::{ActionParams, Schedule};
 use evm::factory::Factory;
 use ethereum_types::U256;
-
 use crate::emulator::{Emulator, VMEmulator};
 
-pub trait FactoryExt {
+crate trait FactoryExt {
     fn create_debug(&self, params: ActionParams, schedule: &Schedule, depth: usize) -> Box<dyn VMEmulator + Send + Sync>;
 }
 

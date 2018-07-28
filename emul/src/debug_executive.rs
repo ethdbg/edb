@@ -6,7 +6,6 @@ use ethcore::state::{Backend as StateBackend, State};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
 use transaction::SignedTransaction;
-use std::sync::Arc;
 use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo, debug_resume};
 use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;

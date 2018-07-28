@@ -5,7 +5,7 @@ use ethcore::error::ExecutionError;
 use rayon::ThreadPoolBuildError;
 use std::error::Error as stdError;
 use std::borrow::ToOwned;
-use std::sync::mpsc::{SendError, RecvError};
+use std::sync::mpsc::RecvError;
 
 /// Generic Error
 /// Something happened in which Debugging cannot continue, but it cannot be attributed to
@@ -228,5 +228,5 @@ impl From<Box<ExecutionError>> for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+crate type Result<T> = std::result::Result<T, Error>;
 

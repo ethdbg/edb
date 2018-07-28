@@ -84,8 +84,8 @@ impl<T, V> FinalizeInfo<T, V>
 }
 
 crate struct TransactInfo<T: Tracer, V: VMTracer> {
-  pub tracer: T,
-  pub vm_tracer: V,
+  crate tracer: T,
+  crate vm_tracer: V,
   output: Bytes,
   substate: Substate,
   params: ActionParams,
@@ -111,7 +111,7 @@ crate struct ResumeInfo {
 // need to create Externalities in layer above Executive and pass it in to things that need it
 impl ResumeInfo {
 
-    pub fn new(vm: Arc<dyn VMEmulator + Send + Sync>, 
+    crate fn new(vm: Arc<dyn VMEmulator + Send + Sync>, 
                pool: rayon::ThreadPool
     ) -> Self {
         ResumeInfo {
@@ -119,11 +119,11 @@ impl ResumeInfo {
         }
     }
 
-    pub fn pool(&self) -> &rayon::ThreadPool {
+    crate fn pool(&self) -> &rayon::ThreadPool {
       &self.pool
     }
 
-    pub fn vm(&self) -> Arc<dyn VMEmulator + Send + Sync> {
+    crate fn vm(&self) -> Arc<dyn VMEmulator + Send + Sync> {
       self.vm.clone()
     }
 }

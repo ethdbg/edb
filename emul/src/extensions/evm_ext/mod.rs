@@ -1,1 +1,1 @@
-pub mod factory_ext;
+crate mod factory_ext;

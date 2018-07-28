@@ -14,7 +14,7 @@ use ethcore_io::LOCAL_STACK_SIZE;
 use ethereum_types::{U256, U512};
 use evm::{CallType, Finalize};
 use transaction::{Action as TxAction, SignedTransaction};
-use vm::{ActionParams, ActionValue, CleanDustMode, Ext, GasLeft, ReturnData, Schedule};
+use vm::{ActionParams, ActionValue, CleanDustMode, GasLeft, ReturnData, Schedule};
 
 // crate imports
 use crate::emulator::{Action, VMEmulator};
@@ -363,7 +363,6 @@ impl<'a, B> ExecutiveExt<'a, B> for Executive<'a, B> where B: 'a + StateBackend 
                     .as_ref()
                     .expect("scope is conditional on params.code.is_some(); qed"),
             );
-            let static_call = params.call_type == CallType::StaticCall;
             let vm_factory = self.state.vm_factory();
             let (vm, pool) = Self::init_vm(schedule, params.clone(), vm_factory, self.depth)?;
             let vm: Arc<dyn VMEmulator + Send + Sync> = Arc::from(vm);

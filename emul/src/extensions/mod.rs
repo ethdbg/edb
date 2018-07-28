@@ -3,8 +3,8 @@ mod interpreter_ext;
 mod factory_ext;
 mod evm_ext;
 
-pub use self::interpreter_ext::{InterpreterExt, ExecInfo};
-pub use self::factory_ext::FactoryExt;
+crate use self::interpreter_ext::{InterpreterExt, ExecInfo};
+crate use self::factory_ext::FactoryExt;
 
-pub mod executive_utils;
-pub mod executive_ext;
+crate mod executive_utils;
+crate mod executive_ext;

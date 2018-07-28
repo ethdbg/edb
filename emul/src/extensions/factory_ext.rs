@@ -3,7 +3,7 @@ use ethcore::factory::VmFactory;
 use crate::extensions::evm_ext::factory_ext::FactoryExt as EvmFactoryExt;
 use crate::emulator::VMEmulator;
 
-pub trait FactoryExt {
+crate trait FactoryExt {
     fn create_debug(&self, _: ActionParams, _: &Schedule, _: usize) -> Box<dyn VMEmulator + Send + Sync>;
 }
 
