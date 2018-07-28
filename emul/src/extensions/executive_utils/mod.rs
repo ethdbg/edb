@@ -118,11 +118,11 @@ impl ResumeInfo {
         }
     }
 
-    pub fn pool(&mut self) -> &rayon::ThreadPool {
+    pub fn pool(&self) -> &rayon::ThreadPool {
       &self.pool
     }
 
-    pub fn vm(&mut self) -> Arc<dyn VMEmulator + Send + Sync> {
+    pub fn vm(&self) -> Arc<dyn VMEmulator + Send + Sync> {
       self.vm.clone()
     }
 }

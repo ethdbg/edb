@@ -23,12 +23,12 @@ pub trait ExternalitiesExt: Ext {
     // fn consume_ext(self) -> vm::Ext;
 }
 
-pub struct DebugExt {
-    pub externalities: Box<dyn ExternalitiesExt>,
+pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> where T: Tracer, V: VMTracer, B: StateBackend {
+    pub externalities: Externalities<'a, T, V, B>,
     snapshots: InterpreterSnapshots,
 }
 
-
+/*
 pub trait ConsumeExt<'a, T: 'a, V: 'a, B: 'a> {
     fn consume(self) -> Externalities<'a, T, V, B>
         where T: Tracer,
@@ -46,7 +46,7 @@ impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for Externalities<'a, T, V
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt {
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt<'a,T,V,B> {
     fn consume(self) -> Externalities<'a, T, V, B>
         where T: Tracer,
               V: VMTracer,
@@ -55,8 +55,9 @@ impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for DebugExt {
         self.externalities
     }
 }
+*/
 
-impl<'a, T: 'a, V: 'a, B: 'a> DebugExt 
+impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a,T,V,B>
     where T: Tracer,
           V: VMTracer,
           B: StateBackend,
@@ -74,14 +75,14 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt
                 static_flag: bool
     ) -> Self {
         DebugExt {
-            externalities: Box::new(Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
-                                              substate, output, tracer, vm_tracer, static_flag)),
+            externalities: Externalities::new(state, env_info, machine, schedule, depth, origin_info, 
+                                              substate, output, tracer, vm_tracer, static_flag),
             snapshots: InterpreterSnapshots::new()
         }
     }
 }
 
-impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt 
+impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a,T,V,B>
     where T: Tracer, V: VMTracer, B: StateBackend 
 {
     delegate! {
@@ -151,7 +152,9 @@ impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt
     }
 }
 
-impl ExternalitiesExt for DebugExt {
+impl<'a, T,V,B> ExternalitiesExt for DebugExt<'a,T,V,B> 
+    where T: Tracer, V: VMTracer, B: StateBackend
+{
     fn push_snapshot(&mut self, interpreter: Box<dyn InterpreterExt + Send>) {
         self.snapshots.states.push(interpreter);
     }
@@ -172,7 +175,7 @@ impl ExternalitiesExt for DebugExt {
     }
 
     fn externalities(&mut self) -> &mut dyn Ext {
-        self.externalities.as_mut()
+        &mut self.externalities
     }
 }
 

@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use crate::err::Result;
 use crate::extensions::{InterpreterExt, ExecInfo};
-use crate::externalities::{ConsumeExt, ExternalitiesExt};
+use crate::externalities::{ExternalitiesExt};
 
 // possibly combine is_complete and exec_info into an enum to track state
 #[derive(Debug)]
@@ -76,6 +76,7 @@ pub enum Action {
     EvmOnly
 }*/
 
+/*
 pub trait EDBFinalize<'a, T: 'a, V: 'a, B: 'a> {
     fn finalize<E>(self, ext: E) -> Result<FinalizationResult>
         where T: Tracer,
@@ -106,9 +107,9 @@ impl<'a, T: 'a, V: 'a, B: 'a> EDBFinalize<'a, T, V, B> for Result<ExecInfo> {
         }
     }
 }
-
+*/
 pub trait VMEmulator {
-    fn fire(&mut self, action: Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo>;
+    fn fire(&mut self, action: &Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo>;
 }
 
 pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
@@ -116,11 +117,11 @@ pub struct Emulator<C: CostType + Send + 'static>(Interpreter<C>);
 impl<C: CostType + Send + 'static> VMEmulator for Emulator<C> {
     /// Fire
     // needs to be a Box<Self> because of mutations inherant to`self` in step_back()
-    fn fire(&mut self, action: Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo> {
+    fn fire(&mut self, action: &Action, ext: &mut dyn ExternalitiesExt) -> Result<ExecInfo> {
 
         match action {
             Action::StepBack => self.0.step_back(ext),
-            Action::RunUntil(pc) => self.0.run_code_until(ext, pc),
+            Action::RunUntil(pc) => self.0.run_code_until(ext, *pc),
             Action::Exec => self.0.run(ext.externalities()),
             _ => panic!("Action not found")
         }

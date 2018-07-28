@@ -6,6 +6,7 @@ use ethcore::state::{Backend as StateBackend, State};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
 use transaction::SignedTransaction;
+use std::sync::Arc;
 use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo};
 use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;
@@ -36,6 +37,7 @@ trait Info<T,V> where T: Tracer, V: VMTracer {
     fn resumables(&mut self) -> crate::err::Result<(&mut ResumeInfo, &mut TransactInfo<T,V>, &mut FinalizeType<T,V>)>;
 }
 
+//  Match statements and error handling
 impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
     fn tx_info(&mut self) -> crate::err::Result<&mut TransactInfo<T,V>> {
         let err_str = "Attempt to get Transaction Info from a state \
@@ -232,10 +234,10 @@ where T: Tracer, V: VMTracer {
         &mut self.state
     }
 }
+
 pub struct DebugExecutive<'a, T: Tracer, V: VMTracer, B: 'a + StateBackend> {
     inner: Executive<'a, B>,
     tx: Option<DebugExecution<T,V>>,
-    ext: Option<Box<dyn ExternalitiesExt>>
 }
 
 impl<'a,T: 'a,V: 'a,B> DebugExecutive<'a,T,V,B> 
@@ -252,7 +254,6 @@ where T: Tracer,
         DebugExecutive {
             inner: Executive::new(state, info, machine, schedule),
             tx: None,
-            ext: None,
         }
     }
  
@@ -260,8 +261,8 @@ where T: Tracer,
     ) -> crate::err::Result<()> {
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
-        if self.tx.is_resumable() {
-            
+        if !self.tx.is_resumable() {
+            // try to progress state to NeedsFinalization
         }
 
         Ok(())
@@ -270,20 +271,23 @@ where T: Tracer,
     pub fn resume(&mut self, action: Action) -> crate::err::Result<ExecInfo> {
         let mut exec_info: Option<ExecInfo> = None;
         if self.tx.is_resumable() {
-            let mut exec_info: Option<ExecInfo> = None;
             self.tx.with_resumables(|ext, resume_info| {
-                exec_info = Some(Executive::debug_resume(action, ext, &mut resume_info.vm(), resume_info.pool())?);
+                let mut vm = resume_info.vm();
+                let res = resume_info.pool().install(||{
+                    Arc::get_mut(&mut vm).unwrap().fire(&action, ext)
+                })?;
+                exec_info = Some(res);
                 Ok(())
             }, &mut self.inner)?;
+            // try_finish (progress state)
         }
-
-        Ok(exec_info.unwrap())
+        // try_finish
+        exec_info.ok_or(Error::Debug(DebugError::from("Resume called  on a state that was not resumable")))
     }
 
     pub fn finish(&mut self
     ) -> crate::err::Result<Executed<T::Output, V::Output>> where T: Tracer, V: VMTracer {
         self.tx = None;
-        self.ext = None;
         unimplemented!();
     }
 }
