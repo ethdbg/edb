@@ -6,6 +6,7 @@ use ethcore::state::{Backend as StateBackend, State};
 use ethcore::machine::EthereumMachine as Machine;
 use ethcore::trace::{Tracer, VMTracer};
 use transaction::SignedTransaction;
+use std::mem;
 use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo, debug_resume};
 use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;
@@ -26,7 +27,6 @@ enum DebugState <T: Tracer, V: VMTracer> {
     Resumable(ResumeInfo, TransactInfo<T,V>, FinalizeType<T,V>), // -- execution can be manipulated
     NeedsFinalization(FinalizeType<T,V>, TransactInfo<T,V>), // a transaction that needs to be finalized
     Done(vm::Result<evm::FinalizationResult>), // a transaction that is finished
-    Nil, // if unwrapped to `None` value, this is a default
 }
 
 trait Info<T,V> where T: Tracer, V: VMTracer {
@@ -97,6 +97,7 @@ trait DebugFields<T: Tracer, V: VMTracer>: Sized {
         B: 'a + StateBackend;
     fn with_resumables<'a, B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
         where F: FnMut(&mut (dyn ExternalitiesExt + Send), &mut ResumeInfo) -> err::Result<()>, B: 'a + StateBackend;
+    fn update(&mut self, state: DebugState<T,V>);
     fn is_resumable(&self) -> bool;
 }
 
@@ -185,6 +186,9 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
         })
     }
 
+    fn update(&mut self, state: DebugState<T,V>) {
+        mem::replace(self, Some(state.into()));
+    } 
 
     fn is_resumable(&self) -> bool {
         match *self {
@@ -234,6 +238,14 @@ where T: Tracer, V: VMTracer {
     }
 }
 
+impl<T,V> From<DebugState<T,V>> for DebugExecution<T,V> where T: Tracer, V: VMTracer {
+    fn from(state: DebugState<T,V>) -> DebugExecution<T,V> {
+        DebugExecution {
+            state,
+        }
+    }
+}
+
 pub struct DebugExecutive<'a, T: Tracer, V: VMTracer, B: 'a + StateBackend> {
     inner: Executive<'a, B>,
     tx: Option<DebugExecution<T,V>>,
@@ -261,12 +273,13 @@ where T: Tracer,
         self.tx = Some(DebugExecution::new(t, options, self.inner)?);
 
         if !self.tx.is_resumable() {
-            // try to progress state to NeedsFinalization
-        }
 
+        }
         Ok(())
     }
 
+
+    /// attempts to progress a `resumable` state to `NeedsFinalization`. Should not be called after exec info `is_finished()`
     pub fn resume(&mut self, action: Action) -> crate::err::Result<ExecInfo> {
         let mut exec_info: Option<ExecInfo> = None;
         if self.tx.is_resumable() {
@@ -275,15 +288,27 @@ where T: Tracer,
                 exec_info = Some(res);
                 Ok(())
             }, &mut self.inner)?;
-            // try_finish (progress state)
+
+            match exec_info {
+                Some(ref e) => { 
+                    if e.finished() {
+                        match self.tx.take().expect("Scope is conditional; qed").state {
+                            DebugState::Resumable(_, tx_info, fin_type) => {
+                                self.tx.update(DebugState::NeedsFinalization(fin_type, tx_info));
+                            },
+                            _ => panic!("Scope is conditional 'tx.resumable()' qed")
+                        }
+                    }
+                },
+                None => {} // can't progress state if exec info does not exist! TODO: this should never happen, but add an error #p2
+            }
         }
-        // try_finish
-        exec_info.ok_or(Error::Debug(DebugError::from("Resume called  on a state that was not resumable")))
+        exec_info.ok_or(Error::Debug(DebugError::from("Resume called on a state \
+                                                       that was not resumable")))
     }
 
     pub fn finish(&mut self
     ) -> crate::err::Result<Executed<T::Output, V::Output>> where T: Tracer, V: VMTracer {
-        self.tx = None;
         unimplemented!();
     }
 }
