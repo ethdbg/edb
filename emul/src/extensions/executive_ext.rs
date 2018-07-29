@@ -91,25 +91,21 @@ crate trait ExecutiveExt<'a, B> where B: StateBackend {
         pool: &rayon::ThreadPool,
     ) -> crate::err::Result<ExecInfo>;
 
-    fn debug_finish<T, V, E>(
-        &mut self,
-        gas: vm::Result<GasLeft>,
-        tracer: &mut T,
-        vm_tracer: &mut V,
-        subvmtracer: V,
-        subtracer: T,
-        trace_info: Option<Call>,
+    fn debug_finish<T,V>(&mut self, 
+                           txinfo: TransactInfo<T,V>, 
+                           fininfo: FinalizeInfo<T,V>, 
+                           is_code: bool, res: Option<vm::Result<evm::FinalizationResult>>
+    ) -> vm::Result<evm::FinalizationResult>
+        where T: Tracer,
+              V: VMTracer;
+
+    fn debug_finish_no_code<T>(&mut self, 
+        tracer: &mut T, 
+        trace_info: Option<Call>, 
         trace_output: Option<Bytes>,
         gas_given: U256,
-        substate: &mut Substate,
-        un_substate: Substate,
-        ext: E,
-        is_code: bool,
     ) -> vm::Result<evm::FinalizationResult>
-    where
-        T: Tracer,
-        V: VMTracer,
-        E: ExternalitiesExt + vm::Ext;
+    where T: Tracer;
 
     fn debug_finalize<T,V>(&mut self,
         t: &SignedTransaction, 
@@ -393,55 +389,60 @@ impl<'a, B> ExecutiveExt<'a, B> for Executive<'a, B> where B: 'a + StateBackend 
 
         Ok(pool.install(move || Arc::get_mut(vm).unwrap().fire(&action, ext))?)
     }
-
-    fn debug_finish<T, V, E>(
-        &mut self,
-        gas: vm::Result<GasLeft>,
-        tracer: &mut T,
-        vm_tracer: &mut V,
-        subvmtracer: V,
-        subtracer: T,
-        trace_info: Option<Call>,
-        trace_output: Option<Bytes>,
-        gas_given: U256,
-        substate: &mut Substate,
-        un_substate: Substate,
-        ext: E,
-        is_code: bool,
+    
+    
+    fn debug_finish<T,V>(&mut self, 
+                           mut txinfo: TransactInfo<T,V>, 
+                           mut fininfo: FinalizeInfo<T,V>, 
+                           is_code: bool, res: Option<vm::Result<evm::FinalizationResult>>
     ) -> vm::Result<evm::FinalizationResult>
     where
         T: Tracer,
         V: VMTracer,
-        E: ExternalitiesExt + vm::Ext,
-    {
-        if is_code {
-            let res = gas.finalize(ext);
+    {   
+        let gas = fininfo.gas.expect("Should only be called when 100% certain execution finished");
+        let gas_given = txinfo.params().gas;
+        let mut tracer = &mut txinfo.tracer;
+        let mut vm_tracer = &mut txinfo.vm_tracer;
+        if is_code && res.is_some() {
+            let res = res.expect("Scope is conditional; qed");
 
-            vm_tracer.done_subtrace(subvmtracer);
+            vm_tracer.done_subtrace(fininfo.subvmtracer);
             trace!(target: "executive", "res={:?}", res);
-            let traces = subtracer.drain();
+            let traces = fininfo.subtracer.drain();
 
             match res {
                 Ok(ref res) if res.apply_state => {
-                    tracer.trace_call(trace_info, gas_given - res.gas_left, trace_output, traces)
+                    tracer.trace_call(fininfo.trace_info, gas_given - res.gas_left, fininfo.trace_output, traces)
                 }
-                Ok(_) => tracer.trace_failed_call(trace_info, traces, vm::Error::Reverted.into()),
-                Err(ref e) => tracer.trace_failed_call(trace_info, traces, e.into()),
+                Ok(_) => tracer.trace_failed_call(fininfo.trace_info, traces, vm::Error::Reverted.into()),
+                Err(ref e) => tracer.trace_failed_call(fininfo.trace_info, traces, e.into()),
             };
 
-            trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", substate, un_substate);
-            self.enact_result(&res, substate, un_substate);
-            trace!(target: "executive", "enacted: substate={:?} \n", substate);
+            trace!(target: "executive", "substate={:?}; uncomfirmed_substate={:?} \n", &mut txinfo.substate, fininfo.unconfirmed_substate);
+            self.enact_result(&res, &mut txinfo.substate, fininfo.unconfirmed_substate);
+            trace!(target: "executive", "enacted: substate={:?} \n", &mut txinfo.substate);
             res
         } else {
-            self.state.discard_checkpoint();
-            tracer.trace_call(trace_info, U256::zero(), trace_output, vec![]);
-            Ok(evm::FinalizationResult {
-                gas_left: gas_given,
-                return_data: ReturnData::empty(),
-                apply_state: true,
-            })
+            self.debug_finish_no_code(tracer, fininfo.trace_info, fininfo.trace_output, gas_given)
         }
+    }
+
+    fn debug_finish_no_code<T>(&mut self, 
+        tracer: &mut T, 
+        trace_info: Option<Call>, 
+        trace_output: Option<Bytes>,
+        gas_given: U256
+    ) -> vm::Result<evm::FinalizationResult> 
+        where T: Tracer
+    {
+        self.state.discard_checkpoint();
+        tracer.trace_call(trace_info,  U256::zero(), trace_output, vec![]);
+        Ok(evm::FinalizationResult {
+            gas_left: gas_given,
+            return_data: ReturnData::empty(),
+            apply_state: true,
+        })
     }
 
     fn debug_finalize<T,V>(&mut self,

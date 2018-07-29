@@ -1,4 +1,5 @@
-use vm::{EnvInfo, Schedule};
+use vm::{EnvInfo, Schedule, GasLeft};
+use evm::Finalize;
 use ethcore::externalities::*;
 use ethcore::executive::{Executive, TransactOptions};
 use ethcore::executed::{Executed};
@@ -16,11 +17,30 @@ use crate::emulator::Action;
 use crate::err;
 // acts as a state machine for transaction execution
 // continually trying to reach the next Debug State until `finish()` can be called
+trait AllExt<'a, T, V, B>: ExternalitiesExt + ConsumeExt<'a, T, V, B> 
+    where T: 'a + Tracer, V: 'a + VMTracer, B: 'a + StateBackend 
+{}
+
+impl<'a, T, V, B, Type> AllExt<'a, T, V, B> for Type 
+    where Type: ExternalitiesExt + ConsumeExt<'a, T, V, B>,
+          T: 'a + Tracer,
+          V: 'a + VMTracer,
+          B: 'a + StateBackend 
+{}
 
 enum FinalizeType<T: Tracer, V: VMTracer> {
     NoCode(FinalizeNoCode), // a transaction that does not require code to be executed (basic tx)
     Code(FinalizeInfo<T,V>),    // tx that requires execution
     Create(vm::Result<evm::FinalizationResult>) // create a contract -- no debugging capability yet
+}
+
+impl<T,V> FinalizeType<T,V> where T: Tracer, V: VMTracer {
+    fn set_gas(&mut self, gas: vm::Result<GasLeft>) {
+        match self {
+            FinalizeType::Code(fin_info) => fin_info.set_gas(gas),
+            _ => panic!("Cannot set gas for state, because state does not execute contract")
+        };
+    }
 }
 
 enum DebugState <T: Tracer, V: VMTracer> {
@@ -85,19 +105,23 @@ impl<T,V> Info<T,V> for DebugState<T,V> where T: Tracer, V: VMTracer {
     }
 }
 
-trait DebugFields<T: Tracer, V: VMTracer>: Sized {
+trait DebugFields<'a, T: 'a + Tracer, V: 'a + VMTracer>: Sized {
     fn tx_info<F>(&mut self, f: F) -> err::Result<()> where F: FnMut(&mut TransactInfo<T,V>) -> err::Result<()>;
     fn fin_info<F>(&mut self, f: F) -> err::Result<()> where F: FnMut(&mut FinalizeInfo<T,V>) -> err::Result<()>;
     fn info<F>(&mut self, f: F) -> err::Result<()>
         where F: FnMut(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> err::Result<()>;
     fn resumables<F>(&mut self, f: F) -> err::Result<()>
         where F: FnMut(&mut ResumeInfo, &mut TransactInfo<T,V>, &mut FinalizeType<T,V>) -> crate::err::Result<()>;
-    fn with_ext<'a, B, F>(&mut self, f: F, executive: &mut Executive<'a, B>) -> err::Result<()> 
-        where F: FnMut(&mut dyn ExternalitiesExt) -> err::Result<()>,
-        B: 'a + StateBackend;
-    fn with_resumables<'a, B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
+    fn with_ext<Tr, Vm, B, F>(&mut self, f: F, executive: &mut Executive<'a, B>) -> err::Result<()>
+     where F: FnMut(&mut dyn AllExt<'_, T, V, B>) -> crate::err::Result<()>, 
+        B: 'a + StateBackend,
+        Tr: 'a + Tracer,
+        Vm: 'a + VMTracer;
+
+    fn with_resumables<B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
         where F: FnMut(&mut (dyn ExternalitiesExt + Send), &mut ResumeInfo) -> err::Result<()>, B: 'a + StateBackend;
-    fn make_done<'a, B>(&mut self, executive: &mut Executive<'a, B>) -> err::Result<()> where B: 'a + StateBackend;
+    fn make_done<B>(&mut self, executive: &mut Executive<'a, B>
+    ) -> err::Result<()> where B: 'a + StateBackend;
     fn update(&mut self, state: DebugState<T,V>);
     fn can_finish(&self) -> bool;
     fn is_resumable(&self) -> bool;
@@ -108,13 +132,13 @@ trait DebugFields<T: Tracer, V: VMTracer>: Sized {
 /// defaults and error handling for Option<> fields on DebugExecutive
 /// higher order functions for using data in State
 /// consumes the Option<>
-impl<'a, T: 'a,V: 'a> DebugFields<T,V> for Option<DebugExecution<T,V>> 
+impl<'a, T: 'a,V: 'a> DebugFields<'a, T,V> for Option<DebugExecution<T,V>> 
     where T: Tracer, V: VMTracer
 {   
     /// use TransactInfo by-mutable-reference
     fn tx_info<F>(&mut self, mut f: F) -> err::Result<()>
     where 
-        F: FnMut(&mut TransactInfo<T,V>) -> err::Result<()> 
+        F: FnMut(&mut TransactInfo<T,V>) -> err::Result<()>,
     {
         
         let err_str = "Attempt to get Transaction Info from struct `DebugExecution` that was not yet initialized";
@@ -155,10 +179,12 @@ impl<'a, T: 'a,V: 'a> DebugFields<T,V> for Option<DebugExecution<T,V>>
             .and_then(Info::resumables).iter_mut().map(|i| f(i.0, i.1, i.2)).collect()
     }
 
-    fn with_ext<B, E, F>(&mut self, mut f: F, executive: &mut Executive<'a, B>) -> err::Result<()> 
-        where F: FnMut(Box<E>) -> crate::err::Result<()>, 
+    fn with_ext<Tr, Vm, B, F>(&mut self, mut f: F, executive: &mut Executive<'a, B>) -> err::Result<()> 
+        where F: FnMut(&mut dyn AllExt<'_, T, V, B>) -> crate::err::Result<()>, 
         B: 'a + StateBackend,
-        E: ExternalitiesExt + ConsumeExt<'a, T, V, B>
+        Tr: 'a + Tracer,
+        Vm: 'a + VMTracer,
+
     {
         self.info(|txinfo, fin_info| {
             let static_call = txinfo.params().call_type == evm::CallType::StaticCall;
@@ -168,11 +194,11 @@ impl<'a, T: 'a,V: 'a> DebugFields<T,V> for Option<DebugExecution<T,V>>
                 &mut txinfo.tracer,
                 &mut txinfo.vm_tracer,
                 static_call);
-            f(ext)
+            f(&mut ext)
         })
     }
 
-    fn with_resumables<'a, B, F>(&mut self, mut f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
+    fn with_resumables<B, F>(&mut self, mut f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
         where F: FnMut(&mut (dyn ExternalitiesExt + Send), &mut ResumeInfo) -> err::Result<()>, B: 'a + StateBackend 
     {
         self.resumables(|resume_info, txinfo, fin_type| {
@@ -192,11 +218,47 @@ impl<'a, T: 'a,V: 'a> DebugFields<T,V> for Option<DebugExecution<T,V>>
         })
     }
 
-    fn make_done<'a, B>(&mut self, executive: &mut Executive<'a, B>
+    fn make_done<B>(&mut self, executive: &mut Executive<'a, B>
     ) -> err::Result<()> where B: 'a + StateBackend {
-        self.with_ext(|ext| {
-            Ok(())
-        }, executive);
+        let err_str = "State not initialized";
+        let mut err = Error::Debug(DebugError::from(err_str));
+        let new_self = self.take().ok_or(err)?;
+        match new_self.state {
+            DebugState::NeedsFinalization(fin_type, mut txinfo) => {
+                match fin_type {
+                    FinalizeType::Code(mut fin_info) => {
+                        let gas_res: Option<vm::Result<evm::FinalizationResult>> = None;
+                        {
+                            let static_call = txinfo.params().call_type == evm::CallType::StaticCall;
+                            let mut ext = executive.as_dbg_externalities(OriginInfo::from(txinfo.params()),
+                                &mut fin_info.unconfirmed_substate,
+                                OutputPolicy::Return,
+                                &mut txinfo.tracer,
+                                &mut txinfo.vm_tracer,
+                                static_call);
+                            let gas = fin_info.gas.clone().expect("Should only be called when 100% certain execution finished");
+                            let gas_res = Some(gas.finalize(ext));
+                        }
+                        // executive.debug_finish()
+                        let res = executive.debug_finish(
+                            txinfo,fin_info,
+                            true, gas_res
+                        );
+                        self.update(DebugState::Done(res))
+                    },
+                    FinalizeType::NoCode(no_code) => {
+                        let gas = txinfo.params().gas;
+                        let res = executive.debug_finish_no_code(&mut txinfo.tracer, no_code.trace_info, no_code.trace_output, gas);
+                        self.update(DebugState::Done(res))
+                    },
+                    FinalizeType::Create(res) => {
+                        self.update(DebugState::Done(res.clone()));
+                    },
+                }
+            },
+            DebugState::Done(res) => self.update(DebugState::Done(res)),
+            _=> panic!("Cannot set state for item that has not finished execution")
+        };
         Ok(())
     }
 
@@ -343,7 +405,8 @@ where T: Tracer,
                 Some(ref e) => { 
                     if e.finished() {
                         match self.tx.take().expect("Scope is conditional, `tx.resumable()`; qed").state {
-                            DebugState::Resumable(_, tx_info, fin_type) => {
+                            DebugState::Resumable(_, tx_info, mut fin_type) => {
+                                fin_type.set_gas(Ok(e.gas_left().expect("Execution finished, gas left should be populated; qed")));
                                 self.tx.update(DebugState::NeedsFinalization(fin_type, tx_info));
                             },
                             _ => panic!("Scope is conditional `tx.resumable()` qed")

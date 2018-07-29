@@ -39,7 +39,17 @@ impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for Externalities<'a, T, V
         self
     }
 }
+/*
+pub trait Take {
+    fn take(&mut self) -> Self;
+}
 
+impl<'a, T, V, B> Take for DebugExt<'a, T, V, B> where T: Tracer, V: VMTracer, B: StateBackend {
+    fn take(&mut self) -> Self {
+        DebugExt::from_self(self)
+    }
+}
+*/
 impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T,V,B> for DebugExt<'a, T, V, B> 
     where 
         T: Tracer, 
@@ -83,6 +93,19 @@ impl<'a, T: 'a, V: 'a, B: 'a> DebugExt<'a,T,V,B>
             snapshots: InterpreterSnapshots::new()
         }
     }
+
+/*
+    pub fn from_self(&mut self) -> Self {
+        DebugExt {
+            externalities: Externalities {
+                ..self.externalities
+            },
+            snapshots: InterpreterSnapshots {
+                ..self.snapshots
+            }
+        }
+    } 
+    */
 }
 
 impl<'a, T: 'a, V: 'a, B: 'a> Ext for DebugExt<'a,T,V,B>

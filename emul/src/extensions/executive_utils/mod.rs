@@ -2,12 +2,14 @@ use vm::{GasLeft, ActionParams};
 use ethcore::state::{Substate};
 use ethcore::trace::trace::Call;
 use ethcore::trace::{Tracer, VMTracer};
+use ethcore::state::{Backend as StateBackend};
 use ethereum_types::{U256};
 use bytes::{Bytes, BytesRef};
 use std::sync::Arc;
 use crate::emulator::{VMEmulator,Action};
 use crate::externalities::ExternalitiesExt;
 use crate::extensions::ExecInfo;
+use crate::extensions::executive_ext::ExecutiveExt;
 crate struct NewBytes(Bytes);
 
 impl NewBytes {
@@ -38,10 +40,21 @@ crate struct FinalizeNoCode {
 impl FinalizeNoCode {
     crate fn new(trace_info: Option<Call>, trace_output: Option<Bytes>, gas_given: U256) -> Self {
         FinalizeNoCode {
-            trace_info, trace_output, gas_given
+            trace_info, trace_output, gas_given, 
         }
     }
+
+    /*crate fn finalize<'a, B>(self, executive: impl ExecutiveExt<'a, B>
+    ) -> vm::Result<evm::FinalizationResult> where B: StateBackend 
+    {
+      executive.debug_finish_no_code(&mut self.tracer, 
+                                    self.trace_info, 
+                                    self.trace_output, 
+                                    self.gas_given)
+    }*/
 }
+
+
 
 crate struct FinalizeInfo<T: Tracer, V: VMTracer>
 {
@@ -71,23 +84,17 @@ impl<T, V> FinalizeInfo<T, V>
             subtracer, trace_info, trace_output, unconfirmed_substate, is_code
         }
     }
-    /*
-    pub fn is_static(&self) -> bool {
-      self.params.call_type == CallType::StaticCall
+
+    crate fn set_gas(&mut self, gas:vm::Result<GasLeft>) {
+      self.gas = Some(gas);
     }
-    */
-/*
-    pub fn boxed_output_policy<'any>(&self) -> OutputPolicy<'any, 'any> {
-      OutputPolicy::Return(BytesRef::from(self.output), self.tracej_output.as_mut())
-    }
-    */
 }
 
 crate struct TransactInfo<T: Tracer, V: VMTracer> {
   crate tracer: T,
   crate vm_tracer: V,
   output: Bytes,
-  substate: Substate,
+  crate substate: Substate,
   params: ActionParams,
 }
 
