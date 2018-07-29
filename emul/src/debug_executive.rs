@@ -10,7 +10,7 @@ use std::mem;
 use crate::extensions::executive_utils::{FinalizeInfo, ResumeInfo, FinalizeNoCode, TransactInfo, debug_resume};
 use crate::extensions::executive_ext::{ExecutiveExt, ExecutionState, CallState};
 use crate::extensions::ExecInfo;
-use crate::externalities::ExternalitiesExt;
+use crate::externalities::{ExternalitiesExt, ConsumeExt};
 use crate::err::{Error, DebugError};
 use crate::emulator::Action;
 use crate::err;
@@ -92,20 +92,23 @@ trait DebugFields<T: Tracer, V: VMTracer>: Sized {
         where F: FnMut(&mut TransactInfo<T,V>, &mut FinalizeInfo<T,V>) -> err::Result<()>;
     fn resumables<F>(&mut self, f: F) -> err::Result<()>
         where F: FnMut(&mut ResumeInfo, &mut TransactInfo<T,V>, &mut FinalizeType<T,V>) -> crate::err::Result<()>;
-    fn with_ext<'a, B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()> 
+    fn with_ext<'a, B, F>(&mut self, f: F, executive: &mut Executive<'a, B>) -> err::Result<()> 
         where F: FnMut(&mut dyn ExternalitiesExt) -> err::Result<()>,
         B: 'a + StateBackend;
     fn with_resumables<'a, B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
         where F: FnMut(&mut (dyn ExternalitiesExt + Send), &mut ResumeInfo) -> err::Result<()>, B: 'a + StateBackend;
+    fn make_done<'a, B>(&mut self, executive: &mut Executive<'a, B>) -> err::Result<()> where B: 'a + StateBackend;
     fn update(&mut self, state: DebugState<T,V>);
     fn can_finish(&self) -> bool;
     fn is_resumable(&self) -> bool;
+    fn needs_finalization(&self) -> bool;
+    fn is_done(&self) -> bool;
 }
 
 /// defaults and error handling for Option<> fields on DebugExecutive
 /// higher order functions for using data in State
 /// consumes the Option<>
-impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>> 
+impl<'a, T: 'a,V: 'a> DebugFields<T,V> for Option<DebugExecution<T,V>> 
     where T: Tracer, V: VMTracer
 {   
     /// use TransactInfo by-mutable-reference
@@ -152,8 +155,10 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
             .and_then(Info::resumables).iter_mut().map(|i| f(i.0, i.1, i.2)).collect()
     }
 
-    fn with_ext<'a, B, F>(&mut self, mut f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()> 
-        where F: FnMut(&mut dyn ExternalitiesExt) -> crate::err::Result<()>, B: 'a + StateBackend
+    fn with_ext<B, E, F>(&mut self, mut f: F, executive: &mut Executive<'a, B>) -> err::Result<()> 
+        where F: FnMut(Box<E>) -> crate::err::Result<()>, 
+        B: 'a + StateBackend,
+        E: ExternalitiesExt + ConsumeExt<'a, T, V, B>
     {
         self.info(|txinfo, fin_info| {
             let static_call = txinfo.params().call_type == evm::CallType::StaticCall;
@@ -163,7 +168,7 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
                 &mut txinfo.tracer,
                 &mut txinfo.vm_tracer,
                 static_call);
-            f(&mut ext)
+            f(ext)
         })
     }
 
@@ -187,6 +192,14 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
         })
     }
 
+    fn make_done<'a, B>(&mut self, executive: &mut Executive<'a, B>
+    ) -> err::Result<()> where B: 'a + StateBackend {
+        self.with_ext(|ext| {
+            Ok(())
+        }, executive);
+        Ok(())
+    }
+
     fn update(&mut self, state: DebugState<T,V>) {
         mem::replace(self, Some(state.into()));
     } 
@@ -200,6 +213,30 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
                 }
             }
             None => false,
+        }
+    }
+
+    fn needs_finalization(&self) -> bool {
+        match *self {
+            Some(ref v) => {
+                match v.state {
+                    DebugState::NeedsFinalization(_,_) => true,
+                    _ => false,
+                }
+            },
+            None => false
+        }
+    }
+
+    fn is_done(&self) -> bool {
+        match *self {
+            Some(ref v) => {
+                match v.state {
+                    DebugState::Done(_) => true,
+                    _ => false
+                }
+            },
+            None => false
         }
     }
 
@@ -322,6 +359,13 @@ where T: Tracer,
 
     pub fn finish(&mut self
     ) -> crate::err::Result<Executed<T::Output, V::Output>> where T: Tracer, V: VMTracer {
+        /*if self.tx.can_finish() && self.tx.done() {
+            // state is none
+        } else if self.tx.can_finish() && self.tx.needs_finalization() {
+            // progress to `Done`
+        } else {
+            Err(Error::Debug(DebugError::from("State cannot be finished yet"))) // possibly make this a 'None', and finish return `Option<>`
+        } */
         unimplemented!();
     }
 }

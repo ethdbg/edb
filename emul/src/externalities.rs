@@ -23,6 +23,38 @@ pub trait ExternalitiesExt: Ext {
     // fn consume_ext(self) -> vm::Ext;
 }
 
+pub trait ConsumeExt<'a, T: 'a, V: 'a, B: 'a> {
+    fn consume(self) -> Externalities<'a, T, V, B>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend;
+}
+
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T, V, B> for Externalities<'a, T, V, B> {
+    fn consume(self) -> Externalities<'a, T, V, B> 
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend 
+    {
+        self
+    }
+}
+
+impl<'a, T: 'a, V: 'a, B: 'a> ConsumeExt<'a, T,V,B> for DebugExt<'a, T, V, B> 
+    where 
+        T: Tracer, 
+        V: VMTracer, 
+        B: StateBackend 
+{
+    fn consume(self) -> Externalities<'a, T, V, B>
+        where T: Tracer,
+              V: VMTracer,
+              B: StateBackend,
+    {
+        self.externalities
+    }
+}
+
 pub struct DebugExt<'a, T: 'a, V: 'a, B: 'a> where T: Tracer, V: VMTracer, B: StateBackend {
     pub externalities: Externalities<'a, T, V, B>,
     snapshots: InterpreterSnapshots,
