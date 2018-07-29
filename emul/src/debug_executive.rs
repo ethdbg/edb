@@ -98,6 +98,7 @@ trait DebugFields<T: Tracer, V: VMTracer>: Sized {
     fn with_resumables<'a, B, F>(&mut self, f: F, executive: &mut impl ExecutiveExt<'a, B>) -> err::Result<()>
         where F: FnMut(&mut (dyn ExternalitiesExt + Send), &mut ResumeInfo) -> err::Result<()>, B: 'a + StateBackend;
     fn update(&mut self, state: DebugState<T,V>);
+    fn can_finish(&self) -> bool;
     fn is_resumable(&self) -> bool;
 }
 
@@ -201,6 +202,18 @@ impl<T,V> DebugFields<T,V> for Option<DebugExecution<T,V>>
             None => false,
         }
     }
+
+    fn can_finish(&self) -> bool {
+        match *self {
+            Some(ref v) => {
+                match v.state {
+                    DebugState::Resumable(_,_,_) => false,
+                    _ => true,
+                }
+            },
+            None => false
+        }
+    }
 }
 
 pub struct DebugExecution<T: Tracer, V: VMTracer> {
@@ -292,11 +305,11 @@ where T: Tracer,
             match exec_info {
                 Some(ref e) => { 
                     if e.finished() {
-                        match self.tx.take().expect("Scope is conditional; qed").state {
+                        match self.tx.take().expect("Scope is conditional, `tx.resumable()`; qed").state {
                             DebugState::Resumable(_, tx_info, fin_type) => {
                                 self.tx.update(DebugState::NeedsFinalization(fin_type, tx_info));
                             },
-                            _ => panic!("Scope is conditional 'tx.resumable()' qed")
+                            _ => panic!("Scope is conditional `tx.resumable()` qed")
                         }
                     }
                 },
