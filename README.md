@@ -15,15 +15,15 @@ Two Debug Types:
 
 
 ### Supported Languages
-- [] Solidity
-- [] Vyper
-- [] Serpent
-- [] LLL
+- [ ] Solidity
+- [ ] Vyper
+- [ ] Serpent
+- [ ] LLL
 
 ### Supported Chains
-- [] Ethereum Main
-- [] Ethereum Classic
-- [] Ellaism
-- [] Ubiq
-- [] Expanse
-- [] Musicoin
+- [ ] Ethereum Main
+- [ ] Ethereum Classic
+- [ ] Ellaism
+- [ ] Ubiq
+- [ ] Expanse
+- [ ] Musicoin
