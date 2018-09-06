@@ -7,7 +7,7 @@ use failure::Error;
 use web3::{
     api::Web3,
     Transport,
-    types::{BlockNumber, U256, Bytes, Address},
+    types::{BlockNumber, U256, Bytes},
 };
 use std::{
     cell::{RefCell, RefMut},
@@ -36,9 +36,9 @@ pub enum Action {
 
 /// Emulation Object
 pub struct Emulator<T: Transport> {
-    vm: Rc<RefCell<SeqTransactionVM<ByzantiumPatch>>>,
-    transaction: (ValidTransaction, HeaderParams),
+    vm: SeqTransactionVM<ByzantiumPatch>,
     positions: Vec<usize>,
+    transaction: (ValidTransaction, HeaderParams),
     client: web3::Web3<T>,
     ev_loop: tokio_core::reactor::Core,
 }
@@ -49,14 +49,14 @@ impl<T> Emulator<T> where T: Transport {
     pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>, ev_loop: tokio_core::reactor::Core) -> Self {
         Emulator {
             transaction: (transaction.clone(), header.clone()),
-            vm: Rc::new(RefCell::new(sputnikvm::TransactionVM::new(transaction, header))),
+            vm: sputnikvm::TransactionVM::new(transaction, header),
             positions: Vec::new(),
             client,
             ev_loop,
         }
     }
 
-    pub fn fire(&self, action: Action) -> Result<(), Error> {
+    pub fn fire(&mut self, action: Action) -> Result<(), Error> {
         match action {
             Action::StepBack => self.step_back(),
             Action::StepForward => self.step_forward(),
@@ -67,55 +67,55 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn output(&self) -> Vec<u8> {
-        self.vm.borrow().out().into()
+        self.vm.out().into()
     }
 
-    fn step_back(&self) -> Result<(), Error> {
+    fn step_back(&mut self) -> Result<(), Error> {
         let mut last_pos = 0;
         if let Some(x) = self.positions.pop() {
             last_pos = x;
         }
 
         let mut pos_goal = 0;
-        let (txinfo, header) = self.transaction;
-        let mut new_vm = Rc::new(RefCell::new(sputnikvm::TransactionVM::new(txinfo, header)));
+        let (txinfo, header) = self.transaction.clone();
+        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
         while pos_goal < last_pos {
-            step(new_vm.borrow_mut(), &self.client, &mut self.ev_loop)?;
-            let state = new_vm.borrow().current_state().unwrap();
+            step(&mut new_vm, &self.client, &mut self.ev_loop)?;
+            let state = new_vm.current_state().unwrap();
             pos_goal = state.position;
         }
-        self.vm.swap(&new_vm);
+        std::mem::replace(&mut self.vm, new_vm);
         Ok(())
     }
 
-    fn step_forward(&self) -> Result<(), Error> {
-        step(self.vm.borrow_mut(), &self.client, &mut self.ev_loop)?;
-        let state = self.vm.borrow().current_state().unwrap();
+    fn step_forward(&mut self) -> Result<(), Error> {
+        step(&mut self.vm, &self.client, &mut self.ev_loop)?;
+        let state = self.vm.current_state().unwrap();
         self.positions.push(state.position);
         Ok(())
     }
 
-    fn run_until(&self, pc: usize) -> Result<(), Error> {
+    fn run_until(&mut self, pc: usize) -> Result<(), Error> {
 
         // If positions is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
-            step(self.vm.borrow_mut(), &self.client, &mut self.ev_loop)?;
-            let state = self.vm.borrow().current_state().unwrap();
-            self.positions.push(state.position);
+            step(&mut self.vm, &self.client, &mut self.ev_loop)?;
+            let state = self.vm.current_state().unwrap();
+            self.positions.push(state.position.clone());
         }
         Ok(())
     }
 
     /// runs vm to completion
-    fn run(&self) -> Result<(), Error> {
-        while !step(self.vm.borrow_mut(), &self.client, &mut self.ev_loop)? {}
+    fn run(&mut self) -> Result<(), Error> {
+        while !step(&mut self.vm, &self.client, &mut self.ev_loop)? {}
         Ok(())
     }
 }
 
 /// steps the vm, querying node for any information that the VM needs
 /// vm returns true when execution is finished
-fn step<T>(vm: RefMut<SeqTransactionVM<ByzantiumPatch>>, client: &Web3<T>, ev_loop: &mut tokio_core::reactor::Core) -> Result<bool, EmulError>
+fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, client: &Web3<T>, ev_loop: &mut tokio_core::reactor::Core) -> Result<bool, EmulError>
 where
     T: Transport
 {
@@ -145,7 +145,7 @@ where
                 address: addr,
                 index: index,
                 // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
-                value: bigint::M256(bigint::U256(super::scary::non_scalar_typecast::h256_to_u256(value)))
+                value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
             })?;
             Ok(false)
         },
