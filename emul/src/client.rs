@@ -6,8 +6,8 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Self {
-    
-    
+
+
     }
 }
 
@@ -25,6 +25,3 @@ impl Client {
 
 
 // create two MPSC channels, one is passed into Executor
-
-
-

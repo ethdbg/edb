@@ -1,16 +1,19 @@
+cargo-features = ['edition']
+
 [package]
 name = "emul2"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
+edition = '2018'
 
 [dependencies]
-rustc-hex = "1.0"
-ethereum-types = "0.3"
 log = "0.3"
-crossbeam = "0.3"
 tempdir = "0.3"
-delegate = "0.1.3"
-tokio = "0.1.7"
-rayon = "1.0.2"
 sputnikvm = "0.10.1"
-failure = "*"
+sputnikvm-network-foundation = "0.10.0"
+failure = "0.1.2"
+web3 = { git = "https://github.com/tomusdrw/rust-web3/" }
+tokio-core = "0.1.17"
+futures = "0.1.23"
+etcommon-bigint = "0.2.9"
+ethereum-types = "0.4.0"

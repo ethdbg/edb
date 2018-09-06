@@ -1,5 +1,6 @@
-extern crate emul;
-
+mod client;
+mod conf;
+mod types;
 
 #[cfg(test)]
 mod tests {
