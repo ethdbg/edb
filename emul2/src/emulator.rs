@@ -40,19 +40,17 @@ pub struct Emulator<T: Transport> {
     positions: Vec<usize>,
     transaction: (ValidTransaction, HeaderParams),
     client: web3::Web3<T>,
-    ev_loop: tokio_core::reactor::Core,
 }
 
 /// a vm that emulates a transaction, allowing for mutations during execution
 impl<T> Emulator<T> where T: Transport {
     /// Create a new Emulator
-    pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>, ev_loop: tokio_core::reactor::Core) -> Self {
+    pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>) -> Self {
         Emulator {
             transaction: (transaction.clone(), header.clone()),
             vm: sputnikvm::TransactionVM::new(transaction, header),
             positions: Vec::new(),
-            client,
-            ev_loop,
+            client
         }
     }
 
@@ -80,7 +78,7 @@ impl<T> Emulator<T> where T: Transport {
         let (txinfo, header) = self.transaction.clone();
         let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
         while pos_goal < last_pos {
-            step(&mut new_vm, &self.client, &mut self.ev_loop)?;
+            step(&mut new_vm, &self.client)?;
             let state = new_vm.current_state().unwrap();
             pos_goal = state.position;
         }
@@ -89,7 +87,7 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_forward(&mut self) -> Result<(), Error> {
-        step(&mut self.vm, &self.client, &mut self.ev_loop)?;
+        step(&mut self.vm, &self.client)?;
         let state = self.vm.current_state().unwrap();
         self.positions.push(state.position);
         Ok(())
@@ -99,7 +97,7 @@ impl<T> Emulator<T> where T: Transport {
 
         // If positions is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
-            step(&mut self.vm, &self.client, &mut self.ev_loop)?;
+            step(&mut self.vm, &self.client)?;
             let state = self.vm.current_state().unwrap();
             self.positions.push(state.position.clone());
         }
@@ -108,14 +106,22 @@ impl<T> Emulator<T> where T: Transport {
 
     /// runs vm to completion
     fn run(&mut self) -> Result<(), Error> {
-        while !step(&mut self.vm, &self.client, &mut self.ev_loop)? {}
+        while !step(&mut self.vm, &self.client)? {}
         Ok(())
+    }
+
+    // access the vm directly
+    fn mutate_raw<F>(&mut self, mut fun: F) -> Result<(), Error>
+    where
+        F: FnMut(&mut SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
+    {
+        fun(&mut self.vm)
     }
 }
 
 /// steps the vm, querying node for any information that the VM needs
 /// vm returns true when execution is finished
-fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, client: &Web3<T>, ev_loop: &mut tokio_core::reactor::Core) -> Result<bool, EmulError>
+fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, client: &Web3<T>) -> Result<bool, EmulError>
 where
     T: Transport
 {
@@ -162,6 +168,113 @@ where
         Err(err) => {
             error!("VM execution failed, unknown require! {:?}", err);
             panic!("VM Execution failed, unknown require");
+        }
+    }
+}
+
+
+
+#[cfg(test)]
+mod test {
+    use speculate::speculate;
+    use bigint::{Address, Gas};
+    use sputnikvm::TransactionAction;
+    use super::*;
+    use crate::tests::mock::MockWeb3Transport;
+    use std::str::FromStr;
+    const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
+/*
+    #[test]
+    fn step() {
+        let mock = MockWeb3Transport::default();
+        let client = web3::Web3::new(mock);
+        let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
+        let tx = ValidTransaction {
+            caller: Some(Address::random()),
+            gas_price: Gas::one(),
+            gas_limit: Gas::max_value(),
+            action: TransactionAction::Call(H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C")),
+            value: U256::zero(),
+            input: ,
+            nonce: U256::zero(),
+        };
+        /// make this into a macro
+        let emul = Emulator::new();
+        emul.mutate_raw(|vm| {
+            let code: Vec<u8> = simple.parse();
+            // commit the SimpleStorage contract to memory; this would be like deploying a smart contract to a TestRPC
+            vm.commit_account(AccountCommitment::Full {
+                nonce: 0,
+                address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(),
+                balance: U256::max_value(), // never run out of gas
+                code: Rc::new(code)
+            });
+        });
+    }
+*/
+    // pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>) -> Self {
+    speculate! {
+        describe "emulate" {
+            const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
+
+            before {
+                pretty_env_logger::try_init();
+                let mock = MockWeb3Transport::default();
+                let client = web3::Web3::new(mock);
+                let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
+                let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from(1337 as u64))]).unwrap();
+                let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
+                let tx_set = ValidTransaction {
+                    caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
+                    gas_price: Gas::one(),
+                    gas_limit: Gas::max_value(),
+                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()), // contract to call
+                    value: bigint::U256::zero(),
+                    input: Rc::new(set),
+                    nonce: bigint::U256::zero(),
+                };
+                let headers = sputnikvm::HeaderParams {
+                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), // miner
+                    timestamp: 1536291149 as u64,
+                    number: bigint::U256::from(6285997 as u64),
+                    difficulty: bigint::U256::from(3331693644712776 as u64),
+                    gas_limit: bigint::Gas::from(8000000 as u64)
+                };
+                // make this into a macro
+                let mut emul = Emulator::new(tx_set, headers, client);
+                emul.mutate_raw(|vm| {
+                    let code: Vec<u8> = hex::decode(simple).unwrap();
+                    // commit the SimpleStorage contract to memory; this would be like deploying a smart contract to a TestRPC
+                    vm.commit_account(AccountCommitment::Full {
+                        nonce: bigint::U256::zero(),
+                        address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), // contract
+                        balance: bigint::U256::max_value(), // never run out of gas
+                        code: Rc::new(code.to_vec())
+                    });
+
+                    vm.commit_account(AccountCommitment::Full {
+                        nonce: bigint::U256::zero(),
+                        address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), // miner
+                        balance: bigint::U256::max_value(),
+                        code: Rc::new(Vec::new())
+                    });
+
+                    vm.commit_account(AccountCommitment::Full {
+                        nonce: bigint::U256::zero(),
+                        address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), // caller
+                        balance: bigint::U256::max_value(),
+                        code: Rc::new(Vec::new())
+                    });
+                    info!("Accounts: {:?}", vm.accounts());
+                    Ok(())
+                });
+            }
+
+            it "can run" {
+                emul.fire(Action::Exec);
+                info!("{:?}", emul.output());
+            }
+
         }
     }
 }

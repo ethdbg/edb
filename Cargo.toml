@@ -23,5 +23,5 @@ members = [
 [dependencies]
 tokio-core = "0.1.17"
 futures = "0.1.23"
-web3 = { git = "https://github.com/InsidiousMind/rust-web3/", branch = "insi_fix-0.3.1-compile" }
+web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 failure = "0.1.2"
