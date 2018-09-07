@@ -1,4 +1,5 @@
 //! Emulates transaction execution and allows for real-time debugging
+//! Debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, log};
 use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, errors::{RequireError, CommitError}, AccountCommitment, VM};
 use futures::future::Future;
@@ -53,7 +54,8 @@ impl<T> Emulator<T> where T: Transport {
             client
         }
     }
-
+    
+    /// fire the vm, with the specified Action
     pub fn fire(&mut self, action: Action) -> Result<(), Error> {
         match action {
             Action::StepBack => self.step_back(),
@@ -64,7 +66,7 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
-    fn output(&self) -> Vec<u8> {
+    pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
     }
 
@@ -116,6 +118,14 @@ impl<T> Emulator<T> where T: Transport {
         F: FnMut(&mut SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
     {
         fun(&mut self.vm)
+    }
+
+    /// access the underyling vm implementation directly via the predicate F
+    pub fn read_raw<F>(&mut self, mut fun: F) -> Result<(), Error>
+    where
+        F: Fn(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
+    {
+        fun(&self.vm)
     }
 }
 
@@ -183,36 +193,7 @@ mod test {
     use crate::tests::mock::MockWeb3Transport;
     use std::str::FromStr;
     const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
-/*
-    #[test]
-    fn step() {
-        let mock = MockWeb3Transport::default();
-        let client = web3::Web3::new(mock);
-        let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
-        let tx = ValidTransaction {
-            caller: Some(Address::random()),
-            gas_price: Gas::one(),
-            gas_limit: Gas::max_value(),
-            action: TransactionAction::Call(H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C")),
-            value: U256::zero(),
-            input: ,
-            nonce: U256::zero(),
-        };
-        /// make this into a macro
-        let emul = Emulator::new();
-        emul.mutate_raw(|vm| {
-            let code: Vec<u8> = simple.parse();
-            // commit the SimpleStorage contract to memory; this would be like deploying a smart contract to a TestRPC
-            vm.commit_account(AccountCommitment::Full {
-                nonce: 0,
-                address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(),
-                balance: U256::max_value(), // never run out of gas
-                code: Rc::new(code)
-            });
-        });
-    }
-*/
-    // pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>) -> Self {
+
     speculate! {
         describe "emulate" {
             const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
@@ -265,7 +246,6 @@ mod test {
                         balance: bigint::U256::max_value(),
                         code: Rc::new(Vec::new())
                     });
-                    info!("Accounts: {:?}", vm.accounts());
                     Ok(())
                 });
             }
@@ -275,6 +255,19 @@ mod test {
                 info!("{:?}", emul.output());
             }
 
+            it "can step forward" {
+                emul.read_raw(|vm| {
+                    assert_eq!(vm.current_machine().is_none(), true);
+                    Ok(())
+                });
+                emul.fire(Action::StepForward);
+                emul.fire(Action::StepForward);
+                emul.read_raw(|vm| {
+                    info!("current PC: {}", vm.current_state().unwrap().position);
+                    assert_eq!(2, vm.current_state().unwrap().position);
+                    Ok(())
+                });
+            }
         }
     }
 }
