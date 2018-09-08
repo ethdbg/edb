@@ -1,7 +1,7 @@
 //! Emulates transaction execution and allows for real-time debugging
 //! Debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, VMStatus, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
@@ -74,7 +74,7 @@ impl<T> Emulator<T> where T: Transport {
         self.vm.accounts().map(|acc| {
             // only commit accounts to new VM which have been previously committed
             match acc {
-                AccountChange::Full{nonce, address, balance, code, ..} => {
+                AccountChange::Full{nonce, address, balance, code, changing_storage} => {
                     info!("Committing account {:#x} from previous vm", address);
                     new_vm.commit_account(AccountCommitment::Full {
                         nonce: nonce.clone(), 
@@ -82,6 +82,17 @@ impl<T> Emulator<T> where T: Transport {
                         balance: balance.clone(), 
                         code: code.clone(),
                     })?;
+                    if changing_storage.len() > 0 {
+                        info!("Committing storage for account {:#x} from previous vm", address);
+                        for i in 0..changing_storage.len() {
+                            new_vm.commit_account(AccountCommitment::Storage {
+                                address: address.clone(),
+                                index: bigint::U256::from(i),
+                                value: changing_storage.read(bigint::U256::from(i))
+                                    .expect("Storage should exist in changing storg is not 0"),
+                            });
+                        }
+                    }
                     Ok(())
                 }
                 AccountChange::Nonexist(addr) => new_vm.commit_account(AccountCommitment::Nonexist(addr.clone())),
@@ -95,26 +106,25 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
-        let mut last_pos = 0;
+        let mut curr_pos = 0;
         if let Some(x) = self.positions.pop() {
-            last_pos = x;
+            curr_pos = x;
         } else { // if nothing is on the positions stack, return a new VM with any accounts that may have been commmitted
             let new_vm = self.new_vm()?;
             std::mem::replace(&mut self.vm, new_vm);
             return Ok(());
         }
-        self.positions.clear();
-        let mut pos_goal = 0;
-        let new_vm = self.new_vm()?; 
         
-        info!("Pos: {}", last_pos);
-        while pos_goal < last_pos {
-            step(&mut self.vm, &self.client)?;
-            if let Some(x) = self.vm.current_state() {
-                pos_goal = x.position;
-                self.positions.push(x.position);
+        let mut last_pos = 0;
+        let mut new_vm = self.new_vm()?; 
+        info!("Stepping vm back to last position {}, from current position {}", last_pos, curr_pos);
+        // run the vm until the latest stored position
+        while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
+            step(&mut new_vm, &self.client)?;
+            if let Some(x) = new_vm.current_state() {
+                last_pos = x.position;
             } else {
-                pos_goal = 0;
+                panic!("Vm stepped but state is not initialized");
             }
         }
         std::mem::replace(&mut self.vm, new_vm);
@@ -134,7 +144,7 @@ impl<T> Emulator<T> where T: Transport {
 
     fn run_until(&mut self, pc: usize) -> Result<(), EmulError> {
 
-        // If positions is 0, we haven't started the VM yet
+        // If position is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
             step(&mut self.vm, &self.client)?;
             if let Some(x) = self.vm.current_state() {
@@ -146,15 +156,14 @@ impl<T> Emulator<T> where T: Transport {
 
     /// runs vm to completion
     fn run(&mut self) -> Result<(), EmulError> {
-        while !step(&mut self.vm, &self.client)? {}
+        'run: loop {
+            let result = self.vm.fire();
+            if handle_requires(result, &mut self.vm, &self.client)? {
+                info!("Vm  exited with code {:?}", self.vm.status());
+                break 'run;
+            }
+        }
         Ok(())
-    }
-    /* Access the VM Directly */
-    fn mutate_raw<F>(&mut self, mut fun: F) -> Result<(), Error>
-    where
-        F: FnMut(&mut SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
-    {
-        fun(&mut self.vm)
     }
 
     /// access the underyling vm implementation directly via the predicate F
@@ -172,7 +181,19 @@ fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, client: &Web3<T>) -> Resul
 where
     T: Transport
 {
-    match vm.step() {
+    let result = vm.step();
+    handle_requires(result, vm, client)
+}
+
+fn handle_requires<T>(
+    result: Result<(), RequireError>, 
+    vm: &mut SeqTransactionVM<ByzantiumPatch>, 
+    client: &Web3<T>) -> Result<bool, EmulError> 
+where
+    T: Transport
+{
+
+    match result {
         Ok(()) => {
             Ok(true)
         },
@@ -246,11 +267,21 @@ mod test {
                 let tx_set = ValidTransaction {
                     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
                     gas_price: Gas::one(),
-                    gas_limit: Gas::max_value(),
+                    gas_limit: Gas::from(10000000 as u64),
                     // contract to call
                     action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
                     value: bigint::U256::zero(),
                     input: Rc::new(set),
+                    nonce: bigint::U256::zero(),
+                };
+                let tx_get = ValidTransaction {
+                    caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
+                    gas_price: Gas::one(),
+                    gas_limit: Gas::from(10000000 as u64),
+                    // contract to call
+                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
+                    value: bigint::U256::zero(),
+                    input: Rc::new(get),
                     nonce: bigint::U256::zero(),
                 };
                 // miner
@@ -259,71 +290,89 @@ mod test {
                     timestamp: 1536291149 as u64,
                     number: bigint::U256::from(6285997 as u64),
                     difficulty: bigint::U256::from(3331693644712776 as u64),
-                    gas_limit: bigint::Gas::from(8000000 as u64)
+                    gas_limit: bigint::Gas::from(80000000 as u64)
                 };
                 // make this into a macro
                 let mut emul = Emulator::new(tx_set, headers, client);
-                emul.mutate_raw(|vm| {
-                    let code: Vec<u8> = hex::decode(simple).unwrap();
-                    // commit the SimpleStorage contract to memory; 
-                    // this would be like deploying a smart contract to a TestRPC
-                    vm.commit_account(AccountCommitment::Full {
-                        nonce: bigint::U256::zero(),
-                        // contract
-                        address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), 
-                        balance: bigint::U256::max_value(), // never run out of gas
-                        code: Rc::new(code.to_vec())
-                    });
-
-                    vm.commit_account(AccountCommitment::Full {
-                        nonce: bigint::U256::zero(),
-                        // miner
-                        address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), 
-                        balance: bigint::U256::max_value(),
-                        code: Rc::new(Vec::new())
-                    });
-
-                    vm.commit_account(AccountCommitment::Full {
-                        nonce: bigint::U256::zero(),
-                        // caller
-                        address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), 
-                        balance: bigint::U256::max_value(),
-                        code: Rc::new(Vec::new())
-                    });
-                    Ok(())
+                let code: Vec<u8> = hex::decode(simple).unwrap();
+                // commit the SimpleStorage contract to memory; 
+                // this would be like deploying a smart contract to a TestRPC
+                emul.vm.commit_account(AccountCommitment::Full {
+                    nonce: bigint::U256::zero(),
+                    // contract
+                    address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), 
+                    // never run out of gas
+                    balance: bigint::U256::from(100000000 as u64),
+                    code: Rc::new(code.to_vec())
+                });
+                emul.vm.commit_account(AccountCommitment::Full {
+                    nonce: bigint::U256::zero(),
+                    // miner
+                    address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(),
+                    balance: bigint::U256::from(100000000 as u64),
+                    code: Rc::new(Vec::new())
+                });
+                emul.vm.commit_account(AccountCommitment::Full {
+                    nonce: bigint::U256::zero(),
+                    // caller
+                    address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), 
+                    balance: bigint::U256::from(100000000 as u64),
+                    code: Rc::new(Vec::new())
                 });
             }
 
             it "can run" {
-                emul.fire(Action::Exec);
-                info!("{:?}", emul.output());
+                emul.fire(Action::Exec).unwrap();
             }
 
             it "can step forward" {
                 emul.read_raw(|vm| {
                     assert_eq!(vm.current_machine().is_none(), true);
                     Ok(())
-                });
-                emul.fire(Action::StepForward);
-                emul.fire(Action::StepForward);
+                }).unwrap();
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepForward).unwrap();
                 emul.read_raw(|vm| {
                     info!("current PC: {}", vm.current_state().unwrap().position);
                     assert_eq!(2, vm.current_state().unwrap().position);
                     Ok(())
-                });
+                }).unwrap();
             }
 
             it "can step backward" {
-                emul.fire(Action::StepForward);
-                emul.fire(Action::StepForward);
-                emul.fire(Action::StepForward);
-                emul.fire(Action::StepBack);
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepBack).unwrap();
                 emul.read_raw(|vm| {
-                    info!("Status: {:?}", vm.status());
-                    info!("Positions: {:?}", emul.positions);
                     assert_eq!(2, vm.current_state().unwrap().position);
                     Ok(())
-                });
+                }).unwrap();
+            }
+
+            it "can execute the entire program" {
+                emul.fire(Action::Exec).unwrap();
+                emul.read_raw(|vm| {
+                    info!("VM PC: {}", vm.current_state().unwrap().position);
+                    Ok(())
+                }).unwrap();
+            }
+
+            it "can step and then finish the execution" {
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepForward).unwrap();
+                emul.fire(Action::StepBack).unwrap();
+                emul.fire(Action::Finish).unwrap();
+            }
+
+            it "can set and get" {
+                emul.fire(Action::Exec).unwrap();
+                let (tx, header) = emul.transaction.clone();
+                sputnikvm::TransactionVM::with_previous(tx_get, header, &emul.vm);
+                emul.fire(Action::Exec).unwrap();
+                let out = emul.output();
+                info!("Output: {:?}", out);
+                info!("Output as hex: {}", hex::encode(&out.as_slice()));
             }
         }
     }
