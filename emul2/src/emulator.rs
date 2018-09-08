@@ -1,7 +1,7 @@
 //! Emulates transaction execution and allows for real-time debugging
 //! Debugs one transaction at a time (1:1 One VM, One TX)
-use log::{info, error, log};
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, errors::{RequireError, CommitError}, AccountCommitment, VM};
+use log::{info, error, warn, log};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
@@ -10,10 +10,7 @@ use web3::{
     Transport,
     types::{BlockNumber, U256, Bytes},
 };
-use std::{
-    cell::{RefCell, RefMut},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use super::{
     err::EmulError,
@@ -56,7 +53,7 @@ impl<T> Emulator<T> where T: Transport {
     }
     
     /// fire the vm, with the specified Action
-    pub fn fire(&mut self, action: Action) -> Result<(), Error> {
+    pub fn fire(&mut self, action: Action) -> Result<(), EmulError> {
         match action {
             Action::StepBack => self.step_back(),
             Action::StepForward => self.step_forward(),
@@ -70,49 +67,89 @@ impl<T> Emulator<T> where T: Transport {
         self.vm.out().into()
     }
 
-    fn step_back(&mut self) -> Result<(), Error> {
+    fn new_vm(&self) -> Result<SeqTransactionVM<ByzantiumPatch>, EmulError> {
+        let (txinfo, header) = self.transaction.clone();
+        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
+
+        self.vm.accounts().map(|acc| {
+            // only commit accounts to new VM which have been previously committed
+            match acc {
+                AccountChange::Full{nonce, address, balance, code, ..} => {
+                    info!("Committing account {:#x} from previous vm", address);
+                    new_vm.commit_account(AccountCommitment::Full {
+                        nonce: nonce.clone(), 
+                        address: address.clone(), 
+                        balance: balance.clone(), 
+                        code: code.clone(),
+                    })?;
+                    Ok(())
+                }
+                AccountChange::Nonexist(addr) => new_vm.commit_account(AccountCommitment::Nonexist(addr.clone())),
+                _=> {
+                    warn!("Account Commitment could not be made!");
+                    Ok(())
+                }
+            }
+        }).collect::<Result<(), CommitError>>()?;
+        Ok(new_vm)
+    }
+
+    fn step_back(&mut self) -> Result<(), EmulError> {
         let mut last_pos = 0;
         if let Some(x) = self.positions.pop() {
             last_pos = x;
+        } else { // if nothing is on the positions stack, return a new VM with any accounts that may have been commmitted
+            let new_vm = self.new_vm()?;
+            std::mem::replace(&mut self.vm, new_vm);
+            return Ok(());
         }
-
+        self.positions.clear();
         let mut pos_goal = 0;
-        let (txinfo, header) = self.transaction.clone();
-        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
+        let new_vm = self.new_vm()?; 
+        
+        info!("Pos: {}", last_pos);
         while pos_goal < last_pos {
-            step(&mut new_vm, &self.client)?;
-            let state = new_vm.current_state().unwrap();
-            pos_goal = state.position;
+            step(&mut self.vm, &self.client)?;
+            if let Some(x) = self.vm.current_state() {
+                pos_goal = x.position;
+                self.positions.push(x.position);
+            } else {
+                pos_goal = 0;
+            }
         }
         std::mem::replace(&mut self.vm, new_vm);
         Ok(())
     }
 
-    fn step_forward(&mut self) -> Result<(), Error> {
+    fn step_forward(&mut self) -> Result<(), EmulError> {
         step(&mut self.vm, &self.client)?;
-        let state = self.vm.current_state().unwrap();
-        self.positions.push(state.position);
+        if let Some(x) = self.vm.current_state() {
+            self.positions.push(x.position);
+        } else {
+            warn!("The VM Status is {:?}, and not initialized. Pushing 0 to positions", self.vm.status());
+            self.positions.push(0);
+        }
         Ok(())
     }
 
-    fn run_until(&mut self, pc: usize) -> Result<(), Error> {
+    fn run_until(&mut self, pc: usize) -> Result<(), EmulError> {
 
         // If positions is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
             step(&mut self.vm, &self.client)?;
-            let state = self.vm.current_state().unwrap();
-            self.positions.push(state.position.clone());
+            if let Some(x) = self.vm.current_state() {
+                self.positions.push(x.position);
+            }
         }
         Ok(())
     }
 
     /// runs vm to completion
-    fn run(&mut self) -> Result<(), Error> {
+    fn run(&mut self) -> Result<(), EmulError> {
         while !step(&mut self.vm, &self.client)? {}
         Ok(())
     }
-
-    // access the vm directly
+    /* Access the VM Directly */
     fn mutate_raw<F>(&mut self, mut fun: F) -> Result<(), Error>
     where
         F: FnMut(&mut SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
@@ -121,7 +158,7 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     /// access the underyling vm implementation directly via the predicate F
-    pub fn read_raw<F>(&mut self, mut fun: F) -> Result<(), Error>
+    pub fn read_raw<F>(&self, fun: F) -> Result<(), Error>
     where
         F: Fn(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
     {
@@ -145,7 +182,7 @@ where
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
             let code: Bytes = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // Bytes
 
-            let commit_res = vm.commit_account(AccountCommitment::Full {
+            vm.commit_account(AccountCommitment::Full {
                 nonce: bigint::U256(nonce.0),
                 address: addr,
                 balance: bigint::U256(balance.0),
@@ -191,6 +228,7 @@ mod test {
     use sputnikvm::TransactionAction;
     use super::*;
     use crate::tests::mock::MockWeb3Transport;
+    use crate::tests::*;
     use std::str::FromStr;
     const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
 
@@ -209,13 +247,15 @@ mod test {
                     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
                     gas_price: Gas::one(),
                     gas_limit: Gas::max_value(),
-                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()), // contract to call
+                    // contract to call
+                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
                     value: bigint::U256::zero(),
                     input: Rc::new(set),
                     nonce: bigint::U256::zero(),
                 };
+                // miner
                 let headers = sputnikvm::HeaderParams {
-                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), // miner
+                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), 
                     timestamp: 1536291149 as u64,
                     number: bigint::U256::from(6285997 as u64),
                     difficulty: bigint::U256::from(3331693644712776 as u64),
@@ -225,24 +265,28 @@ mod test {
                 let mut emul = Emulator::new(tx_set, headers, client);
                 emul.mutate_raw(|vm| {
                     let code: Vec<u8> = hex::decode(simple).unwrap();
-                    // commit the SimpleStorage contract to memory; this would be like deploying a smart contract to a TestRPC
+                    // commit the SimpleStorage contract to memory; 
+                    // this would be like deploying a smart contract to a TestRPC
                     vm.commit_account(AccountCommitment::Full {
                         nonce: bigint::U256::zero(),
-                        address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), // contract
+                        // contract
+                        address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), 
                         balance: bigint::U256::max_value(), // never run out of gas
                         code: Rc::new(code.to_vec())
                     });
 
                     vm.commit_account(AccountCommitment::Full {
                         nonce: bigint::U256::zero(),
-                        address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), // miner
+                        // miner
+                        address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), 
                         balance: bigint::U256::max_value(),
                         code: Rc::new(Vec::new())
                     });
 
                     vm.commit_account(AccountCommitment::Full {
                         nonce: bigint::U256::zero(),
-                        address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), // caller
+                        // caller
+                        address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), 
                         balance: bigint::U256::max_value(),
                         code: Rc::new(Vec::new())
                     });
@@ -264,6 +308,19 @@ mod test {
                 emul.fire(Action::StepForward);
                 emul.read_raw(|vm| {
                     info!("current PC: {}", vm.current_state().unwrap().position);
+                    assert_eq!(2, vm.current_state().unwrap().position);
+                    Ok(())
+                });
+            }
+
+            it "can step backward" {
+                emul.fire(Action::StepForward);
+                emul.fire(Action::StepForward);
+                emul.fire(Action::StepForward);
+                emul.fire(Action::StepBack);
+                emul.read_raw(|vm| {
+                    info!("Status: {:?}", vm.status());
+                    info!("Positions: {:?}", emul.positions);
                     assert_eq!(2, vm.current_state().unwrap().position);
                     Ok(())
                 });
