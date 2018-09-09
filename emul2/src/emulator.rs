@@ -1,8 +1,7 @@
 //! Emulates transaction execution and allows for real-time debugging
 //! Debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
-use serde_derive::*;
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, VMStatus, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
@@ -15,10 +14,9 @@ use std::{
     rc::Rc,
     cell::RefCell,
     collections::HashMap,
-    path::PathBuf,
 };
 use super::{
-    err::{EmulError, StateError, VmError},
+    err::{EmulError, StateError},
 };
 
 
@@ -55,10 +53,10 @@ pub struct Emulator<T: Transport> {
 /// a vm that emulates a transaction, allowing for mutations during execution
 impl<T> Emulator<T> where T: Transport {
     /// Create a new Emulator
-    pub fn new(transaction: ValidTransaction, header: HeaderParams, client: Web3<T>) -> Self {
+    pub fn new(transaction: ValidTransaction, block: HeaderParams, client: Web3<T>) -> Self {
         Emulator {
-            transaction: (transaction.clone(), header.clone()),
-            vm: sputnikvm::TransactionVM::new(transaction, header),
+            transaction: (transaction.clone(), block.clone()),
+            vm: sputnikvm::TransactionVM::new(transaction, block),
             positions: Vec::new(),
             client,
             state_cache: Rc::new(RefCell::new(HashMap::new()))
@@ -79,6 +77,22 @@ impl<T> Emulator<T> where T: Transport {
     pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
     }
+    
+    /// Chain a transaction with the state changes of the previous transaction
+    /// If header params are specified, transaction is chained with new block
+    pub fn chain(&mut self, tx: ValidTransaction, block: Option<HeaderParams>) -> Result<(), EmulError> {
+        self.positions.clear();
+        if let Some(new_head) = block {
+            self.transaction = (tx.clone(), new_head.clone());
+            self.vm = sputnikvm::TransactionVM::new(tx, new_head);
+            Ok(())
+        } else {
+            self.transaction.0 = tx;
+            let (txinfo, block) = self.transaction.clone();
+            self.vm = sputnikvm::TransactionVM::new(txinfo, block);
+            Ok(())
+        }
+    }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
         info!("Positions: {:?}", self.positions);
@@ -89,10 +103,11 @@ impl<T> Emulator<T> where T: Transport {
         
         let mut last_pos = 0;
         let (txinfo, header) = self.transaction.clone();
-        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
+        let new_vm = sputnikvm::TransactionVM::new(txinfo, header);
         info!("Stepping vm back to last position {}, from current position {}", 
               *self.positions.get(self.positions.len() - 1).unwrap_or(&0), curr_pos);
         std::mem::replace(&mut self.vm, new_vm);
+        
         // run the vm until the latest stored position
         while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
             self.step()?;
@@ -162,7 +177,7 @@ impl<T> Emulator<T> where T: Transport {
     /// if debugging these two transactions seperately, it would require two different vm's (one
     /// per transaction). therefore, persistant storage
     /// 
-    pub fn persist(&self) -> Result<(), EmulError> {
+    fn persist(&self) -> Result<(), EmulError> {
         let res = self.vm.accounts().map(|acc| {
             match acc {
                 AccountChange::Full {nonce, address, balance, changing_storage, code} => {
@@ -174,7 +189,10 @@ impl<T> Emulator<T> where T: Transport {
                                 .get_mut(&address)
                                 .expect("scope conditional; qed")
                                 .storage
-                                .write(bigint::U256::from(item as u64), changing_storage.read(bigint::U256::from(item as u64)).expect("Storage should not be empty; qed"));
+                                .write(bigint::U256::from(item as u64), 
+                                       changing_storage
+                                        .read(bigint::U256::from(item as u64)).expect("Storage should not be empty; qed"))
+                                .expect("require error not possible in the context of local cache; qed");
                         }
                         Ok(())
                     } else if changing_storage.len() > 0 { // if we don't have the key in our account cache yet
@@ -190,7 +208,7 @@ impl<T> Emulator<T> where T: Transport {
                     }
                 },
                 AccountChange::IncreaseBalance(addr, amnt) => {
-                    let acc = self.state_cache
+                    self.state_cache
                         .borrow_mut()
                         .get_mut(&addr)
                         .ok_or(EmulError::State(StateError::NotFound(*addr)))?
@@ -248,7 +266,7 @@ fn handle_requires<T>(
 where
     T: Transport
 {
-    let res = match result.clone() {
+    match result.clone() {
         Ok(()) => {
             Ok(true)
         },
@@ -263,7 +281,7 @@ where
                 address: addr,
                 balance: bigint::U256(balance.0),
                 code: Rc::new(code.0),
-            });
+            })?;
             Ok(false)
         },
         Err(RequireError::AccountStorage(addr, index)) => {
@@ -272,12 +290,16 @@ where
             if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.read(index).is_ok() {
                 info!("Found storage in Local Cache. Committing...");
                 cache.borrow().get(&addr).and_then(|x| {
-                    vm.commit_account(AccountCommitment::Storage {
+                    let res = vm.commit_account(AccountCommitment::Storage {
                         address: addr,
                         index: index,
                         value: x.storage.read(index).expect("scope is conditional; qed").clone()
                     });
-                    Some(x)
+                    // ignore AlreadyCommitted
+                    match res {
+                        Err(CommitError::InvalidCommitment) => panic!("Commitments should never be invalid; qed"),
+                        _ => Some(x)
+                    }
                 });
                 info!("Returning!");
                 Ok(false)
@@ -288,7 +310,7 @@ where
                     index: index,
                     // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
                     value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
-                });
+                })?;
                 Ok(false)
             }
         },
@@ -298,7 +320,7 @@ where
             vm.commit_account(AccountCommitment::Code {
                 address: addr,
                 code: Rc::new(code.0)
-            });
+            })?;
             Ok(false)
         },
         // the debugger is useless if execution cannot continue
@@ -306,9 +328,7 @@ where
             error!("VM execution failed, unknown require! {:?}", err);
             panic!("VM Execution failed, unknown require");
         }
-    };
-    info!("Result of require error: {:?}", res);
-    res
+    }
 }
 
 

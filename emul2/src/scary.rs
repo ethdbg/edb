@@ -4,11 +4,12 @@
 
 /// non-scalar type-casts
 crate mod non_scalar_typecast {
-
+/*
     /// convert 8 bytes into a unsigned 64-bit integer
     crate unsafe fn to_u64(val: [u8; 8]) -> u64 {
         std::mem::transmute::<[u8; 8], u64>(val)
     }
+*/
 
     /// convert a ethereum_types::H256 to an array of 4 unsigned 64bit integers
     crate unsafe fn h256_to_u256(val: ethereum_types::H256) -> [u64; 4] {

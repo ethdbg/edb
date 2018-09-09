@@ -7,7 +7,7 @@
 //! all other values are 0/uninitialized values
 //! a balance of 150,000,000 wei is used for getBalance
 
-use web3::{Transport, RequestId, helpers::CallFuture };
+use web3::{Transport, RequestId};
 use futures::future::Future;
 use jsonrpc_core::{Call, MethodCall, Version, Id, Params};
 use serde_json::{json, value::Value};
@@ -28,7 +28,7 @@ impl Transport for MockWeb3Transport {
             id: Id::Num(0)}))
     }
 
-    fn send(&self, id: RequestId, call: Call) -> Self::Out {
+    fn send(&self, _id: RequestId, call: Call) -> Self::Out {
         Box::new(futures::future::result(Ok(self.send_request(call))))
     }
 }
