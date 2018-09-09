@@ -1,7 +1,0 @@
-[package]
-name = "testrpc"
-version = "0.1.0"
-authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
-
-[dependencies]
-parity-rpc = { git = "https://github.com/paritytech/parity" }

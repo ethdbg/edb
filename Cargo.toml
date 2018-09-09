@@ -1,9 +1,12 @@
+cargo-features = ['edition']
+
 [package]
 description = "Ethereum Debug"
 name = "edb"
 version = "0.0.1"
 license = "GPL-3.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
+edition = '2018'
 
 
 [lib]
@@ -14,7 +17,11 @@ name = "edb"
 members = [
   "compiler/",
   "debugger/",
-  "emul/",
-  "testrpc/"
+  "emul/"
 ]
 
+[dependencies]
+tokio-core = "0.1.17"
+futures = "0.1.23"
+web3 = { git = "https://github.com/tomusdrw/rust-web3" }
+failure = "0.1.2"

@@ -1,228 +1,54 @@
-//! Error descriptions and implementations for Emulator 
-use {std, vm, evm, patricia_trie_ethereum as ethtrie};
-use std::fmt;
-use std::error;
-use ethcore::error::ExecutionError;
-use rayon::ThreadPoolBuildError;
-use std::error::Error as stdError;
-use std::sync::mpsc::{SendError, RecvError};
+use failure::Fail;
 
-/// Generic Error
-/// Something happened in which Debugging cannot continue, but it cannot be attributed to
-/// any one part of Emulator crate. This Error type should be used sparingly. Hopefully, never.
-#[derive(Debug)]
-pub struct GenericError;
 
-/// An internal error occurred that is specific to EDB code
-#[derive(Debug)]
-pub struct InternalError(String);
+/// Top  level Emulator  errors
+#[derive(Fail, Debug)]
+pub enum EmulError {
+    #[fail(display = "An error occurred during the execution of the Emulator")]
+    Execution,
+    #[fail(display = "VM Error Occurred")]
+    Vm(VmError),
+    #[fail(display = "Web3 Error: {}", _0)]
+    Web3(String),
+    #[fail(display = "An error occurred storing or retrieving data for an ethereum account from local storage")]
+    State( #[fail(cause)] StateError), 
+}
 
-#[derive(Debug)]
-pub struct DebugError(String);
+/// Errors that occured while interacting with In-Memory or cached Ethereum State Storage
+#[derive(Fail, Debug)]
+pub enum StateError {
+    #[fail(display = "IO Error")]
+    Io(std::io::Error),
+    #[fail(display = "Decoder Error")]
+    Decoder(#[fail(cause)] serde_json::error::Error),
+    #[fail(display = "Could not find account entry corresponding to {}", _0)]
+    NotFound(bigint::H160),
+}
 
-impl fmt::Display for DebugError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+impl From<serde_json::error::Error> for EmulError {
+    fn from(err: serde_json::error::Error) -> EmulError {
+        EmulError::State(StateError::Decoder(err))
+    }
+}
+impl From<std::io::Error> for EmulError {
+    fn from(err: std::io::Error) -> EmulError {
+        EmulError::State(StateError::Io(err))
     }
 }
 
-impl error::Error for DebugError {
-    fn description(&self) -> &str {
-        &self.0
-        //concat!("An error occured while debugging the program, causing the process to exit: ", self.0.into())
+impl From<sputnikvm::errors::CommitError> for EmulError {
+    fn from(err: sputnikvm::errors::CommitError) -> EmulError {
+        EmulError::Vm(VmError::Commit(err))
     }
 }
 
-impl InternalError {
-    pub fn new(err: &str) -> Self {
-        InternalError(err.to_owned())
+impl From<web3::Error> for EmulError {
+    fn from(err: web3::Error) -> EmulError {
+        EmulError::Web3(format!("{}", err))
     }
 }
 
-impl DebugError  {
-    pub fn new(err: &str) -> Self {
-        DebugError(err.to_owned())
-    }
+#[derive(Debug, Clone)]
+pub enum VmError {
+    Commit(sputnikvm::errors::CommitError),
 }
-
-/// EVM Error. An error originated as vm::Error in Parity.
-#[derive(Debug)]
-pub struct EVMError(vm::Error);
-
-impl fmt::Display for InternalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl error::Error for InternalError {
-    fn description(&self) -> &str {
-        &self.0
-        //concat!("An Internal Error has occurred specific to EDB internal code: ", self.0.into())
-    }
-}
-
-impl fmt::Display for GenericError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "An Error Occured OwO")
-    }
-}
-
-impl error::Error for GenericError {
-    fn description(&self) -> &str {
-        "Something occurred and debugging cannot continue, but the error cannot be attributed \
-            to any one part of the Emulator crate. This Error type should not be used often; \
-            it is preferable to create a new error type if the Error is not covered in the \
-            Emulators 'Error' Enum."
-    }
-}
-
-
-impl fmt::Display for EVMError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0.to_string())
-    }
-}
-
-impl error::Error for EVMError {
-    fn description(&self) -> &str {
-        "An error originating as vm::Error in Parity (vm crate, in ethcore)."
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    // An error originating from Parity structures, (see: vm::Error)
-    EVM(EVMError),
-    Execution(ExecutionError),
-    Internal(InternalError),
-    Generic(GenericError),
-    ThreadBuilder(ThreadPoolBuildError),
-    // ChannelSend(SendError<T>),
-    ChannelRecv(RecvError),
-    Debug(DebugError),
-}
-
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::EVM(ref err) => write!(f, "EVM Error: {}", err),
-            Error::Execution(ref err) => write!(f, "Execution Error: {}", err),
-            Error::Internal(ref err) => write!(f, "Internal Error: {}", err),
-            Error::Generic(ref err) => write!(f, "An Error Occurred OwO: {}", err),
-            Error::ThreadBuilder(ref err) => write!(f, "Error Building Threads: {}", err),
-            Error::Debug(ref err) => write!(f, "Error Debugging: {}", err),
-            // Error::ChannelSend(ref err) => write!(f, "{}", err),
-            Error::ChannelRecv(ref err) => write!(f, "{}", err)
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::EVM(ref err) => err.description(),
-            Error::Execution(ref err) => err.description(),
-            Error::Internal(ref err) => err.description(),
-            Error::Generic(ref err) => err.description(),
-            Error::ThreadBuilder(ref err) => err.description(),
-            Error::Debug(ref err) => err.description(),
-            // Error::ChannelSend(ref err) => "Could not send data; channel closed", //change
-            Error::ChannelRecv(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Execution(ref err) => Some(err),
-            Error::Internal(ref err) => Some(err),
-            Error::Generic(ref err) => Some(err),
-            Error::ThreadBuilder(ref err) => Some(err),
-            Error::Debug(ref err) => Some(err),
-            Error::EVM(ref err) => Some(err),
-            // Error::ChannelSend(ref err) => Some(err),
-            Error::ChannelRecv(ref err) => Some(err),
-        }
-    }
-}
-
-
-
-// unfavorable conversion
-impl From<Error> for vm::Error {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::EVM(err) => err.0,
-            Error::Internal(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::Generic(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::ThreadBuilder(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::Debug(err) => vm::Error::Internal(err.description().to_owned()),
-            Error::Execution(err) => vm::Error::Internal(err.description().to_owned()),
-            _ =>  vm::Error::Internal(err.description().to_owned()),
-        }
-    }
-}
-
-impl From<RecvError> for Error {
-    fn from(err: RecvError) -> Self {
-        Error::ChannelRecv(err)
-    }
-}
-
-impl From<DebugError> for Error {
-    fn from(err: DebugError) -> Self {
-        Error::Debug(err)
-    }
-}
-
-impl From<ThreadPoolBuildError> for Error {
-    fn from(err: ThreadPoolBuildError) -> Self {
-        Error::ThreadBuilder(err)
-    }
-}
-
-impl From<Box<ethtrie::TrieError>> for Error {
-    fn from(err: Box<ethtrie::TrieError>) -> Self {
-        Error::EVM(EVMError(vm::Error::from(err)))
-    }
-}
-
-impl From<ethtrie::TrieError> for Error {
-    fn from(err: ethtrie::TrieError) ->  Self {
-        Error::EVM(EVMError(vm::Error::from(err)))
-    }
-}
-
-impl From<vm::Error> for Error {
-    fn from(err: vm::Error) -> Self {
-        Error::EVM(EVMError(err))
-    }
-}
-
-impl From<Box<vm::Error>> for Error {
-    fn from(err: Box<vm::Error>) -> Self {
-        Error::EVM(EVMError(vm::Error::Internal(err.to_string())))
-    }
-}
-
-impl From<InternalError> for Error {
-    fn from(err: InternalError) -> Self {
-        Error::Internal(err)
-    }
-}
-
-impl From<ExecutionError> for Error {
-    fn from(err: ExecutionError) -> Self {
-        Error::Execution(err)
-    }
-}
-
-impl From<Box<ExecutionError>> for Error {
-    fn from(err: Box<ExecutionError>) -> Self {
-        Error::Execution(ExecutionError::Internal(err.to_string()))
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
