@@ -1,7 +1,7 @@
 cargo-features = ['edition']
 
 [package]
-name = "emul2"
+name = "emul"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 edition = '2018'

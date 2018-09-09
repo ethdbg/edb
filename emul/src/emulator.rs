@@ -80,17 +80,15 @@ impl<T> Emulator<T> where T: Transport {
     
     /// Chain a transaction with the state changes of the previous transaction
     /// If header params are specified, transaction is chained with new block
-    pub fn chain(&mut self, tx: ValidTransaction, block: Option<HeaderParams>) -> Result<(), EmulError> {
+    pub fn chain(&mut self, tx: ValidTransaction, block: Option<HeaderParams>) {
         self.positions.clear();
         if let Some(new_head) = block {
             self.transaction = (tx.clone(), new_head.clone());
             self.vm = sputnikvm::TransactionVM::new(tx, new_head);
-            Ok(())
         } else {
             self.transaction.0 = tx;
             let (txinfo, block) = self.transaction.clone();
             self.vm = sputnikvm::TransactionVM::new(txinfo, block);
-            Ok(())
         }
     }
 
@@ -352,7 +350,7 @@ mod test {
                 let mock = MockWeb3Transport::default();
                 let client = web3::Web3::new(mock);
                 let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
-                let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from(1337 as u64))]).unwrap();
+                let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from("1337"))]).unwrap();
                 info!("Set: {:?}", set);
                 let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
                 info!("Get: {:?}", get);
@@ -437,15 +435,12 @@ mod test {
                 emul.fire(Action::Finish).unwrap();
             }
 
-            it "can set and get" {
+            it "should chain, persisting account storage" {
                 emul.fire(Action::Exec).unwrap();
-                let (tx, header) = emul.transaction.clone();
-                info!("Storage: {:?}", emul.state_cache);
-                sputnikvm::TransactionVM::with_previous(tx_get, header, &emul.vm);
+                emul.chain(tx_get, None);
                 emul.fire(Action::Exec).unwrap();
                 let out = emul.output();
-                info!("Output: {:?}", out);
-                info!("Output as hex: {}", hex::encode(&out.as_slice()));
+                assert_eq!(U256::from("1337"), U256::from(out.as_slice()));
             }
         }
     }
