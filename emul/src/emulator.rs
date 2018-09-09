@@ -1,5 +1,5 @@
-//! Emulates transaction execution and allows for real-time debugging
-//! Debugs one transaction at a time (1:1 One VM, One TX)
+//! Emulates transaction execution and allows for real-time debugging.
+//! debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
 use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage};
 use futures::future::Future;
@@ -50,9 +50,35 @@ pub struct Emulator<T: Transport> {
     state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>
 }
 
-/// a vm that emulates a transaction, allowing for mutations during execution
+/// A vm that emulates a transaction, allowing for mutations during execution
 impl<T> Emulator<T> where T: Transport {
     /// Create a new Emulator
+    ///
+    /// example assumes the deployment of `SimpleStorage` contract to `0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C`
+    ///
+    /// ```rust,no_run
+    ///  let web3 = web3::Web3::new(http);
+    ///  let block = web3.eth().block(BlockId::Number(BlockNumber::Latest)).wait().unwrap();
+    ///  let headers = sputnikvm::HeaderParams {
+    ///     beneficiary: block.author, 
+    ///     timestamp: block.timestamp,
+    ///     number: block.number.unwrap().to_u256(),
+    ///     difficulty: block.difficulty,
+    ///     gas_limit: block.gas_limit
+    /// };
+    /// let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from("1337"))]).unwrap();
+    ///
+    /// let tx_set = ValidTransaction {
+    ///     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()),
+    ///     gas_price: Gas::one(),
+    ///     gas_limit: Gas::from(10000000 as u64), 
+    ///     action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
+    ///     value: bigint::U256::zero(),
+    ///     input: Rc::new(set),
+    ///     nonce: bigint::U256::zero(),
+    /// };
+    /// let emul = Emulator::new(tx_set, headers, web3);
+    /// ```
     pub fn new(transaction: ValidTransaction, block: HeaderParams, client: Web3<T>) -> Self {
         Emulator {
             transaction: (transaction.clone(), block.clone()),
@@ -62,8 +88,11 @@ impl<T> Emulator<T> where T: Transport {
             state_cache: Rc::new(RefCell::new(HashMap::new()))
         }
     }
-    
     /// fire the vm, with the specified Action
+    ///
+    /// ```
+    /// emul.fire(Action::StepForward);
+    /// ```
     pub fn fire(&mut self, action: Action) -> Result<(), EmulError> {
         match action {
             Action::StepBack => self.step_back(),
@@ -74,12 +103,28 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
+    /// any output that the transaction may have produced during VM execution
     pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
     }
     
-    /// Chain a transaction with the state changes of the previous transaction
+    /// Chain a transaction with the state changes of the previous transaction.
     /// If header params are specified, transaction is chained with new block
+    ///
+    /// ```
+    /// // the `get` function encoded with ETHABI crate
+    /// let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
+    /// let tx_get = ValidTransaction {
+    ///     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
+    ///     gas_price: Gas::one(),
+    ///     gas_limit: Gas::from(10000000 as u64),
+    ///     action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
+    ///     value: bigint::U256::zero(),
+    ///     input: Rc::new(get),
+    ///     nonce: bigint::U256::zero(),
+    /// };
+    /// emul.chain(tx_get, None);
+    /// ```
     pub fn chain(&mut self, tx: ValidTransaction, block: Option<HeaderParams>) {
         self.positions.clear();
         if let Some(new_head) = block {
@@ -90,6 +135,21 @@ impl<T> Emulator<T> where T: Transport {
             let (txinfo, block) = self.transaction.clone();
             self.vm = sputnikvm::TransactionVM::new(txinfo, block);
         }
+  
+    }
+    /// Access the underyling vm implementation directly via the predicate F
+    ///
+    /// ```
+    /// emul.read_raw(|vm| {
+    ///     // any functions for sputnikvm::TransactionVM are now available via 'vm'
+    ///     let machine = vm.current_machine();
+    /// });
+    /// ```
+    pub fn read_raw<F>(&self, fun: F) -> Result<(), Error>
+    where
+        F: Fn(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
+    {
+        fun(&self.vm)
     }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
@@ -141,7 +201,6 @@ impl<T> Emulator<T> where T: Transport {
         Ok(())
     }
 
-    /// runs vm to completion
     fn run(&mut self) -> Result<(), EmulError> {
         'run: loop {
             let result = self.vm.fire();
@@ -153,20 +212,12 @@ impl<T> Emulator<T> where T: Transport {
         }
         Ok(())
     }
-
-    /// access the underyling vm implementation directly via the predicate F
-    pub fn read_raw<F>(&self, fun: F) -> Result<(), Error>
-    where
-        F: Fn(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
-    {
-        fun(&self.vm)
-    }
     
     /// persists any account storage that has been changed by the currently executing transaction up until the point in execution
     /// used when chaining transactions during debugging
     /// for example
     /// 
-    /// ```C++
+    /// ```rust,no_run
     /// let emulator = Emulator::new(tx_set, header, client);
     /// emulator.fire(Action::Exec);
     /// emulator.chain(tx_get);
@@ -351,9 +402,7 @@ mod test {
                 let client = web3::Web3::new(mock);
                 let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
                 let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from("1337"))]).unwrap();
-                info!("Set: {:?}", set);
                 let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
-                info!("Get: {:?}", get);
                 let tx_set = ValidTransaction {
                     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
                     gas_price: Gas::one(),
