@@ -66,7 +66,7 @@ impl MockWeb3Transport {
                 }
             },
             "eth_getStorageAt" => {
-                serde_json::from_str(r#""0x0000000000000000000000000000000000000000000000000000000000000000""#).unwrap()
+                serde_json::from_str(r#""0xffffff0000000000000000000000000000000000000000000000000000000000""#).unwrap()
             }
             _ => panic!("method not found")
         };

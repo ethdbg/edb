@@ -18,7 +18,7 @@ use std::{
     path::PathBuf,
 };
 use super::{
-    err::{EmulError, StateError},
+    err::{EmulError, StateError, VmError},
 };
 
 
@@ -133,7 +133,7 @@ impl<T> Emulator<T> where T: Transport {
         info!("Stepping vm back to last position {}, from current position {}", last_pos, curr_pos);
         // run the vm until the latest stored position
         while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
-            step(&mut new_vm, self.state_cache.clone(), &self.client)?;
+            self.step()?;
             if let Some(x) = new_vm.current_state() {
                 last_pos = x.position;
             } else {
@@ -145,7 +145,7 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_forward(&mut self) -> Result<(), EmulError> {
-        step(&mut self.vm, self.state_cache.clone(), &self.client)?;
+        self.step()?;
         if let Some(x) = self.vm.current_state() {
             self.positions.push(x.position);
         } else {
@@ -159,7 +159,7 @@ impl<T> Emulator<T> where T: Transport {
 
         // If position is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
-            step(&mut self.vm, self.state_cache.clone(), &self.client)?;
+            self.step()?;
             if let Some(x) = self.vm.current_state() {
                 self.positions.push(x.position);
             }
@@ -171,7 +171,7 @@ impl<T> Emulator<T> where T: Transport {
     fn run(&mut self) -> Result<(), EmulError> {
         'run: loop {
             let result = self.vm.fire();
-            if handle_requires(result, self.state_cache.clone(), &mut self.vm, &self.client)? {
+            if handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? {
                 info!("Vm  exited with code {:?}", self.vm.status());
                 break 'run;
             }
@@ -200,15 +200,16 @@ impl<T> Emulator<T> where T: Transport {
     /// if debugging these two transactions seperately, it would require two different vm's (one
     /// per transaction). therefore, persistant storage
     /// 
-    pub fn persist(&self) -> Result<(), Error> {
-        self.vm.accounts().map(|acc| {
+    pub fn persist(&self) -> Result<(), EmulError> {
+        let res = self.vm.accounts().map(|acc| {
             match acc {
                 AccountChange::Full {nonce, address, balance, changing_storage, code} => {
+                    info!("Changing storage: {:?}", changing_storage);
                     self.state_cache.borrow_mut().insert(address.clone(), Account {
                         nonce: nonce.clone(),
                         balance: balance.clone(),
                         code: code.clone(),
-                        storage: changing_storage.clone().into()
+                        storage: changing_storage.clone().into() // check if partial
                     });
                     Ok(())
                 },
@@ -238,31 +239,39 @@ impl<T> Emulator<T> where T: Transport {
                     Ok(())
                 }
             }
-        }).collect::<Result<(), EmulError>>()?;
+        }).collect::<Result<(), EmulError>>();
+        
+        match res {
+            o @ Ok(()) => { return o; },
+            Err(EmulError::Vm(VmError::Commit(CommitError::AlreadyCommitted))) => {
+                return Ok(()); // we don't care about commitments that have already happened
+            },
+            e @ _ => {
+                return e;
+            }
+        }
+    }
+
+    /// steps the vm, querying node for any information that the VM needs
+    /// vm returns true when execution is finished
+    fn step(&mut self) -> Result<(), EmulError> {
+        let result = self.vm.step();
+        self.persist()?;
+        while !handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? { }
         Ok(())
     }
 }
 
-/// steps the vm, querying node for any information that the VM needs
-/// vm returns true when execution is finished
-fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, cache: Rc<RefCell<HashMap<bigint::H160, Account>>>, client: &Web3<T>) -> Result<bool, EmulError>
-where
-    T: Transport
-{
-    let result = vm.step();
-    handle_requires(result, cache, vm, client)
-}
 
 fn handle_requires<T>(
-    result: Result<(), RequireError>, 
+    result: &Result<(), RequireError>, 
     cache: Rc<RefCell<HashMap<bigint::H160, Account>>>,
     vm: &mut SeqTransactionVM<ByzantiumPatch>,
     client: &Web3<T>) -> Result<bool, EmulError> 
 where
     T: Transport
 {
-
-    match result {
+    match result.clone() {
         Ok(()) => {
             Ok(true)
         },
@@ -278,7 +287,7 @@ where
                 balance: bigint::U256(balance.0),
                 code: Rc::new(code.0),
             })?;
-            step(vm, cache, client)
+            Ok(false)
         },
         Err(RequireError::AccountStorage(addr, index)) => {
             info!("Acquiring account storage at {:#x}, {:#x} for VM", addr, index);
@@ -292,7 +301,7 @@ where
                     });
                     Some(x)
                 });
-                return Ok(false); // early return if we found the account and value in cache
+                return Ok(false);
             }
             let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
             vm.commit_account(AccountCommitment::Storage {
@@ -301,7 +310,7 @@ where
                 // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
                 value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
             })?;
-            step(vm, cache, client)
+            Ok(false)
         },
         Err(RequireError::AccountCode(addr)) => {
             info!("Acquiring code at {:#x} for VM", addr);
@@ -310,7 +319,7 @@ where
                 address: addr,
                 code: Rc::new(code.0)
             })?;
-            step(vm, cache, client)
+            Ok(false)
         },
         // the debugger is useless if execution cannot continue
         Err(err) => {
@@ -342,7 +351,9 @@ mod test {
                 let client = web3::Web3::new(mock);
                 let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
                 let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from(1337 as u64))]).unwrap();
+                info!("Set: {:?}", set);
                 let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
+                info!("Get: {:?}", get);
                 let tx_set = ValidTransaction {
                     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
                     gas_price: Gas::one(),
@@ -398,6 +409,10 @@ mod test {
                 emul.fire(Action::StepForward).unwrap();
                 emul.fire(Action::StepForward).unwrap();
                 emul.fire(Action::StepForward).unwrap();
+                emul.read_raw(|vm| {
+                    assert_eq!(4, vm.current_state().unwrap().position);
+                    Ok(())
+                });
                 emul.fire(Action::StepBack).unwrap();
                 emul.read_raw(|vm| {
                     assert_eq!(2, vm.current_state().unwrap().position);
