@@ -9,12 +9,10 @@ edition = '2018'
 [dependencies]
 log = "0.3"
 pretty_env_logger = "*"
-tempdir = "0.3"
 sputnikvm = "0.10.1"
 sputnikvm-network-foundation = "0.10.0"
 failure = "0.1.2"
 web3 = { git = "https://github.com/tomusdrw/rust-web3/" }
-tokio-core = "0.1.17"
 futures = "0.1.24"
 etcommon-bigint = "0.2.9"
 ethereum-types = "0.4.0"
