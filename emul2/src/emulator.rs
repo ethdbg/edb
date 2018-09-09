@@ -1,6 +1,7 @@
 //! Emulates transaction execution and allows for real-time debugging
 //! Debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
+use serde_derive::*;
 use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, VMStatus, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
@@ -10,10 +11,14 @@ use web3::{
     Transport,
     types::{BlockNumber, U256, Bytes},
 };
-use std::rc::Rc;
-
+use std::{
+    rc::Rc,
+    cell::RefCell,
+    collections::HashMap,
+    path::PathBuf,
+};
 use super::{
-    err::EmulError,
+    err::{EmulError, StateError},
 };
 
 
@@ -30,7 +35,13 @@ pub enum Action {
     /// execute to the end
     Exec,
 }
-
+#[derive(Debug, Clone)]
+struct Account {
+    nonce: bigint::U256,
+    balance: bigint::U256,
+    storage: HashMap<bigint::U256, bigint::M256>,
+    code: Rc<Vec<u8>>
+}
 
 /// Emulation Object
 pub struct Emulator<T: Transport> {
@@ -38,6 +49,7 @@ pub struct Emulator<T: Transport> {
     positions: Vec<usize>,
     transaction: (ValidTransaction, HeaderParams),
     client: web3::Web3<T>,
+    state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>
 }
 
 /// a vm that emulates a transaction, allowing for mutations during execution
@@ -48,7 +60,8 @@ impl<T> Emulator<T> where T: Transport {
             transaction: (transaction.clone(), header.clone()),
             vm: sputnikvm::TransactionVM::new(transaction, header),
             positions: Vec::new(),
-            client
+            client,
+            state_cache: Rc::new(RefCell::new(HashMap::new()))
         }
     }
     
@@ -120,7 +133,7 @@ impl<T> Emulator<T> where T: Transport {
         info!("Stepping vm back to last position {}, from current position {}", last_pos, curr_pos);
         // run the vm until the latest stored position
         while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
-            step(&mut new_vm, &self.client)?;
+            step(&mut new_vm, self.state_cache.clone(), &self.client)?;
             if let Some(x) = new_vm.current_state() {
                 last_pos = x.position;
             } else {
@@ -132,11 +145,11 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_forward(&mut self) -> Result<(), EmulError> {
-        step(&mut self.vm, &self.client)?;
+        step(&mut self.vm, self.state_cache.clone(), &self.client)?;
         if let Some(x) = self.vm.current_state() {
             self.positions.push(x.position);
         } else {
-            warn!("The VM Status is {:?}, and not initialized. Pushing 0 to positions", self.vm.status());
+            warn!("The VM Status is {:?} but not initialized. Pushing 0 to positions", self.vm.status());
             self.positions.push(0);
         }
         Ok(())
@@ -146,7 +159,7 @@ impl<T> Emulator<T> where T: Transport {
 
         // If position is 0, we haven't started the VM yet
         while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
-            step(&mut self.vm, &self.client)?;
+            step(&mut self.vm, self.state_cache.clone(), &self.client)?;
             if let Some(x) = self.vm.current_state() {
                 self.positions.push(x.position);
             }
@@ -158,7 +171,7 @@ impl<T> Emulator<T> where T: Transport {
     fn run(&mut self) -> Result<(), EmulError> {
         'run: loop {
             let result = self.vm.fire();
-            if handle_requires(result, &mut self.vm, &self.client)? {
+            if handle_requires(result, self.state_cache.clone(), &mut self.vm, &self.client)? {
                 info!("Vm  exited with code {:?}", self.vm.status());
                 break 'run;
             }
@@ -173,21 +186,77 @@ impl<T> Emulator<T> where T: Transport {
     {
         fun(&self.vm)
     }
+    
+    /// persists any account storage that has been changed by the currently executing transaction up until the point in execution
+    /// used when chaining transactions during debugging
+    /// for example
+    /// 
+    /// ```C++
+    /// let emulator = Emulator::new(tx_set, header, client);
+    /// emulator.fire(Action::Exec);
+    /// emulator.chain(tx_get);
+    /// emulator.fire(Action::Exec);
+    /// ```
+    /// if debugging these two transactions seperately, it would require two different vm's (one
+    /// per transaction). therefore, persistant storage
+    /// 
+    pub fn persist(&self) -> Result<(), Error> {
+        self.vm.accounts().map(|acc| {
+            match acc {
+                AccountChange::Full {nonce, address, balance, changing_storage, code} => {
+                    self.state_cache.borrow_mut().insert(address.clone(), Account {
+                        nonce: nonce.clone(),
+                        balance: balance.clone(),
+                        code: code.clone(),
+                        storage: changing_storage.clone().into()
+                    });
+                    Ok(())
+                },
+                AccountChange::IncreaseBalance(addr, amnt) => {
+                    let acc = self.state_cache
+                        .borrow_mut()
+                        .get_mut(&addr)
+                        .ok_or(EmulError::State(StateError::NotFound(*addr)))?
+                        .balance
+                        .overflowing_add(*amnt);
+                    Ok(())
+                },
+                AccountChange::Create {nonce, address, balance, storage, code} => {
+                    self.state_cache.borrow_mut().insert(address.clone(), Account {
+                        nonce: nonce.clone(),
+                        balance: balance.clone(),
+                        code: code.clone(),
+                        storage: storage.clone().into()
+
+                    });
+                    Ok(())
+                },
+                AccountChange::Nonexist(addr) => {
+                    if self.state_cache.borrow().contains_key(&addr) {
+                        self.state_cache.borrow_mut().remove(&addr);
+                    }
+                    Ok(())
+                }
+            }
+        }).collect::<Result<(), EmulError>>()?;
+        Ok(())
+    }
 }
 
 /// steps the vm, querying node for any information that the VM needs
 /// vm returns true when execution is finished
-fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, client: &Web3<T>) -> Result<bool, EmulError>
+fn step<T>(vm: &mut SeqTransactionVM<ByzantiumPatch>, cache: Rc<RefCell<HashMap<bigint::H160, Account>>>, client: &Web3<T>) -> Result<bool, EmulError>
 where
     T: Transport
 {
     let result = vm.step();
-    handle_requires(result, vm, client)
+    handle_requires(result, cache, vm, client)
 }
 
 fn handle_requires<T>(
     result: Result<(), RequireError>, 
-    vm: &mut SeqTransactionVM<ByzantiumPatch>, 
+    cache: Rc<RefCell<HashMap<bigint::H160, Account>>>,
+    vm: &mut SeqTransactionVM<ByzantiumPatch>,
     client: &Web3<T>) -> Result<bool, EmulError> 
 where
     T: Transport
@@ -209,11 +278,22 @@ where
                 balance: bigint::U256(balance.0),
                 code: Rc::new(code.0),
             })?;
-
-            Ok(false)
+            step(vm, cache, client)
         },
         Err(RequireError::AccountStorage(addr, index)) => {
             info!("Acquiring account storage at {:#x}, {:#x} for VM", addr, index);
+            if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.contains_key(&index) {
+                info!("Found storage in Local Cache. Committing...");
+                cache.borrow().get(&addr).and_then(|x| {
+                    vm.commit_account(AccountCommitment::Storage {
+                        address: addr,
+                        index: index,
+                        value: x.storage.get(&index).expect("scope is conditional; qed").clone()
+                    });
+                    Some(x)
+                });
+                return Ok(false); // early return if we found the account and value in cache
+            }
             let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
             vm.commit_account(AccountCommitment::Storage {
                 address: addr,
@@ -221,7 +301,7 @@ where
                 // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
                 value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
             })?;
-            Ok(false)
+            step(vm, cache, client)
         },
         Err(RequireError::AccountCode(addr)) => {
             info!("Acquiring code at {:#x} for VM", addr);
@@ -230,7 +310,7 @@ where
                 address: addr,
                 code: Rc::new(code.0)
             })?;
-            Ok(false)
+            step(vm, cache, client)
         },
         // the debugger is useless if execution cannot continue
         Err(err) => {
@@ -343,6 +423,8 @@ mod test {
             it "can set and get" {
                 emul.fire(Action::Exec).unwrap();
                 let (tx, header) = emul.transaction.clone();
+                emul.persist();
+                info!("Storage: {:?}", emul.state_cache);
                 sputnikvm::TransactionVM::with_previous(tx_get, header, &emul.vm);
                 emul.fire(Action::Exec).unwrap();
                 let out = emul.output();
