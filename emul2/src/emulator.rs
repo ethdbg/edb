@@ -2,7 +2,7 @@
 //! Debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
 use serde_derive::*;
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, VMStatus, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, VMStatus, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
@@ -39,7 +39,7 @@ pub enum Action {
 struct Account {
     nonce: bigint::U256,
     balance: bigint::U256,
-    storage: HashMap<bigint::U256, bigint::M256>,
+    storage: Storage,
     code: Rc<Vec<u8>>
 }
 
@@ -80,67 +80,28 @@ impl<T> Emulator<T> where T: Transport {
         self.vm.out().into()
     }
 
-    fn new_vm(&self) -> Result<SeqTransactionVM<ByzantiumPatch>, EmulError> {
-        let (txinfo, header) = self.transaction.clone();
-        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
-
-        self.vm.accounts().map(|acc| {
-            // only commit accounts to new VM which have been previously committed
-            match acc {
-                AccountChange::Full{nonce, address, balance, code, changing_storage} => {
-                    info!("Committing account {:#x} from previous vm", address);
-                    new_vm.commit_account(AccountCommitment::Full {
-                        nonce: nonce.clone(), 
-                        address: address.clone(), 
-                        balance: balance.clone(), 
-                        code: code.clone(),
-                    })?;
-                    if changing_storage.len() > 0 {
-                        info!("Committing storage for account {:#x} from previous vm", address);
-                        for i in 0..changing_storage.len() {
-                            new_vm.commit_account(AccountCommitment::Storage {
-                                address: address.clone(),
-                                index: bigint::U256::from(i),
-                                value: changing_storage.read(bigint::U256::from(i))
-                                    .expect("Storage should exist in changing storg is not 0"),
-                            });
-                        }
-                    }
-                    Ok(())
-                }
-                AccountChange::Nonexist(addr) => new_vm.commit_account(AccountCommitment::Nonexist(addr.clone())),
-                _=> {
-                    warn!("Account Commitment could not be made!");
-                    Ok(())
-                }
-            }
-        }).collect::<Result<(), CommitError>>()?;
-        Ok(new_vm)
-    }
-
     fn step_back(&mut self) -> Result<(), EmulError> {
+        info!("Positions: {:?}", self.positions);
         let mut curr_pos = 0;
         if let Some(x) = self.positions.pop() {
             curr_pos = x;
-        } else { // if nothing is on the positions stack, return a new VM with any accounts that may have been commmitted
-            let new_vm = self.new_vm()?;
-            std::mem::replace(&mut self.vm, new_vm);
-            return Ok(());
-        }
+        } 
         
         let mut last_pos = 0;
-        let mut new_vm = self.new_vm()?; 
-        info!("Stepping vm back to last position {}, from current position {}", last_pos, curr_pos);
+        let (txinfo, header) = self.transaction.clone();
+        let mut new_vm = sputnikvm::TransactionVM::new(txinfo, header);
+        info!("Stepping vm back to last position {}, from current position {}", 
+              *self.positions.get(self.positions.len() - 1).unwrap_or(&0), curr_pos);
+        std::mem::replace(&mut self.vm, new_vm);
         // run the vm until the latest stored position
         while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
             self.step()?;
-            if let Some(x) = new_vm.current_state() {
+            if let Some(x) = self.vm.current_state() {
                 last_pos = x.position;
             } else {
                 panic!("Vm stepped but state is not initialized");
             }
         }
-        std::mem::replace(&mut self.vm, new_vm);
         Ok(())
     }
 
@@ -171,6 +132,7 @@ impl<T> Emulator<T> where T: Transport {
     fn run(&mut self) -> Result<(), EmulError> {
         'run: loop {
             let result = self.vm.fire();
+            self.persist()?;
             if handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? {
                 info!("Vm  exited with code {:?}", self.vm.status());
                 break 'run;
@@ -205,13 +167,27 @@ impl<T> Emulator<T> where T: Transport {
             match acc {
                 AccountChange::Full {nonce, address, balance, changing_storage, code} => {
                     info!("Changing storage: {:?}", changing_storage);
-                    self.state_cache.borrow_mut().insert(address.clone(), Account {
-                        nonce: nonce.clone(),
-                        balance: balance.clone(),
-                        code: code.clone(),
-                        storage: changing_storage.clone().into() // check if partial
-                    });
-                    Ok(())
+                    if changing_storage.len() > 0 && self.state_cache.borrow().contains_key(&address) {
+                        for item in 0..changing_storage.len() {
+                            self.state_cache
+                                .borrow_mut()
+                                .get_mut(&address)
+                                .expect("scope conditional; qed")
+                                .storage
+                                .write(bigint::U256::from(item as u64), changing_storage.read(bigint::U256::from(item as u64)).expect("Storage should not be empty; qed"));
+                        }
+                        Ok(())
+                    } else if changing_storage.len() > 0 { // if we don't have the key in our account cache yet
+                        self.state_cache.borrow_mut().insert(address.clone(), Account {
+                            nonce: nonce.clone(),
+                            balance: balance.clone(),
+                            code: code.clone(),
+                            storage: changing_storage.clone().into()
+                        });
+                        Ok(())
+                    } else { // if there is no storage to update, don't bother
+                        Ok(())
+                    }
                 },
                 AccountChange::IncreaseBalance(addr, amnt) => {
                     let acc = self.state_cache
@@ -222,7 +198,8 @@ impl<T> Emulator<T> where T: Transport {
                         .overflowing_add(*amnt);
                     Ok(())
                 },
-                AccountChange::Create {nonce, address, balance, storage, code} => {
+                // Create assumes the account does not yet exist, so this will replace anything that bychance exists already locally
+                AccountChange::Create {nonce, address, balance, storage, code} => { 
                     self.state_cache.borrow_mut().insert(address.clone(), Account {
                         nonce: nonce.clone(),
                         balance: balance.clone(),
@@ -240,24 +217,24 @@ impl<T> Emulator<T> where T: Transport {
                 }
             }
         }).collect::<Result<(), EmulError>>();
-        
-        match res {
-            o @ Ok(()) => { return o; },
-            Err(EmulError::Vm(VmError::Commit(CommitError::AlreadyCommitted))) => {
-                return Ok(()); // we don't care about commitments that have already happened
-            },
-            e @ _ => {
-                return e;
-            }
-        }
+        info!("Result of persist: {:?}", res); 
+        res
     }
 
     /// steps the vm, querying node for any information that the VM needs
     /// vm returns true when execution is finished
     fn step(&mut self) -> Result<(), EmulError> {
-        let result = self.vm.step();
+        let mut res = self.vm.step();
         self.persist()?;
-        while !handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? { }
+        'require: loop {
+            let req = handle_requires(&res, self.state_cache.clone(), &mut self.vm, &self.client)?;
+            if req {
+                break 'require;
+            } else {
+                res = self.vm.step();
+                self.persist()?;
+            }
+        }
         Ok(())
     }
 }
@@ -271,7 +248,7 @@ fn handle_requires<T>(
 where
     T: Transport
 {
-    match result.clone() {
+    let res = match result.clone() {
         Ok(()) => {
             Ok(true)
         },
@@ -286,31 +263,34 @@ where
                 address: addr,
                 balance: bigint::U256(balance.0),
                 code: Rc::new(code.0),
-            })?;
+            });
             Ok(false)
         },
         Err(RequireError::AccountStorage(addr, index)) => {
             info!("Acquiring account storage at {:#x}, {:#x} for VM", addr, index);
-            if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.contains_key(&index) {
+            info!("Local Storage: {:?}", cache);
+            if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.read(index).is_ok() {
                 info!("Found storage in Local Cache. Committing...");
                 cache.borrow().get(&addr).and_then(|x| {
                     vm.commit_account(AccountCommitment::Storage {
                         address: addr,
                         index: index,
-                        value: x.storage.get(&index).expect("scope is conditional; qed").clone()
+                        value: x.storage.read(index).expect("scope is conditional; qed").clone()
                     });
                     Some(x)
                 });
-                return Ok(false);
+                info!("Returning!");
+                Ok(false)
+            } else {
+                let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
+                vm.commit_account(AccountCommitment::Storage {
+                    address: addr,
+                    index: index,
+                    // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
+                    value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
+                });
+                Ok(false)
             }
-            let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
-            vm.commit_account(AccountCommitment::Storage {
-                address: addr,
-                index: index,
-                // unsafe needs to be used here because bigint expects 4 u64's, while web3 function gives us an array of 32 bytes
-                value: bigint::M256(bigint::U256(unsafe { super::scary::non_scalar_typecast::h256_to_u256(value) } ))
-            })?;
-            Ok(false)
         },
         Err(RequireError::AccountCode(addr)) => {
             info!("Acquiring code at {:#x} for VM", addr);
@@ -318,7 +298,7 @@ where
             vm.commit_account(AccountCommitment::Code {
                 address: addr,
                 code: Rc::new(code.0)
-            })?;
+            });
             Ok(false)
         },
         // the debugger is useless if execution cannot continue
@@ -326,7 +306,9 @@ where
             error!("VM execution failed, unknown require! {:?}", err);
             panic!("VM Execution failed, unknown require");
         }
-    }
+    };
+    info!("Result of require error: {:?}", res);
+    res
 }
 
 
@@ -438,7 +420,6 @@ mod test {
             it "can set and get" {
                 emul.fire(Action::Exec).unwrap();
                 let (tx, header) = emul.transaction.clone();
-                emul.persist();
                 info!("Storage: {:?}", emul.state_cache);
                 sputnikvm::TransactionVM::with_previous(tx_get, header, &emul.vm);
                 emul.fire(Action::Exec).unwrap();
