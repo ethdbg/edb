@@ -1,6 +1,11 @@
 //! Mock web3 functions
 //! should only be used for tests
 //! Very simple, can be expanded to support parameters for methods
+//! Only contains getTransaction, getBalance, getCode, and getStorage methods
+//! if address 0x884531eab1ba4a81e9445c2d7b64e29c2f14587c is passed in for 'getCode', the code for
+//! the solidity/simple.bin/SimpleStorage.bin is returned.
+//! all other values are 0/uninitialized values
+//! a balance of 150,000,000 wei is used for getBalance
 
 use web3::{Transport, RequestId, helpers::CallFuture };
 use futures::future::Future;
@@ -44,9 +49,6 @@ impl MockWeb3Transport {
         // let val: Value = serde_json::from_str()
         info!("Method: {:?}", method);
         let val: Value = match method.method.as_ref() {
-            "SomeMethod" => {
-                serde_json::from_str(r#"{"A CONST"}"#).unwrap()
-            },
             "eth_getTransactionCount" => {
                 serde_json::from_str(r#""0x0""#).unwrap()
             },
