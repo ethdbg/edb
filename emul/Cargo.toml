@@ -18,13 +18,11 @@ tokio-core = "0.1.17"
 futures = "0.1.24"
 etcommon-bigint = "0.2.9"
 ethereum-types = "0.4.0"
-jsonrpc-core = "8.0.1"
-serde = "1.0.78"
-serde_json = "1.0.27"
-serde_derive = "1.0.70"
-flate2 = "1.0.2"
 
 [dev-dependencies]
+serde_json = "1.0.27"
+serde = "1.0.78"
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }
 ethabi = "5.1.2"
+jsonrpc-core = "8.0.1"
 hex = "*"

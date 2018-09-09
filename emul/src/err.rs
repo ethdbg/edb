@@ -19,17 +19,10 @@ pub enum EmulError {
 pub enum StateError {
     #[fail(display = "IO Error")]
     Io(std::io::Error),
-    #[fail(display = "Decoder Error")]
-    Decoder(#[fail(cause)] serde_json::error::Error),
     #[fail(display = "Could not find account entry corresponding to {}", _0)]
     NotFound(bigint::H160),
 }
 
-impl From<serde_json::error::Error> for EmulError {
-    fn from(err: serde_json::error::Error) -> EmulError {
-        EmulError::State(StateError::Decoder(err))
-    }
-}
 impl From<std::io::Error> for EmulError {
     fn from(err: std::io::Error) -> EmulError {
         EmulError::State(StateError::Io(err))

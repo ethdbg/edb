@@ -1,5 +1,5 @@
 #![feature(proc_macro_gen)]
-#[macro_use] mod tests;
+#[cfg(test)] #[macro_use] mod tests;
 pub mod emulator;
 mod err;
 mod scary;
