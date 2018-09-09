@@ -251,7 +251,6 @@ mod test {
     use crate::tests::mock::MockWeb3Transport;
     use crate::tests::*;
     use std::str::FromStr;
-    const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
 
     speculate! {
         describe "emulate" {
@@ -295,30 +294,6 @@ mod test {
                 // make this into a macro
                 let mut emul = Emulator::new(tx_set, headers, client);
                 let code: Vec<u8> = hex::decode(simple).unwrap();
-                // commit the SimpleStorage contract to memory; 
-                // this would be like deploying a smart contract to a TestRPC
-                emul.vm.commit_account(AccountCommitment::Full {
-                    nonce: bigint::U256::zero(),
-                    // contract
-                    address: Address::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap(), 
-                    // never run out of gas
-                    balance: bigint::U256::from(100000000 as u64),
-                    code: Rc::new(code.to_vec())
-                });
-                emul.vm.commit_account(AccountCommitment::Full {
-                    nonce: bigint::U256::zero(),
-                    // miner
-                    address: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(),
-                    balance: bigint::U256::from(100000000 as u64),
-                    code: Rc::new(Vec::new())
-                });
-                emul.vm.commit_account(AccountCommitment::Full {
-                    nonce: bigint::U256::zero(),
-                    // caller
-                    address: Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap(), 
-                    balance: bigint::U256::from(100000000 as u64),
-                    code: Rc::new(Vec::new())
-                });
             }
 
             it "can run" {

@@ -5,7 +5,7 @@
 use web3::{Transport, RequestId, helpers::CallFuture };
 use futures::future::Future;
 use jsonrpc_core::{Call, MethodCall, Version, Id, Params};
-use serde_json::value::Value;
+use serde_json::{json, value::Value};
 use log::{info, log};
 
 #[derive(Clone, Debug, Default)]
@@ -35,18 +35,39 @@ impl MockWeb3Transport {
             Call::MethodCall(method) => method,
             _ => panic!("Only method calls supported for mockweb3")
         };
+        let mut addr: Option<String> = None;
+        if let Some(x) = method.params.clone() {
+            let params: Value = x.parse().unwrap();
+            addr = Some(serde_json::from_value(params.get(0).unwrap().clone()).unwrap());
+        }
 
         // let val: Value = serde_json::from_str()
-
+        info!("Method: {:?}", method);
         let val: Value = match method.method.as_ref() {
             "SomeMethod" => {
                 serde_json::from_str(r#"{"A CONST"}"#).unwrap()
             },
-            _ => panic!("No method found")
+            "eth_getTransactionCount" => {
+                serde_json::from_str(r#""0x0""#).unwrap()
+            },
+            "eth_getBalance" => {
+                serde_json::from_str(r#""0x8F0D180""#) .unwrap()
+            },
+            "eth_getCode" => {
+                if addr.is_some() && 
+                    addr.expect("scope is conditional; qed") == "0x884531eab1ba4a81e9445c2d7b64e29c2f14587c" 
+                {
+                    let jstr = json!(include!("solidity/simple.bin/SimpleStorage.bin-runtime"));
+                    jstr
+                } else {
+                    serde_json::from_str(r#""0x601714""#).unwrap()
+                }
+            },
+            "eth_getStorageAt" => {
+                serde_json::from_str(r#""0x0000000000000000000000000000000000000000000000000000000000000000""#).unwrap()
+            }
+            _ => panic!("method not found")
         };
-
-        info!("METHOD: {:?}", method);
-        panic!("Should not have to send any requests in tests");
-        return serde_json::from_str(r#"{"A COSNT"}"# ).unwrap();
+        val
     }
 }

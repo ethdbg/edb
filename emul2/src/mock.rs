@@ -42,7 +42,10 @@ impl MockWeb3Transport {
             "SomeMethod" => {
                 serde_json::from_str(r#"{"A CONST"}"#).unwrap()
             },
-            _ => panic!("No method found")
+            _ => {
+                error!("Method: {} not found", method.method.as_ref());
+                panic!("No Method Found");
+            }
         };
 
         info!("METHOD: {:?}", method);
