@@ -18,27 +18,13 @@ pub fn parse(code_file: PathBuf) -> VyError<()> {
     let py = gil.python();
     let sys = py.import("sys");
     let parser = py.import("vyper.parser.parser")?;
-    let res = parser.call1("parse", code.as_str());
-    let res = match res {
-        Err(err) => {
-            err.print(py);
-            panic!("Failed due to error");
-        }
-        Ok(res) => res,
-    };
-    info!("RES: {}", res);
-    let test: PyResult<Vec<String>> = res.extract();
-
-    let test = match test {
-        Err(err) => { 
-            err.print(py);
-            panic!("Error");
-        },
-        Ok(res) => res,
-    };
-    info!("TEST: {:?}", test);
-    let res: PyDict = res.try_into()?;
-    // let res: PyDict = res.extract()?;
+    let res = parser.call1("parse", code.as_str())?;
+    let ast: &PyList = res.try_into()?;
+    let item = ast.get_item(0);
+    info!("Item: {}", item);
+    /*let ast = ast.iter().map(|x| {
+        x.try_into().unwrap()
+    }).collect::<Vec<&PyList>>();*/
     Ok(())
 }
 
