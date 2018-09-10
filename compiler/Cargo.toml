@@ -1,6 +1,13 @@
+cargo-features = ['edition']
+
 [package]
 name = "compiler"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
+edition = '2018'
+
 
 [dependencies]
+pyo3 = "0.3"
+failure = "0.1.2"
+
