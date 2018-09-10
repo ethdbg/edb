@@ -1,11 +1,11 @@
-use failure::{Fail, Error};
+use failure::Fail;
 
 #[derive(Fail, Debug)]
 pub enum VyperError {
     #[fail(display = "{}", _0)]
     Io(#[fail(cause)] std::io::Error),
-    #[fail(display = "A Python Exception has occurred")]
-    Python(#[fail(cause)] pyo3::PyErr)
+    #[fail(display = "A Python Exception has occurred {}", _0)]
+    Python(String)
 }
 
 impl From<std::io::Error> for VyperError {
@@ -16,8 +16,8 @@ impl From<std::io::Error> for VyperError {
 
 impl From<pyo3::PyErr> for VyperError {
     fn from(err: pyo3::PyErr) -> VyperError {
-        VyperError::Python(err)
+        VyperError::Python(format!("{:?}", err))
     }
 }
 
-type VyError<T> = Result<T, VyperError>;
+pub type VyError<T> = Result<T, VyperError>;

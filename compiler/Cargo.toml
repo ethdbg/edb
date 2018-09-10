@@ -8,6 +8,7 @@ edition = '2018'
 
 
 [dependencies]
-pyo3 = "0.3"
+pyo3 = "0.4.1"
 failure = "0.1.2"
-
+log = "*"
+pretty_env_logger = "*"
