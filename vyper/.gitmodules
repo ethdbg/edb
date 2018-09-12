@@ -1,3 +1,0 @@
-[submodule "vyper"]
-	path = vyper
-	url = https://github.com/ethereum/vyper.git
