@@ -8,10 +8,14 @@ Not built around 'Just a Hook'. This debugger is built directly onto a customize
 
 This Debugger plans to be unopinionated and general. As first, however, it will mainly support the Ethereum Main chain and the Solidity/Vyper languages.
 
+This Repository will include:
+- A General Debug Library for Debug Functions (Stepping/CallStack/etc)using sputnikvm
+- A library for sourcemappings between LLL, Solidity, Vyper
 
-Two Debug Types:
-- Testnet Debug (Debug Deploy, Contract Functionality, within the context of all other Ethereum State on Parity Testnet) (WIP)
-- EVM Debug (Debug only within the context of the EVM, does not interact with overall Ethereum State)
+Organizations Repository will include:
+- An RPC which uses the Debug library and exposes the debug functions
+- A GDB-like CLI client
+- A VSCode Plugin
 
 
 ### Supported Languages
