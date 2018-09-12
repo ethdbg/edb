@@ -21,6 +21,7 @@ members = [
 ]
 
 [dependencies]
+vyper = { path = { "./vyper" }}
 tokio-core = "0.1.17"
 futures = "0.1.23"
 web3 = { git = "https://github.com/tomusdrw/rust-web3" }
