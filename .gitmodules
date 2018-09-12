@@ -1,3 +1,0 @@
-[submodule "compiler/vyper/vyper"]
-	path = compiler/vyper/vyper
-	url = https://github.com/ethereum/vyper.git
