@@ -23,7 +23,7 @@ Two Debug Types:
 ### Supported Chains
 - [ ] Ethereum Main
 - [ ] Ethereum Classic
-- [ ] Ellaism
-- [ ] Ubiq
-- [ ] Expanse
-- [ ] Musicoin
+- [ ] Ellaism? (Research Required)
+- [ ] Ubiq? (Research Required)
+- [ ] Expanse? (Research Required)
+- [ ] Musicoin? (Research Required)
