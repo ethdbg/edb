@@ -3,18 +3,17 @@
 //!
 mod vyper;
 mod solidity;
+mod types;
 
 /*
  * TBA trait for walking, and getting information from AST
-pub trait Ast {
-
+ */
+pub trait SourceMap {
+    /// Get a PC from a line number in the Source Code
+    fn pc_from_lineno(&self, lineno: usize) -> usize;
 }
-*/
 
-/// Functions 
+/// Functions
 pub trait Compiler {
     /* compile(path: PathBuf) -> Box<Ast>; */
-    /// Get a PC from a line number in the Source Code
-    fn pc_from_lineno(lineno: usize) -> usize;
-    /// Other Functions ... (TBA)
 }

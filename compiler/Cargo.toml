@@ -13,3 +13,5 @@ failure = "0.1.2"
 log = "*"
 pretty_env_logger = "*"
 vyper = { path = "./vyper"}
+solc = {git = "https://github.com/paritytech/rust_solc.git" }
+ethereum_types = "0.4.0"
