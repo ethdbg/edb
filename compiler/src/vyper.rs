@@ -1,4 +1,4 @@
-pub mod source_map;
-pub mod binds;
-pub mod err;
+mod source_map;
+mod binds;
+mod err;
 mod types;
