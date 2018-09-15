@@ -1,6 +1,7 @@
 use serde_derive::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all="lowercase")]
 pub enum FoundationVersion {
     Byzantium,
     Frontier,
@@ -28,9 +29,17 @@ impl From<FoundationVersion> for String {
 
 /// Language Enum
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all="lowercase")]
 pub enum Language {
     Solidity,
     Vyper,
     LLL,
     ASM,
+}
+
+/// Default Language is Solidity
+impl Default for Language {
+    fn default() -> Language {
+        Language::Solidity
+    }
 }

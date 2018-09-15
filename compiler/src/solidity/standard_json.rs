@@ -9,20 +9,6 @@ use std::{
 use ethereum_types::H160;
 use crate::types::{Language, FoundationVersion};
 
-/// Struct representing the Solidity Compilers' Standard JSON Input
-#[derive(Serialize, Debug, Clone)]
-struct StandardJson {
-    language: Language,
-    sources: HashMap<String, SourceFile>,
-    settings: Settings,
-
-}
-
-impl StandardJson {
-    fn load_defaults() -> Self {
-        unimplemented!();
-    }
-}
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct StandardJsonBuilder {
@@ -61,14 +47,24 @@ impl StandardJsonBuilder {
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
+/// Struct representing the Solidity Compilers' Standard JSON Input
+#[derive(Serialize, Debug, Clone, Default)]
+struct StandardJson {
+    language: Language,
+    sources: HashMap<String, SourceFile>,
+    settings: Settings,
+}
+
+#[derive(Serialize, Debug, Clone, Default)]
 struct SourceFile {
     /// Name of Source File and associated Info
-    #[serde(rename = "keccak256")]
+    #[serde(rename = "keccak256", skip_serializing_if = "Option::is_none")]
     hash: Option<String>,
     /// Paths to source files used in project
+    #[serde(skip_serializing_if = "Option::is_none")]
     urls: Option<Vec<PathBuf>>,
     /// Content of Source File. Required if urls not specified
+    #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<String>
 }
 
@@ -76,18 +72,22 @@ struct SourceFile {
 #[derive(Serialize, Debug, Clone)]
 struct Settings {
     /// Optional: Sorted list of remappings
+    #[serde(skip_serializing_if = "Option::is_none")]
     remappings: Option<Vec<String>>,
     /// Optimizer Settings
+    #[serde(skip_serializing_if = "Option::is_none")]
     optimizer: Option<Optimizer>,
     /// EVM Version. Default Byzantium
-    #[serde(rename = "evmVersion")]
+    #[serde(rename = "evmVersion", skip_serializing_if = "Option::is_none")]
     evm_version: Option<FoundationVersion>,
     /// Optional Metadata Settings
+    #[serde(skip_serializing_if = "Option::is_none")]
     metadata: Option<Metadata>,
     /// Addresses of the libraries. If not all libraries are given here, it can result in unlinked objects whose output data is different.
     /// The top level key is the the name of the source file where the library is used.
     /// If remappings are used, this source file should match the global path after remappings were applied.
     /// If this key is an empty string, that refers to a global level.
+    #[serde(skip_serializing_if = "Option::is_none")]
     libraries: Option<HashMap<String, HashMap<String, H160>>>,
     /// The following can be used to select desired outputs.
     /// If this field is omitted, then the compiler loads and does type checking, but will not generate any outputs apart from errors.
@@ -98,8 +98,27 @@ struct Settings {
     /// target part of that output. Additionally, `*` can be used as a wildcard to request everything.
     ///
     /// Nested Hashmap -- First String is location/glob where contract is defined, second string is contract name/glob
-    #[serde(rename = "outputSelection")]
-    output_selection: HashMap<String, HashMap<String, Vec<SolcItem>>>,
+    #[serde(rename = "outputSelection", skip_serializing_if = "Option::is_none")]
+    output_selection: Option<HashMap<String, HashMap<String, Vec<SolcItem>>>>,
+}
+
+impl Default for Settings {
+    fn default() -> Settings {
+        let mut item = HashMap::new();
+        item.insert("*".to_string(), vec![SolcItem::Abi, SolcItem::Ast,
+                              SolcItem::DeployedBytecode(EvmOpt::BytecodeObject),
+                              SolcItem::DeployedBytecode(EvmOpt::SourceMap)]);
+        let mut output = HashMap::new();
+        output.insert("*".to_string(), item);
+        Settings {
+            remappings: None,
+            optimizer: None,
+            evm_version: None,
+            metadata: None,
+            libraries: None,
+            output_selection: Some(output)
+        }
+    }
 }
 
 /// Optimizer Settings
@@ -121,7 +140,7 @@ struct Metadata {
 }
 
 /// OutputSelection Settings
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum SolcItem {
     /// ABI
     Abi,
@@ -155,7 +174,7 @@ enum SolcItem {
     EwasmWasm,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum EvmOpt {
     /// Bytecode Object
     BytecodeObject,
@@ -209,9 +228,19 @@ impl Serialize for SolcItem {
 mod tests {
     use super::*;
     #[test]
-    fn test_opts() {
-        let solc_items = vec![SolcItem::Abi, SolcItem::Bytecode(EvmOpt::BytecodeObject), SolcItem::DeployedBytecode(EvmOpt::BytecodeObject)];
-        let ser_items = serde_json::to_string(&solc_items);
-        println!("Ser Items: {:?}", ser_items);
+    fn ser_opts() {
+        let solc_items = vec![SolcItem::Abi,
+                              SolcItem::Bytecode(EvmOpt::BytecodeObject),
+                              SolcItem::DeployedBytecode(EvmOpt::BytecodeObject)
+        ];
+        let ser_items = serde_json::to_string(&solc_items).unwrap();
+        assert_eq!(ser_items, r#"["abi","evm.bytecode.object","evm.deployedBytecode.object"]"#);
+    }
+
+    #[test]
+    fn ser_compilation_object() {
+        let obj = StandardJson::default();
+        let ser = serde_json::to_string(&obj).unwrap();
+        assert_eq!(ser, r#"{"language":"solidity","sources":{},"settings":{"outputSelection":{"*":{"*":["abi","ast","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}"#);
     }
 }
