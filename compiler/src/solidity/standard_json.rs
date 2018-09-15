@@ -1,13 +1,13 @@
 //! Macros for Standard JSON Input for the Solidity Compiler
 
 use serde_derive::*;
+use serde::ser::{Serialize, Serializer};
 use std::{
     collections::HashMap,
+    path::PathBuf,
 };
 use ethereum_types::H160;
-use super::{
-    types::{Language, FoundationVersion},
-};
+use crate::types::{Language, FoundationVersion};
 
 /// Struct representing the Solidity Compilers' Standard JSON Input
 #[derive(Serialize, Debug, Clone)]
@@ -20,9 +20,7 @@ struct StandardJson {
 
 impl StandardJson {
     fn load_defaults() -> Self {
-        StandardJson {
-
-        }
+        unimplemented!();
     }
 }
 
@@ -52,19 +50,19 @@ impl StandardJsonBuilder {
         new
     }
 
-    fn optimize(&mut self) -> &mut self {
+    fn optimize(&mut self) -> &mut Self {
         let new = self;
         new.optimize = Some(true);
         new
     }
 
     fn build(&self) -> String { // returns standard JSON input for solidity compiler
-
+        unimplemented!();
     }
 }
 
 #[derive(Serialize, Debug, Clone)]
-enum SourceFile {
+struct SourceFile {
     /// Name of Source File and associated Info
     #[serde(rename = "keccak256")]
     hash: Option<String>,
@@ -76,13 +74,13 @@ enum SourceFile {
 
 /// Optional additional settings to pass to the compiler
 #[derive(Serialize, Debug, Clone)]
-enum Settings {
+struct Settings {
     /// Optional: Sorted list of remappings
     remappings: Option<Vec<String>>,
     /// Optimizer Settings
     optimizer: Option<Optimizer>,
-    #[serde(rename = "evmVersion")]
     /// EVM Version. Default Byzantium
+    #[serde(rename = "evmVersion")]
     evm_version: Option<FoundationVersion>,
     /// Optional Metadata Settings
     metadata: Option<Metadata>,
@@ -100,6 +98,7 @@ enum Settings {
     /// target part of that output. Additionally, `*` can be used as a wildcard to request everything.
     ///
     /// Nested Hashmap -- First String is location/glob where contract is defined, second string is contract name/glob
+    #[serde(rename = "outputSelection")]
     output_selection: HashMap<String, HashMap<String, Vec<SolcItem>>>,
 }
 
@@ -107,7 +106,7 @@ enum Settings {
 #[derive(Serialize, Debug, Clone)]
 struct Optimizer {
     /// disabled by default
-    enabled: true,
+    enabled: bool,
     /// Optimize for how many times you intend to run the code.
     /// Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage.
     runs: usize
@@ -122,7 +121,7 @@ struct Metadata {
 }
 
 /// OutputSelection Settings
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 enum SolcItem {
     /// ABI
     Abi,
@@ -138,20 +137,26 @@ enum SolcItem {
     Metadata,
     /// Ir - new assembly format before desugaring
     Ir,
+    /// New Assembly Format after Desugaring
+    Assembly,
+    /// Old-style assembly format in JSON
+    LegacyAssembly,
+    /// The list of function hashses
+    MethodIdentifiers,
+    /// Function gas estimates
+    GasEstimates,
+    /// Bytecode (Evm Opt)
     Bytecode(EvmOpt),
+    /// Deployed Bytecode Options
     DeployedBytecode(EvmOpt),
     /// eWASM s-expressions format (not currently supported)
     EwasmWast,
     /// eWASM binary format (not currently supported)
     EwasmWasm,
-
 }
 
-EvmOpt {
-    /// New Assembly Format after Desugaring
-    Assembly,
-    /// Old-style assembly format in JSON
-    LegacyAssembly,
+#[derive(Debug, Clone)]
+enum EvmOpt {
     /// Bytecode Object
     BytecodeObject,
     /// Opcodes List
@@ -160,14 +165,53 @@ EvmOpt {
     SourceMap,
     /// Link References (if unlinked object)
     LinkReferences,
-    /// The list of function hashses
-    MethodIdentifiers,
-    /// Function gas estimates
-    GasEstimates
 }
+
+impl From<&EvmOpt> for String {
+    fn from(val: &EvmOpt) -> String {
+        match val {
+            EvmOpt::BytecodeObject => "object".to_string(),
+            EvmOpt::Opcodes        => "opcodes".to_string(),
+            EvmOpt::SourceMap      => "sourceMap".to_string(),
+            EvmOpt::LinkReferences => "linkReferences".to_string(),
+        }
+    }
+}
+
+impl Serialize for SolcItem {
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        match self {
+            SolcItem::Abi                   => serializer.serialize_str("abi"),
+            SolcItem::Ast                   => serializer.serialize_str("ast"),
+            SolcItem::LegacyAst             => serializer.serialize_str("legacyAST"),
+            SolcItem::DevDoc                => serializer.serialize_str("devdoc"),
+            SolcItem::UserDoc               => serializer.serialize_str("userdoc"),
+            SolcItem::Metadata              => serializer.serialize_str("metadata"),
+            SolcItem::Ir                    => serializer.serialize_str("ir"),
+            SolcItem::Assembly              => serializer.serialize_str("evm.assembly"),
+            SolcItem::LegacyAssembly        => serializer.serialize_str("evm.legacyAssembly"),
+            SolcItem::Bytecode(opt)         => serializer.serialize_str(&format!("evm.bytecode.{}", String::from(opt))),
+            SolcItem::DeployedBytecode(opt) => serializer.serialize_str(&format!("evm.deployedBytecode.{}", String::from(opt))),
+            SolcItem::MethodIdentifiers     => serializer.serialize_str("evm.methodIdentifiers"),
+            SolcItem::GasEstimates          => serializer.serialize_str("evm.gasEstimates"),
+            SolcItem::EwasmWast             => serializer.serialize_str("ewasm.wast"),
+            SolcItem::EwasmWasm             => serializer.serialize_str("ewasm.wasm"),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    #[test]
+    fn test_opts() {
+        let solc_items = vec![SolcItem::Abi, SolcItem::Bytecode(EvmOpt::BytecodeObject), SolcItem::DeployedBytecode(EvmOpt::BytecodeObject)];
+        let ser_items = serde_json::to_string(&solc_items);
+        println!("Ser Items: {:?}", ser_items);
+    }
 }
