@@ -71,7 +71,8 @@ impl StandardJsonBuilder {
 
     fn compile(&self) -> CompiledSource {
         let json = self.build();
-        serde_json::from_str(&json).expect("Compilation Failed")
+        let compiled = solc::standard_json(&json).expect("Compilation Failed");
+        serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
     }
 }
 

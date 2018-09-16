@@ -136,7 +136,8 @@ pub struct Errors {
 pub enum ErrorVariant {
     TypeError,
     InternalCompilerError,
-    Exception
+    Exception,
+    IOError,
 }
 
 #[derive(Debug, Clone, Deserialize)]
