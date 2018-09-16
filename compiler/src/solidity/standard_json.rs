@@ -1,21 +1,17 @@
-//! Macros for Standard JSON Input for the Solidity Compiler
-
-use serde_derive::*;
-use serde::ser::{Serialize, Serializer};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
+//! Standard JSON Input/Output for the Solidity Compiler
+mod input;
+mod output;
+use self::{
+    input::*,
+    output::*,
 };
-use ethereum_types::H160;
-use crate::types::{Language, FoundationVersion};
+use std::path::PathBuf;
+use crate::types::{FoundationVersion};
 
-
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct StandardJsonBuilder {
     /// specify the path of the source code
     source: PathBuf,
-    /// a array of File Paths to source code
-    urls: Vec<PathBuf>,
     /// EvmVersion to use
     version: Option<String>,
     /// [FLAG] whether to optimize output
@@ -29,199 +25,56 @@ impl StandardJsonBuilder {
         new.source = val;
         new
     }
-
+    /// Version
     fn evm_version(&mut self, ver: FoundationVersion) -> &mut Self {
         let new = self;
         new.version = Some(ver.into());
         new
     }
-
+    /// Whether to optimize output
     fn optimize(&mut self) -> &mut Self {
         let new = self;
         new.optimize = Some(true);
         new
     }
 
-    fn build(&self) -> String { // returns standard JSON input for solidity compiler
-        unimplemented!();
-    }
-}
-
-/// Struct representing the Solidity Compilers' Standard JSON Input
-#[derive(Serialize, Debug, Clone, Default)]
-struct StandardJson {
-    language: Language,
-    sources: HashMap<String, SourceFile>,
-    settings: Settings,
-}
-
-#[derive(Serialize, Debug, Clone, Default)]
-struct SourceFile {
-    /// Name of Source File and associated Info
-    #[serde(rename = "keccak256", skip_serializing_if = "Option::is_none")]
-    hash: Option<String>,
-    /// Paths to source files used in project
-    #[serde(skip_serializing_if = "Option::is_none")]
-    urls: Option<Vec<PathBuf>>,
-    /// Content of Source File. Required if urls not specified
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<String>
-}
-
-/// Optional additional settings to pass to the compiler
-#[derive(Serialize, Debug, Clone)]
-struct Settings {
-    /// Optional: Sorted list of remappings
-    #[serde(skip_serializing_if = "Option::is_none")]
-    remappings: Option<Vec<String>>,
-    /// Optimizer Settings
-    #[serde(skip_serializing_if = "Option::is_none")]
-    optimizer: Option<Optimizer>,
-    /// EVM Version. Default Byzantium
-    #[serde(rename = "evmVersion", skip_serializing_if = "Option::is_none")]
-    evm_version: Option<FoundationVersion>,
-    /// Optional Metadata Settings
-    #[serde(skip_serializing_if = "Option::is_none")]
-    metadata: Option<Metadata>,
-    /// Addresses of the libraries. If not all libraries are given here, it can result in unlinked objects whose output data is different.
-    /// The top level key is the the name of the source file where the library is used.
-    /// If remappings are used, this source file should match the global path after remappings were applied.
-    /// If this key is an empty string, that refers to a global level.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    libraries: Option<HashMap<String, HashMap<String, H160>>>,
-    /// The following can be used to select desired outputs.
-    /// If this field is omitted, then the compiler loads and does type checking, but will not generate any outputs apart from errors.
-    /// The first level key is the file name and the second is the contract name, where empty contract name refers to the file itself,
-    /// while the star refers to all of the contracts.
-    ///
-    /// Note that using a using `evm`, `evm.bytecode`, `ewasm`, etc. will select every
-    /// target part of that output. Additionally, `*` can be used as a wildcard to request everything.
-    ///
-    /// Nested Hashmap -- First String is location/glob where contract is defined, second string is contract name/glob
-    #[serde(rename = "outputSelection", skip_serializing_if = "Option::is_none")]
-    output_selection: Option<HashMap<String, HashMap<String, Vec<SolcItem>>>>,
-}
-
-impl Default for Settings {
-    fn default() -> Settings {
-        let mut item = HashMap::new();
-        item.insert("*".to_string(), vec![SolcItem::Abi, SolcItem::Ast,
-                              SolcItem::DeployedBytecode(EvmOpt::BytecodeObject),
-                              SolcItem::DeployedBytecode(EvmOpt::SourceMap)]);
-        let mut output = HashMap::new();
-        output.insert("*".to_string(), item);
-        Settings {
-            remappings: None,
-            optimizer: None,
-            evm_version: None,
-            metadata: None,
-            libraries: None,
-            output_selection: Some(output)
+    /// returns Standard JSON input for Solidity Compiler
+    //TODO: Return errors and do not panic
+    // TODO: Make work for multiple input files
+    fn build(&self) -> String {
+        let mut default = StandardJson::default();
+        let source_path = self.source
+            .clone()
+            .canonicalize()
+            .expect("Could not get absoulte path of Source File");
+        let mut map = None;
+        if let Some(rem) = &source_path.parent() {
+            map = Some(String::from("=") + rem.to_str().expect("Path is not Valid UTF-8"))
         }
-    }
-}
+        let url = url::Url::from_file_path(source_path.as_path())
+            .expect("Could not convert path to URL");
 
-/// Optimizer Settings
-#[derive(Serialize, Debug, Clone)]
-struct Optimizer {
-    /// disabled by default
-    enabled: bool,
-    /// Optimize for how many times you intend to run the code.
-    /// Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage.
-    runs: usize
-}
-
-/// Metadata Settings
-#[derive(Serialize, Debug, Clone)]
-struct Metadata {
-    /// Use only literal content and not URLs (false by default)
-    #[serde(rename = "useLiteralContent")]
-    use_literal_content: bool,
-}
-
-/// OutputSelection Settings
-#[derive(Debug, Clone, PartialEq)]
-enum SolcItem {
-    /// ABI
-    Abi,
-    /// AST of all source files
-    Ast,
-    /// Legacy AST of all source files
-    LegacyAst,
-    /// Developer Documentation (natspec)
-    DevDoc,
-    /// User Documentation (natspec)
-    UserDoc,
-    /// metadata
-    Metadata,
-    /// Ir - new assembly format before desugaring
-    Ir,
-    /// New Assembly Format after Desugaring
-    Assembly,
-    /// Old-style assembly format in JSON
-    LegacyAssembly,
-    /// The list of function hashses
-    MethodIdentifiers,
-    /// Function gas estimates
-    GasEstimates,
-    /// Bytecode (Evm Opt)
-    Bytecode(EvmOpt),
-    /// Deployed Bytecode Options
-    DeployedBytecode(EvmOpt),
-    /// eWASM s-expressions format (not currently supported)
-    EwasmWast,
-    /// eWASM binary format (not currently supported)
-    EwasmWasm,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum EvmOpt {
-    /// Bytecode Object
-    BytecodeObject,
-    /// Opcodes List
-    Opcodes,
-    /// Source Mapping
-    SourceMap,
-    /// Link References (if unlinked object)
-    LinkReferences,
-}
-
-impl From<&EvmOpt> for String {
-    fn from(val: &EvmOpt) -> String {
-        match val {
-            EvmOpt::BytecodeObject => "object".to_string(),
-            EvmOpt::Opcodes        => "opcodes".to_string(),
-            EvmOpt::SourceMap      => "sourceMap".to_string(),
-            EvmOpt::LinkReferences => "linkReferences".to_string(),
+        if let Some(name) = self.source.file_name() {
+            default.sources.insert(name.to_str().expect("File Name is not valid UTF-8!").to_string(), SourceFile {
+                urls: Some(vec![UrlType(url)]),
+                content: None,
+                hash: None,
+            });
+        } else {
+            panic!("Path does not terminate in File Name");
         }
-    }
-}
-
-impl Serialize for SolcItem {
-
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer
-    {
-        match self {
-            SolcItem::Abi                   => serializer.serialize_str("abi"),
-            SolcItem::Ast                   => serializer.serialize_str("ast"),
-            SolcItem::LegacyAst             => serializer.serialize_str("legacyAST"),
-            SolcItem::DevDoc                => serializer.serialize_str("devdoc"),
-            SolcItem::UserDoc               => serializer.serialize_str("userdoc"),
-            SolcItem::Metadata              => serializer.serialize_str("metadata"),
-            SolcItem::Ir                    => serializer.serialize_str("ir"),
-            SolcItem::Assembly              => serializer.serialize_str("evm.assembly"),
-            SolcItem::LegacyAssembly        => serializer.serialize_str("evm.legacyAssembly"),
-            SolcItem::Bytecode(opt)         => serializer.serialize_str(&format!("evm.bytecode.{}", String::from(opt))),
-            SolcItem::DeployedBytecode(opt) => serializer.serialize_str(&format!("evm.deployedBytecode.{}", String::from(opt))),
-            SolcItem::MethodIdentifiers     => serializer.serialize_str("evm.methodIdentifiers"),
-            SolcItem::GasEstimates          => serializer.serialize_str("evm.gasEstimates"),
-            SolcItem::EwasmWast             => serializer.serialize_str("ewasm.wast"),
-            SolcItem::EwasmWasm             => serializer.serialize_str("ewasm.wasm"),
+        if map.is_some() {
+            default.settings.remappings = Some(vec![map.expect("Scope is conditional")]);
         }
+        serde_json::to_string(&default).expect("Could not build Standard JSON Object")
+    }
+
+    fn compile(&self) -> CompiledSource {
+        let json = self.build();
+        serde_json::from_str(&json).expect("Compilation Failed")
     }
 }
+
 
 
 #[cfg(test)]
@@ -241,6 +94,22 @@ mod tests {
     fn ser_compilation_object() {
         let obj = StandardJson::default();
         let ser = serde_json::to_string(&obj).unwrap();
-        assert_eq!(ser, r#"{"language":"solidity","sources":{},"settings":{"outputSelection":{"*":{"*":["abi","ast","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}"#);
+        assert_eq!(ser, r#"{"language":"Solidity","sources":{},"settings":{"outputSelection":{"*":{"*":["abi","ast","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}"#);
+    }
+
+    #[test]
+    fn build_standard_json() {
+        let json = StandardJsonBuilder::default()
+            .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
+            .build();
+        println!("JSON: {}", json);
+    }
+
+    #[test]
+    fn compile_standard_json() {
+        let compiled = StandardJsonBuilder::default()
+            .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
+            .compile();
+        println!("{:?}", compiled);
     }
 }

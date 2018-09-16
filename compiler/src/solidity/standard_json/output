@@ -1,0 +1,21 @@
+    Finished dev [unoptimized + debuginfo] target(s) in 0.22s
+     Running /home/insi/Projects/ETHDBG/edb/target/debug/deps/compiler-d3db47a688fb7031
+
+running 5 tests
+test solidity::standard_json::tests::ser_opts ... ok
+test solidity::standard_json::tests::ser_compilation_object ... ok
+JSON: {"language":"solidity","sources":{"voting.sol":{"urls":["file:///home/insi/Projects/ETHDBG/edb/tests/contracts/solidity/voting/voting.sol"]}},"settings":{"outputSelection":{"*":{"*":["abi","ast","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}
+test solidity::test::compiles_source ... ok
+test solidity::standard_json::tests::build_standard_json ... ok
+thread 'solidity::standard_json::tests::compile_standard_json' panicked at 'Compilation Failed: Error("missing field `sources`", line: 1, column: 140)', libcore/result.rs:983:5
+note: Run with `RUST_BACKTRACE=1` for a backtrace.
+test solidity::standard_json::tests::compile_standard_json ... FAILED
+
+failures:
+
+failures:
+    solidity::standard_json::tests::compile_standard_json
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+
+error: test failed, to rerun pass '--lib'

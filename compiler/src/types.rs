@@ -29,7 +29,6 @@ impl From<FoundationVersion> for String {
 
 /// Language Enum
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all="lowercase")]
 pub enum Language {
     Solidity,
     Vyper,
