@@ -1,9 +1,9 @@
 //! Standard JSON Input/Output for the Solidity Compiler
 mod input;
 mod output;
+pub use self::output::CompiledSource;
 use self::{
     input::*,
-    output::*,
 };
 use std::path::PathBuf;
 use crate::types::{FoundationVersion};
@@ -20,19 +20,19 @@ pub struct StandardJsonBuilder {
 
 impl StandardJsonBuilder {
     // fs::canonicalize
-    fn source_file(&mut self, val: PathBuf) -> &mut Self {
+    pub fn source_file(&mut self, val: PathBuf) -> &mut Self {
         let new = self;
         new.source = val;
         new
     }
     /// Version
-    fn evm_version(&mut self, ver: FoundationVersion) -> &mut Self {
+    pub fn evm_version(&mut self, ver: FoundationVersion) -> &mut Self {
         let new = self;
         new.version = Some(ver.into());
         new
     }
     /// Whether to optimize output
-    fn optimize(&mut self) -> &mut Self {
+    pub fn optimize(&mut self) -> &mut Self {
         let new = self;
         new.optimize = Some(true);
         new
@@ -41,38 +41,33 @@ impl StandardJsonBuilder {
     /// returns Standard JSON input for Solidity Compiler
     //TODO: Return errors and do not panic
     // TODO: Make work for multiple input files
-    fn build(&self) -> String {
+    pub fn build(&self) -> String {
         let mut default = StandardJson::default();
         let source_path = self.source
             .clone()
             .canonicalize()
             .expect("Could not get absoulte path of Source File");
-        let mut map = None;
-        if let Some(rem) = &source_path.parent() {
-            map = Some(String::from("=") + rem.to_str().expect("Path is not Valid UTF-8"))
-        }
-        let url = url::Url::from_file_path(source_path.as_path())
-            .expect("Could not convert path to URL");
-
         if let Some(name) = self.source.file_name() {
             default.sources.insert(name.to_str().expect("File Name is not valid UTF-8!").to_string(), SourceFile {
-                urls: Some(vec![UrlType(url)]),
+                urls: Some(vec![source_path]),
                 content: None,
                 hash: None,
             });
         } else {
             panic!("Path does not terminate in File Name");
         }
-        if map.is_some() {
-            default.settings.remappings = Some(vec![map.expect("Scope is conditional")]);
-        }
         serde_json::to_string(&default).expect("Could not build Standard JSON Object")
     }
 
-    fn compile(&self) -> CompiledSource {
+    pub fn compile(&self) -> CompiledSource {
         let json = self.build();
-        let compiled = solc::standard_json(&json).expect("Compilation Failed");
-        serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
+        if let Some(p) = self.source.canonicalize().unwrap().parent() {
+            let compiled = solc::standard_json(&json, Some(vec![p])).expect("Compilation Failed");
+            serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
+        } else {
+            let compiled = solc::standard_json(&json, None).expect("Compilation Failed");
+            serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
+        }
     }
 }
 

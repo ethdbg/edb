@@ -172,7 +172,7 @@ dependencies = [
  "serde_derive 1.0.78 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_test 1.0.78 (registry+https://github.com/rust-lang/crates.io-index)",
- "solc 0.1.0 (git+https://github.com/paritytech/rust_solc.git)",
+ "solc 0.1.0",
  "url 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1297,7 +1297,6 @@ dependencies = [
 [[package]]
 name = "solc"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/rust_solc.git#e0d13a1519129d2e8412a88dba02f134211a97b0"
 dependencies = [
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2070,7 +2069,6 @@ dependencies = [
 "checksum slab 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5f9776d6b986f77b35c6cf846c11ad986ff128fe0b2b63a3628e3755e8d3102d"
 "checksum smallvec 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4c8cbcd6df1e117c2210e13ab5109635ad68a929fcbb8964dc965b76cb5ee013"
 "checksum smallvec 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "153ffa32fd170e9944f7e0838edf824a754ec4c1fc64746fcc9fe1f8fa602e5d"
-"checksum solc 0.1.0 (git+https://github.com/paritytech/rust_solc.git)" = "<none>"
 "checksum speculate 0.1.0 (git+https://github.com/utkarshkukreti/speculate.rs.git)" = "<none>"
 "checksum spin 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)" = "37b5646825922b96b5d7d676b5bb3458a54498e96ed7b0ce09dc43a07038fea4"
 "checksum sputnikvm 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "af9d5149471092a4cc34f06a0a8e0fb6c237198a5307a31a548345a71319c5f9"

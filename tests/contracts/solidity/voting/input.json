@@ -1,1 +1,1 @@
-{"language":"Solidity","sources":{"voting.sol":{"urls":["/home/insi/Projects/ETHDBG/edb/tests/contracts/solidity/voting/voting.sol"]}},"settings":{"outputSelection":{"*":{"*":["abi","ast","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}
+{"language":"Solidity","sources":{"voting.sol":{"urls":["/home/insi/Projects/ETHDBG/edb/tests/contracts/solidity/voting/simple.sol"]}},"settings":{"outputSelection":{"*":{"*":["abi","AST","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}

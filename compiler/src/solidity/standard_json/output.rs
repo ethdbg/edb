@@ -8,7 +8,7 @@ use serde_derive::*;
 #[derive(Debug, Clone, Deserialize)]
 pub struct CompiledSource {
     pub errors: Option<Vec<Errors>>,
-    pub sources: HashMap<String, CompiledSource>,
+    pub sources: HashMap<String, CompiledSourceFile>,
     /// Contracts
     /// First key is source file, second key are the names of contracts included in that file
     pub contracts: HashMap<String, HashMap<String, Contract>>
@@ -17,6 +17,7 @@ pub struct CompiledSource {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CompiledSourceFile {
     pub id: usize,
+    #[serde(skip_deserializing)]
     pub ast: Ast,
     #[serde(skip_deserializing)]
     pub legacy_ast: LegacyAst // Not Implemented
@@ -57,7 +58,8 @@ pub struct Contract {
     method_identifiers: Option<MethodIdentifiers>,
     /// Function Gas Estimates
     gas_estimates: Option<GasEstimates>,
-    ewasm: EWasm,
+    #[serde(skip_deserializing)]
+    ewasm: Option<EWasm>,
 }
 
 /// eWasm related outputs
@@ -104,7 +106,7 @@ pub struct Evm {
 #[serde(rename_all = "camelCase")]
 pub struct Bytecode {
     /// Bytecode as a hexstring
-    object: Vec<u8>,
+    object: String,
     /// Opcodes list (string)
     opcodes: Option<String>,
     /// Compressed SourceMap
@@ -138,6 +140,7 @@ pub enum ErrorVariant {
     InternalCompilerError,
     Exception,
     IOError,
+    Warning,
 }
 
 #[derive(Debug, Clone, Deserialize)]

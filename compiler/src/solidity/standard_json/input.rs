@@ -27,7 +27,7 @@ pub struct SourceFile {
     pub hash: Option<String>,
     /// Paths to source files used in project
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub urls: Option<Vec<UrlType>>,
+    pub urls: Option<Vec<PathBuf>>,
     /// Content of Source File. Required if urls not specified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>
