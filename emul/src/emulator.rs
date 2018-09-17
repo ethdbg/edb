@@ -1,7 +1,7 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
 use log::{info, error, warn, log};
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
@@ -60,7 +60,7 @@ impl<T> Emulator<T> where T: Transport {
     ///  let web3 = web3::Web3::new(http);
     ///  let block = web3.eth().block(BlockId::Number(BlockNumber::Latest)).wait().unwrap();
     ///  let headers = sputnikvm::HeaderParams {
-    ///     beneficiary: block.author, 
+    ///     beneficiary: block.author,
     ///     timestamp: block.timestamp,
     ///     number: block.number.unwrap().to_u256(),
     ///     difficulty: block.difficulty,
@@ -71,7 +71,7 @@ impl<T> Emulator<T> where T: Transport {
     /// let tx_set = ValidTransaction {
     ///     caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()),
     ///     gas_price: Gas::one(),
-    ///     gas_limit: Gas::from(10000000 as u64), 
+    ///     gas_limit: Gas::from(10000000 as u64),
     ///     action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
     ///     value: bigint::U256::zero(),
     ///     input: Rc::new(set),
@@ -88,6 +88,7 @@ impl<T> Emulator<T> where T: Transport {
             state_cache: Rc::new(RefCell::new(HashMap::new()))
         }
     }
+
     /// fire the vm, with the specified Action
     ///
     /// ```
@@ -107,7 +108,16 @@ impl<T> Emulator<T> where T: Transport {
     pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
     }
-    
+
+    /// Get the Current Runtime PC
+    pub fn pc(&self) -> Option<PC<ByzantiumPatch>> {
+        if let Some(mach) = self.vm.current_machine() {
+            Some(mach.pc())
+        } else {
+            None
+        }
+    }
+
     /// Chain a transaction with the state changes of the previous transaction.
     /// If header params are specified, transaction is chained with new block
     ///
@@ -135,7 +145,7 @@ impl<T> Emulator<T> where T: Transport {
             let (txinfo, block) = self.transaction.clone();
             self.vm = sputnikvm::TransactionVM::new(txinfo, block);
         }
-  
+
     }
     /// Access the underyling vm implementation directly via the predicate F
     ///
@@ -157,15 +167,15 @@ impl<T> Emulator<T> where T: Transport {
         let mut curr_pos = 0;
         if let Some(x) = self.positions.pop() {
             curr_pos = x;
-        } 
-        
+        }
+
         let mut last_pos = 0;
         let (txinfo, header) = self.transaction.clone();
         let new_vm = sputnikvm::TransactionVM::new(txinfo, header);
-        info!("Stepping vm back to last position {}, from current position {}", 
+        info!("Stepping vm back to last position {}, from current position {}",
               *self.positions.get(self.positions.len() - 1).unwrap_or(&0), curr_pos);
         std::mem::replace(&mut self.vm, new_vm);
-        
+
         // run the vm until the latest stored position
         while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
             self.step()?;
@@ -212,11 +222,11 @@ impl<T> Emulator<T> where T: Transport {
         }
         Ok(())
     }
-    
+
     /// persists any account storage that has been changed by the currently executing transaction up until the point in execution
     /// used when chaining transactions during debugging
     /// for example
-    /// 
+    ///
     /// ```rust,no_run
     /// let emulator = Emulator::new(tx_set, header, client);
     /// emulator.fire(Action::Exec);
@@ -225,7 +235,7 @@ impl<T> Emulator<T> where T: Transport {
     /// ```
     /// if debugging these two transactions seperately, it would require two different vm's (one
     /// per transaction). therefore, persistant storage
-    /// 
+    ///
     fn persist(&self) -> Result<(), EmulError> {
         let res = self.vm.accounts().map(|acc| {
             match acc {
@@ -238,7 +248,7 @@ impl<T> Emulator<T> where T: Transport {
                                 .get_mut(&address)
                                 .expect("scope conditional; qed")
                                 .storage
-                                .write(bigint::U256::from(item as u64), 
+                                .write(bigint::U256::from(item as u64),
                                        changing_storage
                                         .read(bigint::U256::from(item as u64)).expect("Storage should not be empty; qed"))
                                 .expect("require error not possible in the context of local cache; qed");
@@ -266,7 +276,7 @@ impl<T> Emulator<T> where T: Transport {
                     Ok(())
                 },
                 // Create assumes the account does not yet exist, so this will replace anything that bychance exists already locally
-                AccountChange::Create {nonce, address, balance, storage, code} => { 
+                AccountChange::Create {nonce, address, balance, storage, code} => {
                     self.state_cache.borrow_mut().insert(address.clone(), Account {
                         nonce: nonce.clone(),
                         balance: balance.clone(),
@@ -284,7 +294,7 @@ impl<T> Emulator<T> where T: Transport {
                 }
             }
         }).collect::<Result<(), EmulError>>();
-        info!("Result of persist: {:?}", res); 
+        info!("Result of persist: {:?}", res);
         res
     }
 
@@ -308,10 +318,10 @@ impl<T> Emulator<T> where T: Transport {
 
 
 fn handle_requires<T>(
-    result: &Result<(), RequireError>, 
+    result: &Result<(), RequireError>,
     cache: Rc<RefCell<HashMap<bigint::H160, Account>>>,
     vm: &mut SeqTransactionVM<ByzantiumPatch>,
-    client: &Web3<T>) -> Result<bool, EmulError> 
+    client: &Web3<T>) -> Result<bool, EmulError>
 where
     T: Transport
 {
@@ -425,7 +435,7 @@ mod test {
                 };
                 // miner
                 let headers = sputnikvm::HeaderParams {
-                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(), 
+                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(),
                     timestamp: 1536291149 as u64,
                     number: bigint::U256::from(6285997 as u64),
                     difficulty: bigint::U256::from(3331693644712776 as u64),
@@ -433,7 +443,7 @@ mod test {
                 };
                 // make this into a macro
                 let mut emul = Emulator::new(tx_set, headers, client);
-                let code: Vec<u8> = hex::decode(simple).unwrap();
+                // let code: Vec<u8> = hex::decode(simple).unwrap();
             }
 
             it "can run" {
@@ -460,6 +470,11 @@ mod test {
                 emul.fire(Action::StepForward).unwrap();
                 emul.read_raw(|vm| {
                     assert_eq!(4, vm.current_state().unwrap().position);
+                    info!("Current PC: {}", vm.current_machine().unwrap().pc().position());
+                    info!("Current Opcode Pos: {}", vm.current_machine().unwrap().pc().opcode_position());
+                    info!("Code: {:?}", vm.current_machine().unwrap().pc().code());
+                    info!("Next Opcode: {:?}", vm.current_machine().unwrap().pc().peek_opcode().unwrap());
+                    info!("Next Instruction: {:?}", vm.current_machine().unwrap().pc().peek().unwrap());
                     Ok(())
                 });
                 emul.fire(Action::StepBack).unwrap();
