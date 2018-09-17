@@ -65,73 +65,73 @@ pub struct Contract {
 /// eWasm related outputs
 #[derive(Debug, Clone, Deserialize)]
 pub struct EWasm {
-    wast: String,
-    wasm: String,
+    pub wast: String,
+    pub wasm: String,
 }
 
 /// Gas Estimates of functions
 #[derive(Debug, Clone, Deserialize)]
 pub struct GasEstimates {
     /// Contract Creation
-    creation: CreationGasEstimates,
+    pub creation: CreationGasEstimates,
     /// External <FunctionName, Cost>
-    external: HashMap<String, String>,
+    pub external: HashMap<String, String>,
     /// Internal <FunctionName, Cost>
-    internal: HashMap<String, String>
+    pub internal: HashMap<String, String>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreationGasEstimates {
-    code_deposit_cost: String,
-    execution_cost: String,
-    total_cost: String,
+    pub code_deposit_cost: String,
+    pub execution_cost: String,
+    pub total_cost: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Evm {
     /// Assembly Output
-    assembly: Option<String>,
+    pub assembly: Option<String>,
     #[serde(skip_deserializing)]
     /// Old Assembly Output (Unimplemented)
-    legacy_assembly: Option<LegacyAssembly>, // Unimplemented
+    pub legacy_assembly: Option<LegacyAssembly>, // Unimplemented
     /// Bytecode used when the contract is first committed to Ethereum
-    bytecode: Option<Bytecode>,
+    pub bytecode: Option<Bytecode>,
     /// Bytecode used when called upon by transactions after deployment
-    deployed_bytecode: Option<Bytecode>
+    pub deployed_bytecode: Option<Bytecode>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bytecode {
     /// Bytecode as a hexstring
-    object: String,
+    pub object: String,
     /// Opcodes list (string)
-    opcodes: Option<String>,
+    pub opcodes: Option<String>,
     /// Compressed SourceMap
-    source_map: String,
+    pub source_map: String,
     /// If given, this is an unlinked Object
-    link_references: Option<HashMap<String, HashMap<String, Vec<Position>>>>
+    pub link_references: Option<HashMap<String, HashMap<String, Vec<Position>>>>
 }
 
 #[derive(Debug, Clone, Deserialize)]
 /// Byte offsets into the bytecode. Linking replaces the 20 bytes located there.
 pub struct Position {
-    start: usize,
-    length: usize,
+    pub start: usize,
+    pub length: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct Errors {
-    source_location: Option<SourceLocation>,
+    pub source_location: Option<SourceLocation>,
     #[serde(rename = "type")]
-    variant: ErrorVariant,
-    component: String,
-    severity: String,
-    message: String,
-    formatted_message: String,
+    pub variant: ErrorVariant,
+    pub component: String,
+    pub severity: String,
+    pub message: String,
+    pub formatted_message: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -145,7 +145,7 @@ pub enum ErrorVariant {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SourceLocation {
-    file: String,
-    start: usize,
-    end: usize,
+    pub file: String,
+    pub start: usize,
+    pub end: usize,
 }

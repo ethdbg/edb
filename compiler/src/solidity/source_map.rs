@@ -18,34 +18,45 @@ use itertools::Itertools;
 // f = source index (integer identifier to refer to a source file)
 // j = Jump Instruction
 
-type PC = usize;
+///Instruction Offset
+type InstructionOffset = usize;
 
 /// Struct Representing a Source Map for Solidity
 pub struct SoliditySourceMap {
-    compressed_map: String,
-    decompressed_map: Vec<DecompressedMap>,
-    /// map between PC (Instruction Offset) and Range in source code
-    map: HashMap<PC, Range>
+    /// Decompressed Mapping. Each element represents an instruction, and it's position in the source code
+    /// IE: decompressed_map[1] == Instruction 1
+    map: Vec<Instruction>,
 }
-/// A Range in Source Code
-pub struct Range {
-    /// Line|Col Start Position
-    start: Position,
-    /// Line|Col End Position
-    end: Position,
-}
-/// Line Column Position in source code
-pub struct Position {
-    line: usize,
-    col: usize,
-}
+
 /// Struct representing s:l:f:j
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct DecompressedMap {
+pub struct Instruction {
     start: usize,
     length: usize,
-    source_index: usize,
+    source_index: SourceIndex,
     jump: Jump,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum SourceIndex {
+    NoSource,
+    Source(usize)
+}
+
+impl Default for SourceIndex {
+    fn default() -> SourceIndex {
+        SourceIndex::NoSource
+    }
+}
+
+impl FromStr for SourceIndex {
+    type Err = CompilerError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "-1" => Ok(SourceIndex::NoSource),
+            _ => Ok(SourceIndex::Source(s.parse()?))
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,8 +98,10 @@ impl FromStr for Jump {
 }
 
 impl SoliditySourceMap {
-    pub fn new(source_map: String) -> Self {
-        unimplemented!();
+    pub fn new(source_map: &str) -> Self {
+        SoliditySourceMap {
+            map: Self::decompress(source_map),
+        }
     }
 
     // RULES:
@@ -98,12 +111,11 @@ impl SoliditySourceMap {
     // these are the same:
     // 1:2:1  ;  1:9:1  ;  2:1:2  ;  2:1:2  ;  2:1:2
     // 1:2:1  ;  :9     ;  2:1:2  ;         ;
-    fn decompress(source_map: &str) -> Vec<DecompressedMap> {
+    fn decompress(source_map: &str) -> Vec<Instruction> {
         let mut last_ele: [&str; 4] = [""; 4];
         source_map
             .split(';')
-            .map(|ele| { // cur element will never be missing any parts
-                // let parts = cur.split(':').enumerate().map(|i, e| parse_str(i, e)).collect::<Vec<MapEle>>();
+            .map(|ele| {
                 let mut parts = ele
                     .split(':')
                     .enumerate()
@@ -119,14 +131,14 @@ impl SoliditySourceMap {
                 });
                 assert_eq!(parts.len(), 4);
                 last_ele = [parts[0], parts[1], parts[2], parts[3]];
-                DecompressedMap {
-                    start: parts[0].parse().unwrap(),
-                    length: parts[1].parse().unwrap(),
-                    source_index: parts[2].parse().unwrap(),
-                    jump: parts[3].parse().unwrap()
+                Instruction {
+                    start: parts[0].parse().expect("Start could not be parsed!"),
+                    length: parts[1].parse().expect("Length could not be parsed!"),
+                    source_index: parts[2].parse().expect("Source Index could not be parsed!"),
+                    jump: parts[3].parse().expect("Jump could not be parsed!")
                 }
             })
-            .collect::<Vec<DecompressedMap>>()
+            .collect::<Vec<Instruction>>()
     }
 }
 
@@ -149,34 +161,34 @@ mod test {
             it "should decompress mappings" {
                 let comp = "1:2:1:o;:9;2:1:2:-;;";
                 let de_comp = vec![
-                    DecompressedMap {
+                    Instruction {
                         start: 1,
                         length: 2,
-                        source_index: 1,
+                        source_index: SourceIndex::Source(1),
                         jump: Jump::ReturnFunc
                     },
-                    DecompressedMap {
+                    Instruction {
                         start: 1,
                         length: 9,
-                        source_index: 1,
+                        source_index: SourceIndex::Source(1),
                         jump: Jump::ReturnFunc,
                     },
-                    DecompressedMap {
+                    Instruction {
                         start: 2,
                         length: 1,
-                        source_index: 2,
+                        source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
                     },
-                    DecompressedMap {
+                    Instruction {
                         start: 2,
                         length: 1,
-                        source_index: 2,
+                        source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
                     },
-                    DecompressedMap {
+                    Instruction {
                         start: 2,
                         length: 1,
-                        source_index: 2,
+                        source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
                     },
                 ];

@@ -39,7 +39,7 @@ impl StandardJsonBuilder {
     }
 
     /// returns Standard JSON input for Solidity Compiler
-    //TODO: Return errors and do not panic
+    // TODO: Return errors and do not panic
     // TODO: Make work for multiple input files
     pub fn build(&self) -> String {
         let mut default = StandardJson::default();

@@ -20,8 +20,15 @@ pub struct Solidity {
     /// Source code as a string. No transformations done on it.
     source: String,
     compiled_source: CompiledSource,
-    // map: SoliditySourceMap
+    maps: Vec<Mapping>
     // ast: AST,
+}
+
+struct Mapping {
+    file: String,
+    contract_name: String,
+    index: usize,
+    map: SoliditySourceMap
 }
 
 /// Solidity Compiler Interface
@@ -30,10 +37,28 @@ impl Solidity {
     pub fn new(path: PathBuf) -> Self {
         let mut source = String::new();
         info!("Read {} bytes from Source File", std::fs::File::open(path.as_path()).unwrap().read_to_string(&mut source).unwrap());
-        Solidity {
-            source,
-            compiled_source: StandardJsonBuilder::default().source_file(path).evm_version(FoundationVersion::Byzantium).compile()
-        }
+        let compiled_source = StandardJsonBuilder::default()
+            .source_file(path)
+            .evm_version(FoundationVersion::Byzantium)
+            .compile();
+        let maps = compiled_source.contracts
+            .iter()
+            .enumerate()
+            .flat_map(|(i, (k, v))| {
+                v
+                    .iter()
+                    .map(|(inner_k, inner_v)| {
+                        Mapping {
+                            file: k.clone(),
+                            contract_name: inner_k.clone(),
+                            index: i,
+                            map: SoliditySourceMap::new(&inner_v.evm.deployed_bytecode.as_ref().expect("Bytecode doesn't exist!").source_map)
+                        }
+                    }).collect::<Vec<Mapping>>()
+            })
+            .collect::<Vec<Mapping>>();
+
+        Solidity { source, compiled_source, maps }
     }
 }
 
@@ -48,9 +73,17 @@ impl SourceMap for Solidity {
 
 #[cfg(test)]
 mod test {
+    use speculate::speculate;
+    use log::*;
     use super::*;
-    #[test]
-    fn compiles_source() {
-        Solidity::new(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"));
+    speculate! {
+        before {
+            pretty_env_logger::try_init();
+        }
+        describe "solidity" {
+            it "should compile source" {
+                Solidity::new(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"));
+            }
+        }
     }
 }
