@@ -3,6 +3,7 @@
 //!
 mod vyper;
 mod solidity;
+mod err;
 mod types;
 
 /*

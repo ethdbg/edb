@@ -6,7 +6,10 @@ use std::{
     io::Read,
 };
 use log::*;
-use self::standard_json::{CompiledSource, StandardJsonBuilder};
+use self::{
+    standard_json::{CompiledSource, StandardJsonBuilder},
+    source_map::SoliditySourceMap,
+};
 use super::{
     types::FoundationVersion,
     SourceMap
@@ -17,6 +20,7 @@ pub struct Solidity {
     /// Source code as a string. No transformations done on it.
     source: String,
     compiled_source: CompiledSource,
+    // map: SoliditySourceMap
     // ast: AST,
 }
 
@@ -33,6 +37,8 @@ impl Solidity {
     }
 }
 
+// Decompress Source Mappings
+// Store in data structure Line No -> SrcMapping
 impl SourceMap for Solidity {
     fn pc_from_lineno(&self, lineno: usize) -> usize {
         unimplemented!();
