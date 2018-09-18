@@ -336,13 +336,11 @@ where
             info!("Getting balance");
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
             info!("Getting code");
-            let mut code: Bytes = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait(); // Bytes
+            let mut code = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait(); // Bytes
             if code.is_err() {
-                code = Bytes(vec![0]);
-            } else {
-                code = code.unwrap();
+                code = Ok(Bytes(vec![0]));
             }
-
+            let code = code.unwrap();
             vm.commit_account(AccountCommitment::Full {
                 nonce: bigint::U256(nonce.0),
                 address: addr,
