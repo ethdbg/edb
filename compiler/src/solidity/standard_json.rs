@@ -1,7 +1,7 @@
 //! Standard JSON Input/Output for the Solidity Compiler
 mod input;
 mod output;
-pub use self::output::CompiledSource;
+pub use self::output::{CompiledSource, Contract};
 use serde_json;
 use solc;
 use self::{

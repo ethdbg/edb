@@ -11,9 +11,10 @@ use log::*;
 use codespan::{
     CodeMap, FileMap, ByteIndex, LineIndex
 };
+use ethabi;
 
 use self::{
-    standard_json::{CompiledSource, StandardJsonBuilder},
+    standard_json::{CompiledSource, StandardJsonBuilder, Contract},
     source_map::{SoliditySourceMap, Instruction},
 };
 use super::{
@@ -120,6 +121,25 @@ impl Solidity {
                 }
             })
     }
+
+    fn contract_by_name(&self, name: &str) -> Option<Contract> {
+        // TODO: this iteration is really bad. fix it.
+        self.compiled_source.contracts
+            .iter()
+            .map(|(_, v)| {
+                v
+                    .iter()
+                    .find(|(k2, _)| k2.as_str() == name)
+            })
+            .collect::<Vec<Option<(&String, &Contract)>>>()
+            .iter()
+            .filter_map(|o| o.clone())
+            .find(|(s, c)| {
+                s.as_str() == name
+            })
+            .and_then(|(s, c)| Some(c.clone()))
+            .map(|c| c)
+    }
 }
 
 // Decompress Source Mappings
@@ -142,6 +162,10 @@ impl SourceMap for Solidity {
 
     fn source(&self) -> &str {
         &self.source
+    }
+
+    fn abi(&self, contract_name: &str) -> ethabi::Contract {
+        self.contract_by_name(contract_name).unwrap().abi
     }
 }
 

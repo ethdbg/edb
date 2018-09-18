@@ -23,6 +23,7 @@ extern crate codespan;
 #[cfg(test)]
 #[macro_use] extern crate speculate;
 
+
 /*
  * TBA trait for walking, and getting information from AST
  */
@@ -32,6 +33,8 @@ pub trait SourceMap {
     fn position_from_lineno(&self, file: &FileIdentifier, lineno: usize) -> usize;
     /// Get the source code
     fn source(&self) -> &str;
+    /// get the ABI of a contract
+    fn abi(&self, contract_name: &str) -> ethabi::Contract;
 }
 
 /// Functions
