@@ -140,6 +140,14 @@ impl Solidity {
             .and_then(|(s, c)| Some(c.clone()))
             .map(|c| c)
     }
+
+    pub fn print_current_line(&self, offset: u32) -> String {
+        let line_num = self.file_map.find_line(ByteIndex(offset)).expect("COuld not find line num");
+        let line_str = self.source
+            .lines()
+            .nth(line_num.0 as usize);
+        line_str.unwrap().to_string()
+    }
 }
 
 // Decompress Source Mappings
