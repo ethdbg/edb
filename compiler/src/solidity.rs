@@ -145,9 +145,12 @@ impl Solidity {
         let line_num = self.file_map.find_line(ByteIndex(offset)).expect("COuld not find line num");
         let lines = self.source
             .lines()
+            .map(|s| {
+                s.to_string()
+            })
             .collect::<Vec<String>>();
-        let line_str = lines.get(line_num);
-        (line_num.0, line_str)
+        let line_str = lines.get(line_num.0 as usize);
+        (line_num.0, line_str.expect("No line str").clone())
     }
 }
 
