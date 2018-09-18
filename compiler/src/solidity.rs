@@ -146,7 +146,7 @@ impl Solidity {
         let line_str = self.source
             .lines()
             .nth(line_num.0 as usize);
-        (line_num.0, line_str.unwrap().to_string())
+        (line_num.0, line_str.expect("No line str").to_string())
     }
 }
 
