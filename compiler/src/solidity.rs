@@ -149,6 +149,7 @@ impl Solidity {
                 s.to_string()
             })
             .collect::<Vec<String>>();
+            info!("Line num: {}", line_num.0);
         let line_str = lines.get(line_num.0 as usize);
         (line_num.0, line_str.expect("No line str").clone())
     }
