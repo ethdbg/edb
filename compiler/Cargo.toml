@@ -1,5 +1,5 @@
 [package]
-name = "compiler"
+name = "edb-compiler"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 
