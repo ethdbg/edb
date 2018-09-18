@@ -118,6 +118,11 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
+    /// get bytecode position
+    pub fn offset(&self) -> usize {
+        self.vm.current_state().unwrap().position
+    }
+
     /// Chain a transaction with the state changes of the previous transaction.
     /// If header params are specified, transaction is chained with new block
     ///
