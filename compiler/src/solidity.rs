@@ -141,12 +141,12 @@ impl Solidity {
             .map(|c| c)
     }
 
-    pub fn print_current_line(&self, offset: u32) -> String {
+    pub fn get_current_line(&self, offset: u32) -> (u32, String) {
         let line_num = self.file_map.find_line(ByteIndex(offset)).expect("COuld not find line num");
         let line_str = self.source
             .lines()
             .nth(line_num.0 as usize);
-        line_str.unwrap().to_string()
+        (line_num.0, line_str.unwrap().to_string())
     }
 }
 
