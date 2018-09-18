@@ -1,3 +1,0 @@
-[submodule "vyper"]
-	path = vyper
-	url = git@github.com:ethdbg/rust-vyper.git
