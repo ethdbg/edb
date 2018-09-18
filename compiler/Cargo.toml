@@ -8,7 +8,7 @@ authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 failure = "0.1.2"
 log = "*"
 pretty_env_logger = "*"
-solc = { path = "./../../rust_solc/" }
+solc = { git = "https://github.com/InsidiousMind/rust_solc", branch = "insi_add-whitelisted-paths" }
 ethereum-types = "0.4.0"
 serde_json = "1.0.27"
 serde_derive = "1.0.78"
