@@ -2,11 +2,13 @@
 mod input;
 mod output;
 pub use self::output::CompiledSource;
+use serde_json;
+use solc;
 use self::{
     input::*,
 };
 use std::path::PathBuf;
-use crate::types::{FoundationVersion};
+use types::{FoundationVersion};
 
 #[derive(Debug, Clone, Default)]
 pub struct StandardJsonBuilder {
@@ -98,7 +100,6 @@ mod tests {
         let json = StandardJsonBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .build();
-        println!("JSON: {}", json);
     }
 
     #[test]
@@ -106,6 +107,5 @@ mod tests {
         let compiled = StandardJsonBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .compile();
-        println!("{:?}", compiled);
     }
 }

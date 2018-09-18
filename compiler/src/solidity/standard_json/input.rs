@@ -1,7 +1,8 @@
 //! Input Types for Solidity Standard Json API
 use serde_derive::*;
 use serde::ser::{Serialize, Serializer};
-use crate::types::{Language, FoundationVersion};
+use url;
+use types::{Language, FoundationVersion};
 use ethereum_types::H160;
 use std::{
     collections::HashMap,
@@ -156,8 +157,8 @@ pub enum EvmOpt {
     LinkReferences,
 }
 
-impl From<&EvmOpt> for String {
-    fn from(val: &EvmOpt) -> String {
+impl<'a> From<&'a EvmOpt> for String {
+    fn from(val: &'a EvmOpt) -> String {
         match val {
             EvmOpt::BytecodeObject => "object".to_string(),
             EvmOpt::Opcodes        => "opcodes".to_string(),

@@ -1,13 +1,11 @@
 //! Source Mapping Decoding and tools for Solidity
 use std::{
-    collections::HashMap,
     str::FromStr,
     string::ToString,
 };
-use crate::err::CompilerError;
+use err::CompilerError;
 
 use log::*;
-use itertools::Itertools;
 
 // TODO: Write a custom deserialize to automatically put decompressed map in CompiledSource
 //     - that would probably get rid of this entire file, and would be more intuitive
@@ -18,27 +16,26 @@ use itertools::Itertools;
 // f = source index (integer identifier to refer to a source file)
 // j = Jump Instruction
 
-///Instruction Offset
-type InstructionOffset = usize;
-
 /// Struct Representing a Source Map for Solidity
+#[derive(Debug)]
 pub struct SoliditySourceMap {
     /// Decompressed Mapping. Each element represents an instruction, and it's position in the source code
     /// IE: decompressed_map[1] == Instruction 1
-    map: Vec<Instruction>,
+    pub instructions: Vec<Instruction>,
 }
 
 /// Struct representing s:l:f:j
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Instruction {
-    start: usize,
-    length: usize,
-    source_index: SourceIndex,
-    jump: Jump,
+    pub start: usize,
+    pub length: usize,
+    pub source_index: SourceIndex,
+    pub jump: Jump,
+    pub position: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum SourceIndex {
+pub enum SourceIndex {
     NoSource,
     Source(usize)
 }
@@ -60,7 +57,7 @@ impl FromStr for SourceIndex {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Jump {
+pub enum Jump {
     IntoFunc,
     ReturnFunc,
     NormJump,
@@ -100,7 +97,7 @@ impl FromStr for Jump {
 impl SoliditySourceMap {
     pub fn new(source_map: &str) -> Self {
         SoliditySourceMap {
-            map: Self::decompress(source_map),
+            instructions: Self::decompress(source_map),
         }
     }
 
@@ -115,7 +112,8 @@ impl SoliditySourceMap {
         let mut last_ele: [&str; 4] = [""; 4];
         source_map
             .split(';')
-            .map(|ele| {
+            .enumerate()
+            .map(|(idx, ele)| {
                 let mut parts = ele
                     .split(':')
                     .enumerate()
@@ -135,7 +133,8 @@ impl SoliditySourceMap {
                     start: parts[0].parse().expect("Start could not be parsed!"),
                     length: parts[1].parse().expect("Length could not be parsed!"),
                     source_index: parts[2].parse().expect("Source Index could not be parsed!"),
-                    jump: parts[3].parse().expect("Jump could not be parsed!")
+                    jump: parts[3].parse().expect("Jump could not be parsed!"),
+                    position: idx,
                 }
             })
             .collect::<Vec<Instruction>>()
@@ -145,17 +144,19 @@ impl SoliditySourceMap {
 
 #[cfg(test)]
 mod test {
-    use speculate::speculate;
     use log::*;
     use super::*;
+    use speculate::speculate;
+    use pretty_env_logger;
     // 1:2:1  ;  1:9:1  ;  2:1:2  ;  2:1:2  ;  2:1:2
     // 1:2:1  ;  :9     ;  2:1:2  ;         ;
     // 1:2:1:o;  :9     ;  2:1:2:-;         ;
     speculate! {
         describe "source map" {
             before {
-                pretty_env_logger::try_init();
-                // do nothing
+                #[allow(unused_must_use)] {
+                    pretty_env_logger::try_init();
+                }
             }
 
             it "should decompress mappings" {
@@ -165,31 +166,36 @@ mod test {
                         start: 1,
                         length: 2,
                         source_index: SourceIndex::Source(1),
-                        jump: Jump::ReturnFunc
+                        jump: Jump::ReturnFunc,
+                        position: 0,
                     },
                     Instruction {
                         start: 1,
                         length: 9,
                         source_index: SourceIndex::Source(1),
                         jump: Jump::ReturnFunc,
+                        position: 1,
                     },
                     Instruction {
                         start: 2,
                         length: 1,
                         source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
+                        position: 2,
                     },
                     Instruction {
                         start: 2,
                         length: 1,
                         source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
+                        position: 3,
                     },
                     Instruction {
                         start: 2,
                         length: 1,
                         source_index: SourceIndex::Source(2),
                         jump: Jump::NormJump,
+                        position: 4,
                     },
                 ];
                 info!("Decompressed Mappings: {:?}", SoliditySourceMap::decompress(comp));

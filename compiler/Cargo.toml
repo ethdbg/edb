@@ -1,25 +1,22 @@
-cargo-features = ['edition']
-
 [package]
 name = "compiler"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
-edition = '2018'
 
 
 [dependencies]
 failure = "0.1.2"
 log = "*"
 pretty_env_logger = "*"
-solc = { path = "/home/insi/Projects/ETHDBG/rust_solc/" }
+solc = { path = "./../../rust_solc/" }
 ethereum-types = "0.4.0"
 serde_json = "1.0.27"
 serde_derive = "1.0.78"
 serde = "1.0.78"
-serde_test = "1.0.78"
 ethabi = "6.0.1"
 url = "1.7.1"
 itertools = "0.7.8"
+codespan = "0.1.3"
 
 [dev-dependencies]
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }

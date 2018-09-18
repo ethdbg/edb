@@ -1,4 +1,4 @@
-use failure::Fail;
+// use failure::Fail;
 /*
 #[derive(Fail, Debug)]
 pub enum VyperError {
