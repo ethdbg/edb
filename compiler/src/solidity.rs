@@ -143,10 +143,11 @@ impl Solidity {
 
     pub fn get_current_line(&self, offset: u32) -> (u32, String) {
         let line_num = self.file_map.find_line(ByteIndex(offset)).expect("COuld not find line num");
-        let line_str = self.source
+        let lines = self.source
             .lines()
-            .nth(line_num.0 as usize);
-        (line_num.0, line_str.expect("No line str").to_string())
+            .collect::<Vec<String>>();
+        let line_str = lines.get(line_num);
+        (line_num.0, line_str)
     }
 }
 
