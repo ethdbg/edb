@@ -331,8 +331,11 @@ where
         },
         Err(RequireError::Account(addr)) => {
             info!("Acquiring account {:#x} for VM", addr);
+            info!("Getting nonce");
             let nonce = client.eth().transaction_count(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?;
+            info!("Getting balance");
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
+            info!("Getting code");
             let code: Bytes = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // Bytes
 
             vm.commit_account(AccountCommitment::Full {
