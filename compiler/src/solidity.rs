@@ -1,6 +1,7 @@
 mod source_map;
 mod standard_json;
 mod ast;
+mod err;
 use std::{
     self,
     path::PathBuf,
@@ -16,10 +17,11 @@ use ethabi;
 use self::{
     standard_json::{CompiledSource, StandardJsonBuilder, Contract},
     source_map::{SoliditySourceMap, Instruction},
+    err::{SolidityError, SourceMapVariant},
 };
 use super::{
     types::FoundationVersion,
-    SourceMap, FileIdentifier
+    SourceMap, FileIdentifier,
 };
 
 /// A struct for Solidity Source Mapping
@@ -47,9 +49,9 @@ struct Mapping {
 /// Solidity Compiler Interface
 // need: ABI, AST, SourceMap, bincode-runtime
 impl Solidity {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> Result<Self, SolidityError> {
         let mut source = String::new();
-        info!("Read {} bytes from Source File", std::fs::File::open(path.as_path()).unwrap().read_to_string(&mut source).unwrap());
+        info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
 
         let mut code_map = CodeMap::new();
         let file_map = code_map.add_filemap_from_disk(path.as_path()).expect("Adding file of code failed");
@@ -66,17 +68,20 @@ impl Solidity {
                 v
                     .iter()
                     .map(|(inner_k, inner_v)| {
+                        let src_map = SoliditySourceMap::new(&inner_v.evm.deployed_bytecode.as_ref()
+                                                             .expect("Bytecode does not exist").source_map)
+                            .expect("Fatal Error: Could not build Source Map. Shutting Down...");
                         Mapping {
                             file: k.clone(),
                             contract_name: inner_k.clone(),
                             index: i,
-                            map: SoliditySourceMap::new(&inner_v.evm.deployed_bytecode.as_ref().expect("Bytecode doesn't exist!").source_map)
+                            map: src_map,
                         }
                     }).collect::<Vec<Mapping>>()
             })
             .collect::<Vec<Mapping>>();
 
-        Solidity { code_map, file_map, source, compiled_source, maps }
+        Ok(Solidity { code_map, file_map, source, compiled_source, maps })
     }
 
     // TODO: Abstract these three functions to receive a Enum, trait, or generic. They all do the same thing.
@@ -112,7 +117,6 @@ impl Solidity {
                         println!("ACC: {}, X: {}", y.start, x.start);
                         info!("Found: Acc: {}, acclength: {}, x: {}, x_length: {}", y.start, y.length, x.start, x.length);
                         if self.file_map.find_line(ByteIndex(x.start as u32)).expect("failed to find line") == LineIndex(lineno as u32) && x.length < y.length {
-                            info!("YEAH!!!!!!!!!!!!!!!!!!!!!!");
                             Some(x)
                         } else {
                             Some(y)

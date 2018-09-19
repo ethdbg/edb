@@ -2,7 +2,7 @@
 use serde_derive::*;
 use serde::ser::{Serialize, Serializer};
 use url;
-use types::{Language, FoundationVersion};
+use crate::types::{Language, FoundationVersion};
 use ethereum_types::H160;
 use std::{
     collections::HashMap,

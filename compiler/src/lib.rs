@@ -1,27 +1,12 @@
-#![feature(non_modrs_mods)]
 //! Traits 'Compiler' modules must implement
 //!
 //!
+
+
 pub mod solidity;
 mod vyper;
 mod err;
 mod types;
-
-#[macro_use] extern crate serde_derive;
-extern crate failure;
-extern crate log;
-extern crate pretty_env_logger;
-extern crate solc;
-extern crate ethereum_types;
-extern crate serde_json;
-extern crate serde;
-extern crate ethabi;
-extern crate url;
-extern crate itertools;
-extern crate codespan;
-
-#[cfg(test)]
-#[macro_use] extern crate speculate;
 
 
 /*

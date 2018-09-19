@@ -8,7 +8,7 @@ use self::{
     input::*,
 };
 use std::path::PathBuf;
-use types::{FoundationVersion};
+use crate::types::{FoundationVersion};
 
 #[derive(Debug, Clone, Default)]
 pub struct StandardJsonBuilder {

@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
     string::ToString,
 };
-use err::CompilerError;
+use super::err::{SolidityError, SourceMapVariant};
 
 use log::*;
 
@@ -34,6 +34,18 @@ pub struct Instruction {
     pub position: usize,
 }
 
+impl From<(usize, usize, SourceIndex, Jump, usize)> for Instruction {
+    fn from(values: (usize, usize, SourceIndex, Jump, usize)) -> Instruction {
+        Instruction {
+            start: values.0,
+            length: values.1,
+            source_index: values.2,
+            jump: values.3,
+            position: values.4
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum SourceIndex {
     NoSource,
@@ -47,7 +59,7 @@ impl Default for SourceIndex {
 }
 
 impl FromStr for SourceIndex {
-    type Err = CompilerError;
+    type Err = SourceMapVariant;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "-1" => Ok(SourceIndex::NoSource),
@@ -80,25 +92,24 @@ impl ToString for Jump {
 }
 
 impl FromStr for Jump {
-    type Err = CompilerError;
+    type Err = SourceMapVariant;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "i" => Ok(Jump::IntoFunc),
             "o" => Ok(Jump::ReturnFunc),
             "-" => Ok(Jump::NormJump),
             _ => {
-                error!("Unknown Jump Variant");
-                Err(CompilerError::Decoding)
+                Err(SourceMapVariant::UnknownJumpVariant)
             }
         }
     }
 }
 
 impl SoliditySourceMap {
-    pub fn new(source_map: &str) -> Self {
-        SoliditySourceMap {
-            instructions: Self::decompress(source_map),
-        }
+    pub fn new(source_map: &str) -> Result<Self, SourceMapVariant> {
+        Ok(SoliditySourceMap {
+            instructions: Self::decompress(source_map)?,
+        })
     }
 
     // RULES:
@@ -108,9 +119,9 @@ impl SoliditySourceMap {
     // these are the same:
     // 1:2:1  ;  1:9:1  ;  2:1:2  ;  2:1:2  ;  2:1:2
     // 1:2:1  ;  :9     ;  2:1:2  ;         ;
-    fn decompress(source_map: &str) -> Vec<Instruction> {
+    fn decompress(source_map: &str) -> Result<Vec<Instruction>, SourceMapVariant> {
         let mut last_ele: [&str; 4] = [""; 4];
-        source_map
+        let values = source_map
             .split(';')
             .enumerate()
             .map(|(idx, ele)| {
@@ -129,19 +140,30 @@ impl SoliditySourceMap {
                 });
                 assert_eq!(parts.len(), 4);
                 last_ele = [parts[0], parts[1], parts[2], parts[3]];
-                Instruction {
-                    start: parts[0].parse().expect("Start could not be parsed!"),
-                    length: parts[1].parse().expect("Length could not be parsed!"),
-                    source_index: parts[2].parse().expect("Source Index could not be parsed!"),
-                    jump: parts[3].parse().expect("Jump could not be parsed!"),
-                    position: idx,
-                }
+
+                let start = parts[0].parse().map_err(|e| SourceMapVariant::from(e));
+                let length = parts[1].parse().map_err(|e| SourceMapVariant::from(e));
+                let source_index = parts[2].parse();
+                let jump = parts[3].parse();
+                (start, length, source_index, jump, idx)
             })
-            .collect::<Vec<Instruction>>()
+            .collect::<Vec<(IterRes<usize>, IterRes<usize>, IterRes<SourceIndex>, IterRes<Jump>, usize)>>();
+        let mut instructions: Vec<Instruction> = Vec::new();
+        for instruction in values.into_iter() {
+            instructions.push(Instruction {
+                start: instruction.0?,
+                length: instruction.1?,
+                source_index: instruction.2?,
+                jump: instruction.3?,
+                position: instruction.4
+            });
+        }
+        Ok(instructions)
     }
 }
 
-
+// used only to make the above collect::<_>() a bit more readable
+type IterRes<T> = Result<T, SourceMapVariant>;
 #[cfg(test)]
 mod test {
     use log::*;
