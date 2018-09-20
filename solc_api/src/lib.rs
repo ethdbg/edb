@@ -6,7 +6,7 @@ extern crate solc;
 extern crate ethereum_types;
 extern crate ethabi;
 
-mod types;
+pub mod types;
 pub use self::types::output::{CompiledSource, Contract};
 use self::{
     types::input::*,

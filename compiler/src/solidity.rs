@@ -1,9 +1,8 @@
 mod source_map;
-mod standard_json;
 mod ast;
 mod err;
+
 use std::{
-    self,
     path::PathBuf,
     io::Read,
     sync::Arc,
@@ -12,17 +11,12 @@ use log::*;
 use codespan::{
     CodeMap, FileMap, ByteIndex, LineIndex
 };
-use ethabi;
-
+use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
 use self::{
-    standard_json::{CompiledSource, StandardJsonBuilder, Contract},
     source_map::{SoliditySourceMap, Instruction},
     err::{SolidityError, SourceMapVariant},
 };
-use super::{
-    types::FoundationVersion,
-    SourceMap, FileIdentifier,
-};
+use super::{SourceMap, FileIdentifier};
 
 /// A struct for Solidity Source Mapping
 pub struct Solidity {
@@ -56,7 +50,7 @@ impl Solidity {
         let mut code_map = CodeMap::new();
         let file_map = code_map.add_filemap_from_disk(path.as_path())?;
 
-        let compiled_source = StandardJsonBuilder::default()
+        let compiled_source = SolcApiBuilder::default()
             .source_file(path)
             .evm_version(FoundationVersion::Byzantium)
             .compile();
@@ -144,7 +138,7 @@ impl Solidity {
             .and_then(|(s, c)| Some(c.clone()))
             .map(|c| c)
     }
-
+    /*
     pub fn get_current_line(&self, offset: u32) -> Result<(u32, String), SolidityError> {
         let line_num = self.file_map.find_line(ByteIndex(offset))?;
         let lines = self.source
@@ -157,6 +151,7 @@ impl Solidity {
         let line_str = lines.get(line_num.0 as usize);
         Ok((line_num.0, line_str.expect("No line str").clone()))
     }
+    */
 }
 
 // Decompress Source Mappings

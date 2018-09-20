@@ -15,8 +15,6 @@ pub mod solidity;
 mod err;
 mod types;
 
-
-
 pub trait Language {
     // Language Functions
 }
