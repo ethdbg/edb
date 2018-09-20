@@ -101,14 +101,14 @@ mod tests {
 
     #[test]
     fn build_standard_json() {
-        let json = SolcApiBuilder::default()
+        let _json = SolcApiBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .build();
     }
 
     #[test]
     fn compile_standard_json() {
-        let compiled = SolcApiBuilder::default()
+        let _compiled = SolcApiBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .compile();
     }
