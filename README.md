@@ -3,6 +3,8 @@
 </p>
 
 # EDB
+https://www.youtube.com/channel/UCaN9mu_nq7_xlFaVq3986-g for development stream.
+
 
 Not built around 'Just a Hook'. This debugger is built directly onto a customized VM, and has all of it's tools at its disposal. We make the hooks.
 
