@@ -54,7 +54,7 @@ impl Solidity {
         info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
 
         let mut code_map = CodeMap::new();
-        let file_map = code_map.add_filemap_from_disk(path.as_path()).expect("Adding file of code failed");
+        let file_map = code_map.add_filemap_from_disk(path.as_path())?;
 
         let compiled_source = StandardJsonBuilder::default()
             .source_file(path)
@@ -106,17 +106,17 @@ impl Solidity {
     }
 
     // find the mapping with the shortest length from the byte offset
-    fn shortest_len<'a>(&self, lineno: usize, mapping: &'a Mapping) -> Option<&'a Instruction> {
+    fn shortest_len<'a>(&self, lineno: u32, mapping: &'a Mapping) -> Option<&'a Instruction> {
         mapping.map.instructions
             .iter()
             .fold(None, |min, x| {
 
                 match min {
-                    None => if self.file_map.find_line(ByteIndex(x.start as u32)).expect("failed to find line") == LineIndex(lineno as u32) { Some(x) } else { None },
+                    None => if self.file_map.find_line(ByteIndex(x.start as u32)).expect("failed to find line") == LineIndex(lineno) { Some(x) } else { None },
                     Some(y) => {
                         println!("ACC: {}, X: {}", y.start, x.start);
                         info!("Found: Acc: {}, acclength: {}, x: {}, x_length: {}", y.start, y.length, x.start, x.length);
-                        if self.file_map.find_line(ByteIndex(x.start as u32)).expect("failed to find line") == LineIndex(lineno as u32) && x.length < y.length {
+                        if self.file_map.find_line(ByteIndex(x.start as u32)).expect("failed to find line") == LineIndex(lineno) && x.length < y.length {
                             Some(x)
                         } else {
                             Some(y)
@@ -145,8 +145,8 @@ impl Solidity {
             .map(|c| c)
     }
 
-    pub fn get_current_line(&self, offset: u32) -> (u32, String) {
-        let line_num = self.file_map.find_line(ByteIndex(offset)).expect("COuld not find line num");
+    pub fn get_current_line(&self, offset: u32) -> Result<(u32, String), SolidityError> {
+        let line_num = self.file_map.find_line(ByteIndex(offset))?;
         let lines = self.source
             .lines()
             .map(|s| {
@@ -155,14 +155,14 @@ impl Solidity {
             .collect::<Vec<String>>();
             info!("Line num: {}", line_num.0);
         let line_str = lines.get(line_num.0 as usize);
-        (line_num.0, line_str.expect("No line str").clone())
+        Ok((line_num.0, line_str.expect("No line str").clone()))
     }
 }
 
 // Decompress Source Mappings
 // Store in data structure Line No -> SrcMapping
 impl SourceMap for Solidity {
-    fn position_from_lineno(&self, file: &FileIdentifier, lineno: usize) -> usize {
+    fn position_from_lineno(&self, file: &FileIdentifier, lineno: u32) -> usize {
         // TODO: Maybe a impl on the enum, or a trait implemented on enum?
         match file {
             FileIdentifier::File(name) => {

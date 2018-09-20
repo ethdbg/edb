@@ -1,26 +1,66 @@
 //! Input Types for Solidity Standard Json API
 use serde_derive::*;
 use serde::ser::{Serialize, Serializer};
-use url;
-use crate::types::{Language, FoundationVersion};
+// use url;
 use ethereum_types::H160;
 use std::{
     collections::HashMap,
     path::PathBuf,
 };
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all="lowercase")]
+/// Ethereum Chain to use
+pub enum FoundationVersion {
+   Byzantium,
+   Frontier,
+   Homestead,
+   SpuriousDragon,
+}
+
+impl From<FoundationVersion> for String {
+    fn from(ver: FoundationVersion) -> String {
+        match ver {
+            FoundationVersion::Byzantium => "byzantium".to_string(),
+            FoundationVersion::Homestead => "homestead".to_string(),
+            FoundationVersion::Frontier => "frontier".to_string(),
+            FoundationVersion::SpuriousDragon => "spuriousdragon".to_string(),
+        }
+    }
+}
+
+impl Default for FoundationVersion {
+    fn default() -> FoundationVersion {
+        FoundationVersion::Byzantium
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+/// Ethereum Language to compile
+pub enum Language {
+    Solidity,
+    LLL,
+    ASM
+}
+
+impl Default for Language {
+    fn default() -> Language {
+        Language::Solidity
+    }
+}
+
 /// Struct representing the Solidity Compilers' Standard JSON Input
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct StandardJson {
-    /// Language (Solidity, serprent, LLL, etc)
+    /// Language (Solidity, serpent, LLL, etc)
     pub language: Language,
     /// Source Files
     pub sources: HashMap<String, SourceFile>,
     /// Compilation Settings
     pub settings: Settings,
 }
-#[derive(Debug, Clone, Serialize)]
-pub struct UrlType(#[serde(serialize_with="url_ser")] pub url::Url);
+// #[derive(Debug, Clone, Serialize)]
+// pub struct UrlType(#[serde(serialize_with="url_ser")] pub url::Url);
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct SourceFile {
     /// Name of Source File and associated Info
@@ -34,9 +74,9 @@ pub struct SourceFile {
     pub content: Option<String>
 }
 
-fn url_ser<S>(url: &url::Url, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    serializer.serialize_str(url.as_str())
-}
+// fn url_ser<S>(url: &url::Url, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+//    serializer.serialize_str(url.as_str())
+// }
 
 /// Optional additional settings to pass to the compiler
 #[derive(Serialize, Debug, Clone)]

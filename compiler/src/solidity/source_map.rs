@@ -24,13 +24,18 @@ pub struct SoliditySourceMap {
     pub instructions: Vec<Instruction>,
 }
 
-/// Struct representing s:l:f:j
+/// Struct representing s:l:f:j and a position -- the index in the bytecode
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Instruction {
+    /// Start Byte  offset in source
     pub start: usize,
+    /// Length of code in source
     pub length: usize,
+    /// Index of file in Solidity Compiler Output
     pub source_index: SourceIndex,
+    /// Type of jump, if any
     pub jump: Jump,
+    /// Position in bytecode
     pub position: usize,
 }
 
@@ -106,7 +111,9 @@ impl FromStr for Jump {
 }
 
 impl SoliditySourceMap {
-    pub fn new(source_map: &str) -> Result<Self, SourceMapVariant> {
+    pub fn new(source_map: &str, source: &str) -> Result<Self, SourceMapVariant> {
+
+
         Ok(SoliditySourceMap {
             instructions: Self::decompress(source_map)?,
         })

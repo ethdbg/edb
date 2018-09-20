@@ -1,17 +1,21 @@
 //! Standard JSON Input/Output for the Solidity Compiler
-mod input;
-mod output;
-pub use self::output::{CompiledSource, Contract};
-use serde_json;
-use solc;
+#[macro_use] extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+extern crate solc;
+extern crate ethereum_types;
+extern crate ethabi;
+
+mod types;
+pub use self::types::output::{CompiledSource, Contract};
 use self::{
-    input::*,
+    types::input::*,
 };
+
 use std::path::PathBuf;
-use crate::types::{FoundationVersion};
 
 #[derive(Debug, Clone, Default)]
-pub struct StandardJsonBuilder {
+pub struct SolcApiBuilder {
     /// specify the path of the source code
     source: PathBuf,
     /// EvmVersion to use
@@ -20,7 +24,7 @@ pub struct StandardJsonBuilder {
     optimize: Option<bool>,
 }
 
-impl StandardJsonBuilder {
+impl SolcApiBuilder {
     // fs::canonicalize
     pub fn source_file(&mut self, val: PathBuf) -> &mut Self {
         let new = self;
@@ -97,14 +101,14 @@ mod tests {
 
     #[test]
     fn build_standard_json() {
-        let json = StandardJsonBuilder::default()
+        let json = SolcApiBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .build();
     }
 
     #[test]
     fn compile_standard_json() {
-        let compiled = StandardJsonBuilder::default()
+        let compiled = SolcApiBuilder::default()
             .source_file(PathBuf::from("./../tests/contracts/solidity/voting/voting.sol"))
             .compile();
     }

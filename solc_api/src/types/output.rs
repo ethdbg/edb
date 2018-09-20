@@ -22,6 +22,7 @@ pub struct CompiledSourceFile {
     #[serde(skip_deserializing)]
     pub legacy_ast: LegacyAst // Not Implemented
 }
+
 // TODO: Unimplemented Structs
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct LegacyAst;
