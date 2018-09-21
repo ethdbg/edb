@@ -1,18 +1,38 @@
-use super::{SourceMap, Language};
-
+use super::{SourceMap, Language, err::{LanguageError, SourceMapError}};
 use std::{
     boxed::Box,
     str::FromStr,
+    marker::PhantomData,
 };
-
-use codespan::{ CodeMap, FileMap, ByteIndex, LineIndex };
+use codespan::{ CodeMap, FileMap, FileName, ByteIndex, LineIndex };
 
 /// Functions for Bytecode source map
-pub struct BytecodeSourceMap<T: Language> {
+pub struct BytecodeSourceMap{
     code_map: CodeMap,
-    map: Vec<Box<dyn SourceMap>>,
+    map: Vec<Mapping>
 }
 
+
+impl BytecodeSourceMap {
+    pub fn new(lang: &Language<Err=Into<LanguageError>>) -> Self {
+        let code_map = CodeMap::new();
+        code_map.add_filemap(FileName::Real(lang.file_path()), lang.source.into());
+        Self {
+
+        }
+    }
+}
+
+#[derive(Debug)]
+/// represents the source mapping of one file and contract
+pub struct Mapping {
+    /// File mapping is stored in
+    file: String,
+    /// ContractName of mapping
+    contract_name: String,
+    index: usize,
+    map: Box<dyn SourceMap<Err=Into<LanguageError>>>,
+}
 
 /// struct representing one bytecode instruction and it's position in the source code
 pub struct Instruction {
@@ -53,7 +73,7 @@ impl Default for SourceIndex {
 }
 
 impl FromStr for SourceIndex {
-    type Err = SourceMapVariant;
+    type Err = LanguageError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "-1" => Ok(SourceIndex::NoSource),
@@ -86,14 +106,14 @@ impl ToString for Jump {
 }
 
 impl FromStr for Jump {
-    type Err = SourceMapVariant;
+    type Err = LanguageError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "i" => Ok(Jump::IntoFunc),
             "o" => Ok(Jump::ReturnFunc),
             "-" => Ok(Jump::NormJump),
-            _ => {
-                Err(SourceMapVariant::UnknownJumpVariant)
+            u @ _ => {
+                Err(LanguageError::SourceMap(SourceMapError::UnknownJumpVariant(u.to_string())))
             }
         }
     }

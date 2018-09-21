@@ -11,12 +11,12 @@ pub enum SolidityError {
     Io(#[fail(cause)] std::io::Error),
 }
 
-
 impl From<std::io::Error> for SolidityError {
     fn from(err: std::io::Error) -> SolidityError {
         SolidityError::Io(err)
     }
 }
+
 #[derive(Debug, Clone, Fail)]
 pub enum SourceMapVariant {
     #[fail(display = "Unknown Jump Variant; Could Not Decode Solidity Source Map")]

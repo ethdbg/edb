@@ -34,7 +34,9 @@ pub struct Solidity {
 
 #[derive(Debug)]
 struct Mapping {
+    /// File mapping is contained in
     file: String,
+    ///
     contract_name: String,
     index: usize,
     map: SoliditySourceMap,
@@ -78,25 +80,15 @@ impl Solidity {
         Ok(Solidity { code_map, file_map, source, compiled_source, maps })
     }
 
-    // TODO: Abstract these three functions to receive a Enum, trait, or generic. They all do the same thing.
-    // returns an iterator over all mappings that are in `file`
-    fn mapping_by_file(&self, file: &str) -> Option<&Mapping> {
-        self.maps
-            .iter()
-            .find(|e| e.file == file)
-    }
+    /// get a mapping with the predicate 'f'
+    fn get_mapping<F>(&self, fun: F) -> Option<&Mapping>
+    where
+        F: Fn(&[Mapping]) -> bool
+    {
 
-    // returns an iterator over all mappings with `index`
-    fn mapping_by_index(&self, index: usize) -> Option<&Mapping> {
         self.maps
             .iter()
-            .find(|e| e.index == index)
-    }
-
-    fn mapping_by_contract(&self, contract: &str) -> Option<&Mapping> {
-        self.maps
-            .iter()
-            .find(|e| e.contract_name == contract)
+            .find(fun)
     }
 
     // find the mapping with the shortest length from the byte offset
@@ -161,10 +153,10 @@ impl SourceMap for Solidity {
         // TODO: Maybe a impl on the enum, or a trait implemented on enum?
         match file {
             FileIdentifier::File(name) => {
-                self.shortest_len(lineno, self.mapping_by_file(name).expect("Could not get mapping from file")).expect("Could not get shortest length").position
+                self.shortest_len(lineno, self.get_mapping(|m| m.file == name).expect("Could not get mapping from file")).expect("Could not get shortest length").position
             },
             FileIdentifier::Contract(name) => {
-                self.shortest_len(lineno, self.mapping_by_contract(name).unwrap()).unwrap().position
+                self.shortest_len(lineno, self.get(name).unwrap()).unwrap().position
             },
             FileIdentifier::Index(idx) => {
                 self.shortest_len(lineno, self.mapping_by_index(*idx).unwrap()).unwrap().position
