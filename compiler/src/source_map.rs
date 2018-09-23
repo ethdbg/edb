@@ -1,8 +1,6 @@
 use super::{SourceMap, Language, err::{LanguageError, SourceMapError}};
 use std::{
-    boxed::Box,
     str::FromStr,
-    marker::PhantomData,
 };
 use codespan::{ CodeMap, FileMap, FileName, ByteIndex, LineIndex };
 
@@ -14,27 +12,27 @@ pub struct BytecodeSourceMap{
 
 
 impl BytecodeSourceMap {
-    pub fn new(lang: &Language<Err=Into<LanguageError>>) -> Self {
+    pub fn new<E: Into<LanguageError>>(lang: &(impl Language<Err=E>)) -> Self {
         let code_map = CodeMap::new();
-        code_map.add_filemap(FileName::Real(lang.file_path()), lang.source.into());
-        Self {
-
-        }
+        code_map.add_filemap(FileName::Real(lang.file_path()), lang.source().into());
+        unimplemented!();
     }
 }
 
-#[derive(Debug)]
-/// represents the source mapping of one file and contract
+#[derive(Debug, Clone, PartialEq)]
+/// Source mapping of one contract in a file
 pub struct Mapping {
     /// File mapping is stored in
     file: String,
     /// ContractName of mapping
     contract_name: String,
     index: usize,
-    map: Box<dyn SourceMap<Err=Into<LanguageError>>>,
+    /// the mapping for this file,contract
+    map: Vec<Instruction>,
 }
 
 /// struct representing one bytecode instruction and it's position in the source code
+#[derive(Debug, Clone,  PartialEq)]
 pub struct Instruction {
     /// Start Byte  offset in source
     pub start: usize,
@@ -74,7 +72,7 @@ impl Default for SourceIndex {
 
 impl FromStr for SourceIndex {
     type Err = LanguageError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, LanguageError> {
         match s {
             "-1" => Ok(SourceIndex::NoSource),
             _ => Ok(SourceIndex::Source(s.parse()?))
@@ -113,7 +111,7 @@ impl FromStr for Jump {
             "o" => Ok(Jump::ReturnFunc),
             "-" => Ok(Jump::NormJump),
             u @ _ => {
-                Err(LanguageError::SourceMap(SourceMapError::UnknownJumpVariant(u.to_string())))
+                Err(LanguageError::SourceMap(SourceMapError::UnknownJump(u.to_string())))
             }
         }
     }

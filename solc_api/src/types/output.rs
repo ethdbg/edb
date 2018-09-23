@@ -123,6 +123,7 @@ pub struct Position {
     pub length: usize,
 }
 
+// TODO: solc_api error type
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct Errors {

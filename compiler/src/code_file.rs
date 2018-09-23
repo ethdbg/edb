@@ -2,9 +2,9 @@ use super::{Language, source_map::BytecodeSourceMap, SourceMap};
 use web3::{contract::Contract, Transport};
 
 // every CodeFile is associated with a language
-pub struct CodeFile<L: Language + SourceMap, T: Transport> {
+pub struct CodeFile<L: Language, T: Transport> {
     /// Use Source Map// s
-    source_maps: BytecodeSourceMap<L>,
+    source_maps: BytecodeSourceMap,
     /// Contracts contained in the file that can be deployed, or their abi queried
     contracts: Vec<Contract<T>>,
     /// Language Actions
