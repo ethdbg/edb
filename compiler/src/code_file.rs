@@ -1,23 +1,18 @@
-use super::{Language, source_map::BytecodeSourceMap, SourceMap};
+use super::{Language, SourceMap, ContractFile, err::LanguageError};
 use web3::{contract::Contract, Transport};
+use std::path::{Path, PathBuf};
 
 // every CodeFile is associated with a language
 pub struct CodeFile<L: Language, T: Transport> {
-    /// Use Source Map// s
-    source_maps: BytecodeSourceMap,
-    /// Contracts contained in the file that can be deployed, or their abi queried
-    contracts: Vec<Contract<T>>,
-    /// Language Actions
-    language: L
+    language: L,
+    client: web3::Web3<T>,
+    files: Vec<ContractFile<T>>,
 }
 
-impl<L, T> CodeFile<L, T> where L: Language + SourceMap, T: Transport {
-    pub fn new(lang: L, client: web3::Web3<T>) -> Self {
+impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
-        Self {
-            source_maps: BytecodeSourceMap::new(lang),
-            contracts: Vec::new(),
-            language: lang,
-        }
+    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>) -> Result<Self, LanguageError> {
+        let files: Vec<ContractFile<T>> = language.compile(path)?;
+        Ok(Self { language, client, files })
     }
 }

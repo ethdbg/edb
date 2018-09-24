@@ -1,4 +1,5 @@
 #![recursion_limit="128"]
+#![feature(test)]
 //! Interfaces 'compiler' modules must implement
 //! Three Main Traits:
 //!     - Contract: The Contract interface that represents *one* Contract
@@ -15,39 +16,30 @@ mod err;
 mod types;
 mod contract;
 mod source_map;
+mod map;
 pub mod code_file;
 // pub mod solidity;
 // pub mod vyper;
-use self::err::LanguageError;
-
+use self::err::{LanguageError, NotFoundError};
+use serde_derive::*;
 use std::{
     path::PathBuf,
     slice::Iter,
 };
 use web3::{
-    contract::{Contract as Web3Contract},
+    types::{Address, BlockNumber},
     Transport,
 };
+use futures::future::Future;
 use delegate::*;
+extern crate test;
 
 /// The Source File of a specific language
 pub trait Language {
-    type Err;
     // Language Functions
-    /// get the ABI of a contract
-    fn abi(&self, contract_name: &str) -> ethabi::Contract;
-    /// raw source file
-    fn source(&self) -> &str;
-    /// file name
-    fn file_name(&self) -> &str;
-    /// file path
-    fn file_path(&self) -> PathBuf;
-
-    /// Returns an Iterator over all contracts
+    /// Returns an Iterator over all contracts in a source file
     fn contracts<T>(&self) -> Iter<Contract<T>> where T: Transport;
-
-    /// Deploys all contracts in source
-    fn deploy<T>(&self, client: web3::Web3<T>) -> Result<Contract<T>, Self::Err> where T: Transport;
+    fn compile<T>(&self, path: PathBuf) -> Result<Vec<ContractFile<T>>, LanguageError> where T: Transport;
 }
 
 /// Represents a Line - Line number and String (0-indexed)
@@ -75,40 +67,12 @@ pub trait SourceMap {
     fn next_lines(&self, offset: u32, count: u32) -> Result<Vec<Line>, Self::Err>;
 }
 
-// this may be totally unnecessary
-/// Identifier for where code resides.
-pub enum FileIdentifier {
-    /// Identified by file name
-    File(String),
-    /// Identified by Contract Name
-    Contract(String),
-    /// Identified by index in compiled code (IE: Standard JSON)
-    Index(usize),
-}
-/*
-trait CrawlMapping {
-    fn try_from_file(&self, file: &FileIdentifier) -> Option<&Mapping>;
-}
-
-impl CrawlMapping for Box<dyn SourceMap<Err=LanguageError>> {
-    fn try_from_file(&self, file: &FileIdentifier) -> Option<&Mapping> {
-        match file {
-            // TODO: Should return a vector, in case multiple contracts are contained within one file
-            FileIdentifier::File(file_name) => self.get_mapping(|m| m.file == file_name),
-            FileIdentifier::Contract(c_name) => self.get_mapping(|m| m.contract_name = c_name),
-            FileIdentifier::Index(idx) => self.get_mapping(|m| m.index = idx)
-        }
-    }
-}
- */
-
 //TODO: not yet implemented in solc_api
-pub struct Ast;
+pub trait Ast {
+    type Err;
+    fn contract_by_offset(&self, offset: u32) -> Result<String, Self::Err>;
+}
 
-// TODO
-// probably will have to be made generic,
-// but requirements for Vyper/LLL are not yet clear, so this mostly
-// caters to Solidity
 pub struct ContractFile<T> where T: Transport {
     /// Identifier for source file (used in Source Maps)
     id: usize,
@@ -118,18 +82,18 @@ pub struct ContractFile<T> where T: Transport {
     file_path: PathBuf,
     /// name of source file
     file_name: String,
-    /// Abstract Syntax Tree of Source
-    ast: Ast,
+    // Abstract Syntax Tree of Source
+    // ast: Ast<Err=LanguageError>,
 }
 
 /// Contract
 pub struct Contract<T> where T: Transport {
     name: String,
     abi: ethabi::Contract,
-    deployable: web3::contract::Contract<T>,
+    deployed: web3::contract::Contract<T>,
     bytecode: Vec<u8>,
     runtime_bytecode: Vec<u8>,
-    source_map: Box<dyn SourceMap<Err=LanguageError>>
+    source_map: Box<dyn SourceMap<Err=LanguageError>>,
 }
 
 // contract interface for the debugger. should be the same across all languages
@@ -154,17 +118,63 @@ impl<T> Contract<T> where T: Transport {
         }
     }
 
-    /// Deploys a specific contract in source
-    fn deploy(&self, client: web3::api::Eth<T>) -> Result<(), LanguageError> {
-        unimplemented!();
+    pub fn new(eth: web3::api::Eth<T>,
+               name: &str,
+               map: impl SourceMap<Err=LanguageError>,
+               abi: ethabi::Contract) -> Result<Self, LanguageError>
+    {
+        unimplemented!()
     }
 
-    fn address(&self) -> web3::types::Address {
-        unimplemented!();
+    // TODO: Make parallel/async
+    /// Find a contract from it's bytecode and a local ethereum node
+    fn find_deployed_contract(needle: &[u8], eth: web3::api::Eth<T>) -> Result<Address, LanguageError> {
+
+        let accounts = eth.accounts().wait()?;
+
+        for a in accounts.iter() {
+            let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
+            if needle == code.0.as_slice() {
+                return Ok(*a);
+            }
+        }
+        return Err(LanguageError::NotFound(NotFoundError::Contract))
+    }
+
+    /// Returns address on testnet that the contract is deployed at
+    pub fn address(&self) -> Address {
+        self.deployed.address()
     }
 
     /// get the source map of this contract
-    fn source_map(&self) -> Box<dyn SourceMap<Err=LanguageError>> {
-        self.source_map
+    pub fn source_map(&self) -> &Box<dyn SourceMap<Err=LanguageError>> {
+        &self.source_map
     }
 }
+
+// this may be totally unnecessary
+/// Identifier for where code resides.
+pub enum FileIdentifier {
+    /// Identified by file name
+    File(String),
+    /// Identified by Contract Name
+    Contract(String),
+    /// Identified by index in compiled code (IE: Standard JSON)
+    Index(usize),
+}
+/*
+trait CrawlMapping {
+fn try_from_file(&self, file: &FileIdentifier) -> Option<&Mapping>;
+}
+
+impl CrawlMapping for Box<dyn SourceMap<Err=LanguageError>> {
+    fn try_from_file(&self, file: &FileIdentifier) -> Option<&Mapping> {
+        match file {
+            // TODO: Should return a vector, in case multiple contracts are contained within one file
+            FileIdentifier::File(file_name) => self.get_mapping(|m| m.file == file_name),
+            FileIdentifier::Contract(c_name) => self.get_mapping(|m| m.contract_name = c_name),
+            FileIdentifier::Index(idx) => self.get_mapping(|m| m.index = idx)
+        }
+    }
+}
+ */

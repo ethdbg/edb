@@ -1,23 +1,10 @@
+//! Types for Source Mapping
+
 use super::{SourceMap, Language, err::{LanguageError, SourceMapError}};
 use std::{
     str::FromStr,
 };
 use codespan::{ CodeMap, FileMap, FileName, ByteIndex, LineIndex };
-
-/// Functions for Bytecode source map
-pub struct BytecodeSourceMap{
-    code_map: CodeMap,
-    map: Vec<Mapping>
-}
-
-
-impl BytecodeSourceMap {
-    pub fn new<E: Into<LanguageError>>(lang: &(impl Language<Err=E>)) -> Self {
-        let code_map = CodeMap::new();
-        code_map.add_filemap(FileName::Real(lang.file_path()), lang.source().into());
-        unimplemented!();
-    }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 /// Source mapping of one contract in a file
@@ -71,8 +58,8 @@ impl Default for SourceIndex {
 }
 
 impl FromStr for SourceIndex {
-    type Err = LanguageError;
-    fn from_str(s: &str) -> Result<Self, LanguageError> {
+    type Err = SourceMapError;
+    fn from_str(s: &str) -> Result<Self, SourceMapError> {
         match s {
             "-1" => Ok(SourceIndex::NoSource),
             _ => Ok(SourceIndex::Source(s.parse()?))
