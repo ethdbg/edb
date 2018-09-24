@@ -1,0 +1,1 @@
+{"language":"Solidity","sources":{"simple.sol":{"urls":["/home/insi/Projects/ETHDBG/edb/tests/contracts/solidity/imports/simple.sol"]}},"settings":{"outputSelection":{"*":{"*":["evm.deployedBytecode.object","evm.deployedBytecode.sourceMap"]}}}}
