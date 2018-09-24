@@ -40,8 +40,8 @@ impl From<std::num::ParseIntError> for SourceMapError {
 }
 
 
-impl<'a> From<pest::Error<'a, super::map::Rule>> for LanguageError {
-    fn from(err: pest::Error<'a, super::map::Rule>) -> LanguageError {
+impl From<pest::error::Error<super::map::Rule>> for LanguageError {
+    fn from(err: pest::error::Error<super::map::Rule>) -> LanguageError {
         error!("Fatal Internal Error Occurred. This is a bug within EDB. Please Report it: {}", err);
         trace!("{:?}", err);
         LanguageError::ParseError

@@ -80,42 +80,54 @@ impl Map{
 #[cfg(test)]
 mod tests {
     use super::*;
+    use log::*;
     use crate::test::Bencher;
-    const test_str: &str = include_str!("map/file.txt");
-    const small_str: &str = include_str!("map/small_file.txt");
+//    const test_str: &str = include_str!("map/file.txt");
+    const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
+    const CONTRACT:&str = include_str!("../../tests/contracts/solidity/voting/voting.sol");
+    const LINUX_SRC:&str = include_str!("map/linux_source.c");
+    const LARGE:&str = include_str!("map/1MB.txt");
 
     #[test]
     fn print_map() {
-        let unparsed: &str =
-"
-Hello
-    this is some random code
-the first line has a space and then a \n
-  lets see how this does :)
-";
-        /*
-        let parsed = MapParser::parse(Rule::file, unparsed).unwrap();
-        parsed.flatten().tokens().for_each(|t| {
-            println!("{:?}", t);
-        });
-         */
-        let map = Map::new(small_str).unwrap();
+        pretty_env_logger::try_init();
+        let map = Map::new(CONTRACT).unwrap();
         map.lines.iter().for_each(|l| {
             println!("{:?}", l);
             println!("\n\n");
         });
     }
-    /*
+
     #[test]
-    fn test_big() {
-        pretty_env_logger::try_init();
-        Map::new(small_str).unwrap();
+    fn test_contract() {
+        Map::new(CONTRACT).unwrap();
     }
-     */
+/*
     #[bench]
-    fn bench_parse(b: &mut Bencher) {
+    fn unicode_0x1fff(b: &mut Bencher) {
         b.iter(||
-               Map::new(small_str).unwrap()
+               Map::new(UNICODE_RANGE).unwrap()
+        )
+    }
+*/
+    #[bench]
+    fn bench_contract(b: &mut Bencher) {
+        b.iter(||
+               Map::new(CONTRACT).unwrap()
+        )
+    }
+
+    #[bench]
+    fn bench_linux(b: &mut Bencher) {
+        b.iter(||
+               Map::new(LINUX_SRC).unwrap()
+        )
+    }
+
+    #[bench]
+    fn bench_1MB(b: &mut Bencher) {
+        b.iter(||
+               Map::new(LARGE).unwrap()
         )
     }
 }

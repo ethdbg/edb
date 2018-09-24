@@ -7,13 +7,16 @@ characters = {
   !(
     "\n" | "\r\n"
   )
-  ~ any
+  ~ ANY
 }
 
 newline = {
   "\n" | "\r\n"
 }
 
-line = { whitespace* ~ characters* ~ newline{1} }
+line = { whitespace* ~ characters+ ~ newline{1} }
 
-file = { soi ~ line* ~ eoi }
+eofile = { characters* ~ EOI }
+
+
+file = { SOI ~ (line | eofile)+ }
