@@ -82,8 +82,7 @@ mod tests {
     use super::*;
     use log::*;
     use crate::test::Bencher;
-//    const test_str: &str = include_str!("map/file.txt");
-    const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
+    // const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
     const CONTRACT:&str = include_str!("../../tests/contracts/solidity/voting/voting.sol");
     const LINUX_SRC:&str = include_str!("map/linux_source.c");
     const LARGE:&str = include_str!("map/1MB.txt");
@@ -102,14 +101,15 @@ mod tests {
     fn test_contract() {
         Map::new(CONTRACT).unwrap();
     }
-/*
-    #[bench]
+
+    /* TODO: testing the unicode range from 0 to 0x1fff. Does not yet work for unknown reasons
+    #[test]
     fn unicode_0x1fff(b: &mut Bencher) {
         b.iter(||
                Map::new(UNICODE_RANGE).unwrap()
         )
     }
-*/
+     */
     #[bench]
     fn bench_contract(b: &mut Bencher) {
         b.iter(||

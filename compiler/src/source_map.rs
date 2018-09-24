@@ -4,7 +4,6 @@ use super::{SourceMap, Language, err::{LanguageError, SourceMapError}};
 use std::{
     str::FromStr,
 };
-use codespan::{ CodeMap, FileMap, FileName, ByteIndex, LineIndex };
 
 #[derive(Debug, Clone, PartialEq)]
 /// Source mapping of one contract in a file

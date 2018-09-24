@@ -8,9 +8,6 @@ use std::{
     sync::Arc,
 };
 use log::*;
-use codespan::{
-    CodeMap, FileMap, ByteIndex, LineIndex
-};
 use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
 use self::{
     source_map::{SoliditySourceMap, Instruction},
