@@ -1,5 +1,4 @@
 use failure::Fail;
-use log::*;
 
 #[derive(Fail, Debug, Clone)]
 pub enum LanguageError {
@@ -43,11 +42,14 @@ impl From<std::num::ParseIntError> for SourceMapError {
     }
 }
 
-
-impl From<pest::error::Error<super::map::Rule>> for LanguageError {
-    fn from(err: pest::error::Error<super::map::Rule>) -> LanguageError {
-        error!("Fatal Internal Error Occurred. This is a bug within EDB. Please Report it: {}", err);
-        trace!("{:?}", err);
-        LanguageError::ParseError
-    }
+#[derive(Fail, Debug, Clone)]
+pub enum MapError {
+    #[fail(display = "Operation Out of Bounds of Source File")]
+    OutOfBounds,
+    #[fail(display = "Queried line is out-of-bounds of Source File")]
+    LineOutOfBounds,
+    #[fail(display = "Queried column is out-of-bounds of line")]
+    ColOutOfBounds,
+    #[fail(display = "Cannot get range from a function which returns a single integer")]
+    CannotGetRange,
 }

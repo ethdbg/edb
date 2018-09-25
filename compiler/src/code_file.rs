@@ -3,14 +3,14 @@ use web3::{contract::Contract, Transport};
 use std::path::{Path, PathBuf};
 
 // every CodeFile is associated with a language
-pub struct CodeFile<'a, L: Language<'a>, T: Transport> {
+pub struct CodeFile<L: Language, T: Transport> {
     language: L,
     client: web3::Web3<T>,
     name: String,
-    files: Vec<ContractFile<'a, T>>,
+    files: Vec<ContractFile<T>>,
 }
 
-impl<'a, L, T> CodeFile<'a, L, T> where L: Language<'a>, T: Transport {
+impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     pub fn new(language: L, path: PathBuf, client: web3::Web3<T>) -> Result<Self, LanguageError> {
         let name = path.file_name()

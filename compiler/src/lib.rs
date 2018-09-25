@@ -35,11 +35,11 @@ use delegate::*;
 extern crate test;
 
 /// The Source File of a specific language
-pub trait Language<'a> {
+pub trait Language {
     // Language Functions
     /// Returns an Iterator over all contracts in a source file
     fn contracts<T>(&self) -> Iter<Contract<T>> where T: Transport;
-    fn compile<T>(&self, path: PathBuf) -> Result<Vec<ContractFile<'a, T>>, LanguageError> where T: Transport;
+    fn compile<T>(&self, path: PathBuf) -> Result<Vec<ContractFile<T>>, LanguageError> where T: Transport;
 }
 
 /// Represents a Line - Line number and String (0-indexed)
@@ -73,7 +73,7 @@ pub trait Ast {
     fn contract_by_offset(&self, offset: u32) -> Result<String, Self::Err>;
 }
 
-pub struct ContractFile<'a, T> where T: Transport {
+pub struct ContractFile<T> where T: Transport {
     /// Identifier for source file (used in Source Maps)
     id: usize,
     /// All the contracts contained in the souce
@@ -83,7 +83,7 @@ pub struct ContractFile<'a, T> where T: Transport {
     /// name of source file
     file_name: String,
     /// General source map for offsets--line number
-    map: self::map::Map<'a>,
+    map: self::map::Map,
     // Abstract Syntax Tree of Source
     // ast: Ast<Err=LanguageError>,
 }

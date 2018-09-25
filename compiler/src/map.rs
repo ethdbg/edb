@@ -1,56 +1,191 @@
-use super::err::LanguageError;
-use pest::{Parser, iterators::Pair};
-use pest_derive::*;
-use log::*;
-
-const _GRAMMER: &str = include_str!("map/grammar.pest");
-
-#[derive(Parser)]
-#[grammar = "map/grammar.pest"]
-pub struct MapParser;
-
-/// creates a map of the source file
+//! Map of source file. Line numbers are zero-indexed.
+//! Byte offset refers to character offset rather than actual UTF-8 bytes/codepoints
+use super::err::{LanguageError, MapError};
+// creates a map of the source file
 #[derive(Debug, Clone)]
-pub struct Map<'a> {
-    lines: Vec<Pair<'a, Rule>>,
+pub struct Map {
+    matrix: Vec<Vec<char>>, // matrix of chars.  every index of outer Vec is a line
 }
 
-type Range = (usize, usize);
+/// A line number
+pub type Line = usize;
+/// A column number
+pub type Col = usize;
+/// A Byte offset into the source file
+pub type ByteOffset = usize;
+/// Start and end offsets for a line
+pub type Range = (ByteOffset, ByteOffset);
 
-impl<'a> Map<'a> {
-    pub fn new(source: &'a str) -> Result<Self, LanguageError> {
-        let parsed = MapParser::parse(Rule::file, source)?;
-        let mut lines = Vec::new();
+/// An offset represented by an enum.
+/// Options for where the offset should reside
+pub enum LineNumber {
+    /// get the start of a line without including the leading whitespace
+    NoLeadingWhitespace(Line),
+    /// get the canonical start of a line (including leading whitespace)
+    Start(Line),
+    /// get the end of a line
+    End(Line),
+    /// get the canonical range of a line, including leading whitespace
+    Range(Line),
+    /// Get the range of a line, without leading whitespace
+    NoWhitespaceRange(Line),
+}
 
-        parsed
-            .flatten()
-            .for_each(|p| {
-                if p.as_rule() == Rule::line {
-                    lines.push(p)
-                }
+impl LineNumber {
+    fn get_line(&self) -> Line {
+        match *self {
+            LineNumber::NoLeadingWhitespace(l) => l,
+            LineNumber::Start(l) => l,
+            LineNumber::End(l) => l,
+            LineNumber::Range(l) => l,
+            LineNumber::NoWhitespaceRange(l) => l,
+        }
+    }
+}
+
+enum CharPosition {
+    LineCol(Line, Col),
+    Offset(ByteOffset),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum CharType {
+    Whitespace,
+    Any
+}
+
+impl PartialEq<char> for CharType {
+    fn eq(&self, other: &char) -> bool {
+        match self {
+            CharType::Whitespace => {
+                other == &' '
+            },
+            CharType::Any => {
+                other != &' '
+            }
+        }
+    }
+}
+
+
+impl PartialEq<CharType> for char {
+    fn eq(&self, other: &CharType) -> bool {
+        match other {
+            CharType::Whitespace => {
+                self == &' '
+            },
+            CharType::Any => {
+                self != &' '
+            }
+        }
+    }
+}
+
+impl Map {
+    /// new map
+    pub fn new(source: &str) -> Result<Self, LanguageError> {
+        let mut matrix = Vec::new();
+        source
+            .lines() // possibly use map instead of for_each
+            .for_each(|l| {
+                matrix.push({
+                    // str.lines() does not include newlines
+                    let mut vec = l.chars().collect::<Vec<char>>();
+                    vec.push('\n');
+                    vec
+                })
             });
 
-        Ok(Self { lines: lines })
+        Ok(Self { matrix })
     }
 
-    pub fn line(&self, offset: usize) -> Option<usize> {
-        self.lines
+    /// find the line that contains this offset
+    pub fn find_line(&self, byte_offset: ByteOffset) -> Option<Line> {
+        self.matrix
             .iter()
-            .find(|l| {
-                l.as_span().start() <= offset && l.as_span().end() >= offset
+            .enumerate()
+            .find(|(line_num, _)| {
+                self.in_range(byte_offset, *line_num)
             })
-            .and_then(|l| {
-                Some(l.as_span().start_pos().line_col().0)
-            })
+            .map(|(idx, _)| idx)
     }
 
-    // get the byte range of a line number
-    pub fn offset(&self, line: usize) -> Option<Range> {
-        self.lines
-            .get(line)
-            .and_then(|l| {
-                Some((l.as_span().start(), l.as_span().end()))
-            })
+    /// find a byte offset from a line number
+    pub fn find_offset(&self, line: LineNumber) -> Result<ByteOffset, MapError> {
+        match line {
+            LineNumber::NoLeadingWhitespace(_) => {
+                Ok(self.range(line)?.0)
+            },
+            LineNumber::Start(_) => {
+                Ok(self.range(line)?.0)
+            },
+            LineNumber::End(_) => {
+                Ok(self.range(line)?.1)
+            },
+            _ => Err(MapError::CannotGetRange)
+        }
+    }
+
+    /// get a line as a character slice
+    pub fn line(&self, line: Line) -> Result<&[char], MapError> {
+        if self.matrix.len() < line {
+            Err(MapError::LineOutOfBounds)
+        } else {
+            Ok(self.matrix[line].as_slice())
+        }
+    }
+
+    /// find the byte range of a line number (start offset and end offset)
+    /// For LineNumber::Start, and LineNumber::End, returns canoncial start and end
+    /// LineNumber::NoLeadingWhitespace returns start and end w/o leading whitespace
+    pub fn range(&self, line: LineNumber) -> Result<Range, MapError> {
+        println!("Finding byte range of line: {}: {:?}", line.get_line(), self.line(line.get_line())?);
+        let line_str = self.line(line.get_line())?;
+        let start = self.matrix
+            .iter()
+            .take(line.get_line())
+            .inspect(|l| println!("Line: {:?}", l))
+            .fold(0, |acc, l| acc + l.len());
+        let end = start + line_str.len();
+
+        match line {
+            LineNumber::NoLeadingWhitespace(_) | LineNumber::NoWhitespaceRange(_) => {
+                let local_idx = line_str
+                    .iter()
+                    .enumerate()
+                    .inspect(|(_, &c)| {
+                        println!("CHARTYPE: {}, CHAR: {}", c == CharType::Whitespace, c);
+                    })
+                    .skip_while(|(_, &c)| c == CharType::Whitespace)
+                    .inspect(|(i, _)| println!("Index: {}", i))
+                    .map(|(idx, _)| idx)
+                    .take(1)
+                    .fold(0, |acc, i| acc + i);
+                Ok((start+local_idx, end))
+            },
+            LineNumber::Start(_) | LineNumber::End(_) | LineNumber::Range(_) => Ok((start, end))
+        }
+    }
+
+    pub fn get_char(&self, char_pos: CharPosition) -> Result<&char, MapError> {
+
+        match char_pos {
+            CharPosition::LineCol(line, col) => {
+                let line = self.line(line)?;
+                if col > line.len() {
+                    Err(MapError::ColOutOfBounds)
+                } else {
+                    Ok(&line[col])
+                }
+            },
+            CharPosition::Offset(offset) => Ok(self.matrix.iter().flatten().nth(offset).ok_or(MapError::OutOfBounds)?)
+        }
+    }
+
+    /// check if `offset` is in range of a character slice
+    fn in_range(&self, offset: usize, line_num: Line) -> bool {
+        let (start, end) = self.range(LineNumber::Range(line_num)).expect("Should never be out of range in internal function; qed");
+        offset >= start && offset <= end
     }
 }
 
@@ -60,21 +195,55 @@ impl<'a> Map<'a> {
 mod tests {
     use super::*;
     use log::*;
+    use speculate::speculate;
+
     use crate::test::Bencher;
-    // const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
+    const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
     const CONTRACT:&str = include_str!("../../tests/contracts/solidity/voting/voting.sol");
     const LINUX_SRC:&str = include_str!("map/linux_source.c");
     const LARGE:&str = include_str!("map/1MB.txt");
+    const TEST_STR:&str =
+"pragma solidity ^0.4.22;
 
-    #[test]
-    fn print_map() {
-        pretty_env_logger::try_init();
-        let map = Map::new(CONTRACT).unwrap();
-        info!("LENGTH: {}", map.lines.len());
-        map.lines.iter().for_each(|l| {
-            info!("{:?}", l);
-            info!("\n\n");
-        });
+/// @title Voting with delegation.
+contract Ballot {
+    // This declares a new complex type which will
+    // be used for variables later.
+    // It will represent a single voter.
+    struct Voter {
+        uint weight; // weight is accumulated by delegation
+        bool voted;  // if true, that person already voted
+        address delegate; // person delegated to
+        uint vote;   // index of the voted proposal
+    }
+
+    // This is a type for a single proposal.
+    struct Proposal {
+        bytes32 name;   // short name (up to 32 bytes)
+        uint voteCount; // number of accumulated votes
+    }
+";
+
+    speculate! {
+        before {
+            pretty_env_logger::try_init();
+            let map = Map::new(TEST_STR).unwrap();
+        }
+
+        it "can get a line from an offset" {
+            assert_eq!(map.find_line(62).unwrap(), 3);
+        }
+
+        it "can get an offset" {
+            assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(3)).unwrap(), 61);
+            assert_eq!(map.find_offset(LineNumber::Start(3)).unwrap(), 61);
+            assert_eq!(map.find_offset(LineNumber::End(3)).unwrap(), 79);
+        }
+
+        it "should strip leading whitespace from offset" {
+            assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(7)).unwrap(), 211);
+            assert_eq!(*map.get_char(CharPosition::Offset(211)).unwrap(), 's');
+        }
     }
 
     #[test]
@@ -82,25 +251,17 @@ mod tests {
         Map::new(CONTRACT).unwrap();
     }
 
-    /* TODO: testing the unicode range from 0 to 0x1fff. Does not yet work for unknown reasons
-    #[test]
+    // TODO: testing the unicode range from 0 to 0x1fff. Does not yet work for unknown reasons
+    #[bench]
     fn unicode_0x1fff(b: &mut Bencher) {
         b.iter(||
                Map::new(UNICODE_RANGE).unwrap()
         )
     }
-     */
     #[bench]
     fn bench_contract(b: &mut Bencher) {
         b.iter(||
                Map::new(CONTRACT).unwrap()
-        )
-    }
-
-    #[bench]
-    fn bench_parser(b: &mut Bencher) {
-        b.iter(||
-               MapParser::parse(Rule::file, LARGE).unwrap()
         )
     }
 
