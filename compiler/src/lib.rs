@@ -77,11 +77,11 @@ pub struct ContractFile<'a, T> where T: Transport {
     /// Identifier for source file (used in Source Maps)
     id: usize,
     /// All the contracts contained in the souce
-    contracts: &'a [Contract<T>],
+    contracts: Vec<Contract<T>>,
     /// path to source file
-    file_path: &'a str,
+    file_path: String,
     /// name of source file
-    file_name: &'a str,
+    file_name: String,
     /// General source map for offsets--line number
     map: self::map::Map<'a>,
     // Abstract Syntax Tree of Source
