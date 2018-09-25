@@ -1,77 +1,56 @@
-use pest::{Parser, Token};
 use super::err::LanguageError;
-use std::{
-    collections::HashMap,
-    iter::FromIterator,
-};
+use pest::{Parser, iterators::Pair};
 use pest_derive::*;
-// O(2n)
+use log::*;
+
 const _GRAMMER: &str = include_str!("map/grammar.pest");
 
 #[derive(Parser)]
 #[grammar = "map/grammar.pest"]
 pub struct MapParser;
 
+/// creates a map of the source file
 #[derive(Debug, Clone)]
-struct Line(HashMap<usize, Symbol>, String);
-
-type LineCol = (usize, usize);
-
-// Byte Offset - Line-Column number
-#[derive(Debug, Clone, PartialEq)]
-enum Symbol {
-    Char(LineCol),
-    LeadingWhitespace(LineCol),
-    NewLine(LineCol),
+pub struct Map<'a> {
+    lines: Vec<Pair<'a, Rule>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Map {
-    lines: Vec<Line>,
-}
+type Range = (usize, usize);
 
-impl Map{
-    pub fn new(source: &str) -> Result<Self, LanguageError> {
+impl<'a> Map<'a> {
+    pub fn new(source: &'a str) -> Result<Self, LanguageError> {
         let parsed = MapParser::parse(Rule::file, source)?;
-        let mut lines: Vec<Line> = Vec::new();
-        let mut curr_linestr = String::from("");
+        let mut lines = Vec::new();
 
         parsed
             .flatten()
-            .tokens()
-            .fold(HashMap::new(), |mut acc, t| {
-                match t {
-                    Token::Start{rule, pos} => {
-                        match rule {
-                            Rule::newline => {
-                                acc.insert(pos.pos(), Symbol::NewLine(pos.line_col()));
-                                curr_linestr = pos.line_of().to_string();
-                                acc
-                            },
-                            Rule::characters => {
-                                acc.insert(pos.pos(), Symbol::Char(pos.line_col()));
-                                acc
-                            },
-                            Rule::whitespace => {
-                                acc.insert(pos.pos(), Symbol::LeadingWhitespace(pos.line_col()));
-                                acc
-                            },
-                            _ => acc
-                        }
-                    },
-                    Token::End{rule, ..} => {
-                        match rule {
-                            Rule::line => {
-                                lines.push(Line(HashMap::from_iter(acc.drain()), curr_linestr.clone()));
-                                acc
-                            },
-                            _ => acc
-                        }
-                    }
+            .for_each(|p| {
+                if p.as_rule() == Rule::line {
+                    lines.push(p)
                 }
             });
 
         Ok(Self { lines: lines })
+    }
+
+    pub fn line(&self, offset: usize) -> Option<usize> {
+        self.lines
+            .iter()
+            .find(|l| {
+                l.as_span().start() <= offset && l.as_span().end() >= offset
+            })
+            .and_then(|l| {
+                Some(l.as_span().start_pos().line_col().0)
+            })
+    }
+
+    // get the byte range of a line number
+    pub fn offset(&self, line: usize) -> Option<Range> {
+        self.lines
+            .get(line)
+            .and_then(|l| {
+                Some((l.as_span().start(), l.as_span().end()))
+            })
     }
 }
 
@@ -91,9 +70,10 @@ mod tests {
     fn print_map() {
         pretty_env_logger::try_init();
         let map = Map::new(CONTRACT).unwrap();
+        info!("LENGTH: {}", map.lines.len());
         map.lines.iter().for_each(|l| {
-            println!("{:?}", l);
-            println!("\n\n");
+            info!("{:?}", l);
+            info!("\n\n");
         });
     }
 
@@ -114,6 +94,13 @@ mod tests {
     fn bench_contract(b: &mut Bencher) {
         b.iter(||
                Map::new(CONTRACT).unwrap()
+        )
+    }
+
+    #[bench]
+    fn bench_parser(b: &mut Bencher) {
+        b.iter(||
+               MapParser::parse(Rule::file, LARGE).unwrap()
         )
     }
 

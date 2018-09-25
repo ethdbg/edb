@@ -33,7 +33,7 @@ pub struct Solidity {
 struct Mapping {
     /// File mapping is contained in
     file: String,
-    ///
+    /// name of contract
     contract_name: String,
     index: usize,
     map: SoliditySourceMap,

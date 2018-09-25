@@ -10,7 +10,11 @@ pub enum LanguageError {
     #[fail(display = "An error occurrede while communicating with the local test node")]
     NodeIo(String),
     #[fail(display = "Could not parse source code file for line number positions")]
-    ParseError
+    ParseError,
+    #[fail(display = "Source path must be a file")]
+    FileNotFound,
+    #[fail(display = "Path must be valid UTF-8")]
+    InvalidPath,
 }
 
 #[derive(Fail, Debug, Clone)]

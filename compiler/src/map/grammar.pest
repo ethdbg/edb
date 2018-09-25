@@ -14,9 +14,6 @@ newline = {
   "\n" | "\r\n"
 }
 
-line = { whitespace* ~ characters+ ~ newline{1} }
-
-eofile = { characters* ~ EOI }
-
-
-file = { SOI ~ (line | eofile)+ }
+line = { whitespace* ~ characters* ~ newline{1} }
+eofile = { whitespace* ~ characters* ~ newline? ~ EOI }
+file = { SOI ~ line+ ~ eofile }
