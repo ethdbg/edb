@@ -1,6 +1,6 @@
 //! Map of source file. Line numbers are zero-indexed.
 //! Byte offset refers to character offset rather than actual UTF-8 bytes/codepoints
-use super::err::{LanguageError, MapError};
+use super::err::{MapError};
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -43,7 +43,8 @@ impl LineNumber {
     }
 }
 
-enum CharPosition {
+/// A character position in the source code
+pub enum CharPosition {
     LineCol(Line, Col),
     Offset(ByteOffset),
 }
@@ -83,7 +84,7 @@ impl PartialEq<CharType> for char {
 
 impl Map {
     /// new map
-    pub fn new(source: &str) -> Result<Self, LanguageError> {
+    pub fn new(source: &str) -> Self {
         let mut matrix = Vec::new();
         source
             .lines() // possibly use map instead of for_each
@@ -96,7 +97,7 @@ impl Map {
                 })
             });
 
-        Ok(Self { matrix })
+        Self { matrix }
     }
 
     /// find the line that contains this offset
@@ -194,7 +195,6 @@ impl Map {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use log::*;
     use speculate::speculate;
 
     use crate::test::Bencher;
@@ -226,8 +226,10 @@ contract Ballot {
 
     speculate! {
         before {
-            pretty_env_logger::try_init();
-            let map = Map::new(TEST_STR).unwrap();
+            #[allow(unused_must_use)] {
+                pretty_env_logger::try_init();
+            }
+            let map = Map::new(TEST_STR);
         }
 
         it "can get a line from an offset" {
@@ -248,34 +250,34 @@ contract Ballot {
 
     #[test]
     fn test_contract() {
-        Map::new(CONTRACT).unwrap();
+        Map::new(CONTRACT);
     }
 
     // TODO: testing the unicode range from 0 to 0x1fff. Does not yet work for unknown reasons
     #[bench]
     fn unicode_0x1fff(b: &mut Bencher) {
         b.iter(||
-               Map::new(UNICODE_RANGE).unwrap()
+               Map::new(UNICODE_RANGE)
         )
     }
     #[bench]
     fn bench_contract(b: &mut Bencher) {
         b.iter(||
-               Map::new(CONTRACT).unwrap()
+               Map::new(CONTRACT)
         )
     }
 
     #[bench]
     fn bench_linux(b: &mut Bencher) {
         b.iter(||
-               Map::new(LINUX_SRC).unwrap()
+               Map::new(LINUX_SRC)
         )
     }
 
     #[bench]
-    fn bench_1MB(b: &mut Bencher) {
+    fn bench_1mb(b: &mut Bencher) {
         b.iter(||
-               Map::new(LARGE).unwrap()
+               Map::new(LARGE)
         )
     }
 }

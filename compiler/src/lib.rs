@@ -16,7 +16,7 @@ mod err;
 mod types;
 mod contract;
 mod source_map;
-mod map;
+pub mod map;
 pub mod code_file;
 // pub mod solidity;
 // pub mod vyper;
