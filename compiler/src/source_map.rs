@@ -5,18 +5,6 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-/// Source mapping of one contract in a file
-pub struct Mapping {
-    /// File mapping is stored in
-    file: String,
-    /// ContractName of mapping
-    contract_name: String,
-    index: usize,
-    /// the mapping for this file,contract
-    map: Vec<Instruction>,
-}
-
 /// struct representing one bytecode instruction and it's position in the source code
 #[derive(Debug, Clone,  PartialEq)]
 pub struct Instruction {

@@ -1,5 +1,5 @@
-use super::{Language, SourceMap, ContractFile, err::LanguageError};
-use web3::{contract::Contract, Transport};
+use super::{Language, SourceMap, ContractFile, Contract, err::LanguageError};
+use web3::{Transport};
 use std::path::{Path, PathBuf};
 
 // every CodeFile is associated with a language
@@ -24,5 +24,13 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn contract(&self, name: &str) -> Option<&Contract<T>> {
+        self.language
+            .contracts()
+            .find(|c| {
+                c.name == name
+            })
     }
 }
