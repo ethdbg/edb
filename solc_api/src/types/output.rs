@@ -110,10 +110,19 @@ pub struct Bytecode {
     pub object: String,
     /// Opcodes list (string)
     pub opcodes: Option<String>,
-    /// Compressed SourceMap
-    pub source_map: String,
+    /// Source Map (Decompressed)
+    #[serde(deserialize_with = "decompress_sourcemap")]
+    pub source_map: Vec<Instruction>,
     /// If given, this is an unlinked Object
     pub link_references: Option<HashMap<String, HashMap<String, Vec<Position>>>>
+}
+
+fn decompress_sourcemap<'de, D>(deserializer: D) -> Result<Vec<Instruction>, D::Error>
+where
+    D: Deserializer<'de>
+{
+
+
 }
 
 #[derive(Debug, Clone, Deserialize)]

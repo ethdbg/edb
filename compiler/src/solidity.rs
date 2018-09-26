@@ -1,5 +1,4 @@
 mod source_map;
-mod ast;
 mod err;
 
 use std::{
@@ -9,11 +8,13 @@ use std::{
 };
 use log::*;
 use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
+
 use self::{
-    source_map::{SoliditySourceMap, Instruction},
+    source_map::{SoliditySourceMap},
     err::{SolidityError, SourceMapVariant},
 };
-use super::{SourceMap, FileIdentifier};
+
+use super::{SourceMap, Language};
 
 /// A struct for Solidity Source Mapping
 pub struct Solidity {
@@ -21,26 +22,12 @@ pub struct Solidity {
     source: String,
     /// Compiled Source (via standard-json api)
     compiled_source: CompiledSource,
-    /// Source Mappings
-    maps: Vec<Mapping>,
-    /// Different operations for seeking through file. Built on top of B-Tree's
-    code_map: CodeMap,
-    file_map: Arc<FileMap>, // temporary, for demo
-    // ast: AST, (unimplemented)
 }
 
-#[derive(Debug)]
-struct Mapping {
-    /// File mapping is contained in
-    file: String,
-    /// name of contract
-    contract_name: String,
-    index: usize,
-    map: SoliditySourceMap,
-}
+pub struct SoliditySourceMap { }
+
 
 /// Solidity Compiler Interface
-// need: ABI, AST, SourceMap, bincode-runtime
 impl Solidity {
     pub fn new(path: PathBuf) -> Result<Self, SolidityError> {
         let mut source = String::new();
@@ -64,28 +51,12 @@ impl Solidity {
                         let src_map = SoliditySourceMap::new(&inner_v.evm.deployed_bytecode.as_ref()
                                                              .expect("Bytecode does not exist").source_map)
                             .expect("Fatal Error: Could not build Source Map. Shutting Down...");
-                        Mapping {
-                            file: k.clone(),
-                            contract_name: inner_k.clone(),
-                            index: i,
-                            map: src_map,
-                        }
+
                     }).collect::<Vec<Mapping>>()
             })
             .collect::<Vec<Mapping>>();
 
         Ok(Solidity { code_map, file_map, source, compiled_source, maps })
-    }
-
-    /// get a mapping with the predicate 'f'
-    fn get_mapping<F>(&self, fun: F) -> Option<&Mapping>
-    where
-        F: Fn(&[Mapping]) -> bool
-    {
-
-        self.maps
-            .iter()
-            .find(fun)
     }
 
     // find the mapping with the shortest length from the byte offset
@@ -108,68 +79,7 @@ impl Solidity {
                 }
             })
     }
-
-    fn contract_by_name(&self, name: &str) -> Option<Contract> {
-        // TODO: this iteration is really bad. fix it.
-        self.compiled_source.contracts
-            .iter()
-            .map(|(_, v)| {
-                v
-                    .iter()
-                    .find(|(k2, _)| k2.as_str() == name)
-            })
-            .collect::<Vec<Option<(&String, &Contract)>>>()
-            .iter()
-            .filter_map(|o| o.clone())
-            .find(|(s, c)| {
-                s.as_str() == name
-            })
-            .and_then(|(s, c)| Some(c.clone()))
-            .map(|c| c)
-    }
-    /*
-    pub fn get_current_line(&self, offset: u32) -> Result<(u32, String), SolidityError> {
-        let line_num = self.file_map.find_line(ByteIndex(offset))?;
-        let lines = self.source
-            .lines()
-            .map(|s| {
-                s.to_string()
-            })
-            .collect::<Vec<String>>();
-            info!("Line num: {}", line_num.0);
-        let line_str = lines.get(line_num.0 as usize);
-        Ok((line_num.0, line_str.expect("No line str").clone()))
-    }
-    */
 }
-
-// Decompress Source Mappings
-// Store in data structure Line No -> SrcMapping
-impl SourceMap for Solidity {
-    fn position_from_lineno(&self, file: &FileIdentifier, lineno: u32) -> usize {
-        // TODO: Maybe a impl on the enum, or a trait implemented on enum?
-        match file {
-            FileIdentifier::File(name) => {
-                self.shortest_len(lineno, self.get_mapping(|m| m.file == name).expect("Could not get mapping from file")).expect("Could not get shortest length").position
-            },
-            FileIdentifier::Contract(name) => {
-                self.shortest_len(lineno, self.get(name).unwrap()).unwrap().position
-            },
-            FileIdentifier::Index(idx) => {
-                self.shortest_len(lineno, self.mapping_by_index(*idx).unwrap()).unwrap().position
-            }
-        }
-    }
-
-    fn source(&self) -> &str {
-        &self.source
-    }
-
-    fn abi(&self, contract_name: &str) -> ethabi::Contract {
-        self.contract_by_name(contract_name).unwrap().abi
-    }
-}
-
 
 #[cfg(test)]
 mod test {
