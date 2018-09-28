@@ -21,7 +21,6 @@ pub mod code_file;
 // pub mod solidity;
 // pub mod vyper;
 use self::err::{LanguageError, NotFoundError};
-use self::source_map::Instruction;
 use serde_derive::*;
 use std::{
     path::PathBuf,
