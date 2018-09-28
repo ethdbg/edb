@@ -1,10 +1,12 @@
 use failure::Fail;
 
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Clone, PartialEq, Fail)]
 pub enum SolidityError {
     #[fail(display = "Compiler Error")]
-    CompilerError,
+    Compiler,
+    #[fail(display = "Error while parsing SourceFile for AST: {}", _0)]
+    AstParse(String),
     #[fail(display = "IO Error")]
     Io(#[fail(cause)] std::io::Error),
 }

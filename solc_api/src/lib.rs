@@ -8,12 +8,21 @@ extern crate ethabi;
 extern crate failure;
 extern crate hex;
 
-pub mod types;
-pub mod err;
-pub use self::types::output::{CompiledSource, Contract};
-use self::{
-    types::input::*,
-};
+mod internal_types;
+mod err;
+pub use self::err::SolcApiError;
+pub use self::internal_types::output::{CompiledSource, Contract};
+
+pub mod types {
+    pub use super::internal_types::output::{
+        LegacyAst, Metadata, UserDoc, DevDoc, LegacyAssembly, MethodIdentifiers,
+        Ast, EWasm, GasEstimates, CreationGasEstimates, Evm, Bytecode, Instruction,
+        SourceIndex, Jump, Position
+    };
+    pub use ethabi::Contract as ContractAbi;
+}
+
+use self::internal_types::input::*;
 
 use std::path::PathBuf;
 
@@ -72,10 +81,12 @@ impl SolcApiBuilder {
         let json = self.build();
         if let Some(p) = self.source.canonicalize().unwrap().parent() {
             let compiled = solc::standard_json(&json, Some(vec![p])).expect("Compilation Failed");
-            serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
+            let raw = serde_json::from_str(&compiled).expect("Deserializing standard json output failed");
+            CompiledSource::new(raw)
         } else {
             let compiled = solc::standard_json(&json, None).expect("Compilation Failed");
-            serde_json::from_str(&compiled).expect("Deserializing standard json output failed")
+            let raw = serde_json::from_str(&compiled).expect("Deserializing standard json output failed");
+            CompiledSource::new(raw)
         }
     }
 }

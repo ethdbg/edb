@@ -1,18 +1,76 @@
 //! Output Types for Solidities Standard JSON
-use std::{ self, collections::HashMap, str::FromStr };
+use std::{
+    self,
+    collections::{HashMap, hash_map::Values },
+    slice::Iter,
+    str::FromStr
+};
 use serde_derive::*;
 use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use { ethabi, hex };
 
 use err::SolcApiError;
 
-#[derive(Debug, Clone, Deserialize)]
+/// name of the file, including extension
+type FileName = String;
+type Sources<'a> = Values<'a, FileName, CompiledSourceFile>;
+
 pub struct CompiledSource {
-    pub errors: Option<Vec<Errors>>,
-    pub sources: HashMap<String, CompiledSourceFile>,
+    /// Compiled Source File
+    sources: HashMap<FileName, CompiledSourceFile>,
     /// Contracts
-    /// First key is source file, second key are the names of contracts included in that file
-    pub contracts: HashMap<String, HashMap<String, Contract>>
+    contracts: Vec<Contract>,
+}
+
+impl CompiledSource {
+    pub(crate) fn new(raw: RawCompiledSource) -> Self {
+
+        let contracts = raw.contracts
+            .into_iter()
+            .flat_map(|(k, v)| {
+                v
+                    .into_iter()
+                    .map(|(inner_k, inner_v)| {
+                        Contract {
+                            file_name: k.to_string(),
+                            name: inner_k.to_string(),
+                            abi: inner_v.abi,
+                            metadata: inner_v.metadata,
+                            userdoc: inner_v.userdoc,
+                            devdoc: inner_v.devdoc,
+                            ir: inner_v.ir,
+                            evm: inner_v.evm,
+                            method_identifiers: inner_v.method_identifiers,
+                            gas_estimates: inner_v.gas_estimates,
+                            ewasm: inner_v.ewasm
+                        }
+                    }).collect::<Vec<Contract>>()
+            })
+            .collect::<Vec<Contract>>();
+
+        Self {
+            contracts,
+            sources: raw.sources
+        }
+    }
+
+    pub fn contracts(&self) -> Iter<Contract> {
+        self.contracts.iter()
+    }
+
+    pub fn sources(&self) -> Sources {
+        self.sources.values()
+    }
+}
+
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct RawCompiledSource {
+    // TODO make a struct that fails compilation if any errors are returned
+    /// Any Errors that occured during compilation
+    errors: Option<Vec<Errors>>,
+    sources: HashMap<String, CompiledSourceFile>,
+    contracts: HashMap<String, HashMap<String, RawContract>>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,42 +84,75 @@ pub struct CompiledSourceFile {
 
 // TODO: Unimplemented Structs
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct LegacyAst;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct Metadata;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct UserDoc;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct DevDoc;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct LegacyAssembly;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct MethodIdentifiers;
 #[derive(Debug, Clone, Default, Deserialize)]
+/// Unimplemented!
 pub struct Ast;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Contract {
-    pub abi: ethabi::Contract,
+struct RawContract {
+    /// The abi of the contract source
+    abi: ethabi::Contract,
     #[serde(skip_deserializing)]
     /// Contract Metadata (Unimplemented)
-    pub metadata: Option<Metadata>, // Unimplemented
+    metadata: Option<Metadata>, // Unimplemented
     /// UserDoc (natspec) Unimplemented
     #[serde(skip_deserializing)]
-    pub userdoc: Option<UserDoc>, // Unimplemented
+    userdoc: Option<UserDoc>, // Unimplemented
     /// DevDoc (natspec) Unimplemented
     #[serde(skip_deserializing)]
-    pub devdoc: Option<DevDoc>, // Unimplemented
+    devdoc: Option<DevDoc>, // Unimplemented
     /// Intermediate Representation
-    pub ir: Option<String>,
+    ir: Option<String>,
     /// Evm-related Outputs
-    pub evm: Evm,
+    evm: Evm,
     /// List of Function Hashses (Unimplemented)
     method_identifiers: Option<MethodIdentifiers>,
     /// Function Gas Estimates
     gas_estimates: Option<GasEstimates>,
     #[serde(skip_deserializing)]
     ewasm: Option<EWasm>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Contract {
+    /// Source file name
+    pub file_name: String,
+    /// Contract name
+    pub name: String,
+    /// Abi of the contract
+    pub abi: ethabi::Contract,
+    /// Contract Metadata (Unimplemented)
+    pub metadata: Option<Metadata>, // Unimplemented
+    /// UserDoc (natspec) Unimplemented
+    pub userdoc: Option<UserDoc>, // Unimplemented
+    /// DevDoc (natspec) Unimplemented
+    pub devdoc: Option<DevDoc>, // Unimplemented
+    /// Intermediate Representation
+    pub ir: Option<String>,
+    /// Evm-related Outputs
+    pub evm: Evm,
+    /// List of Function Hashses (Unimplemented)
+    pub method_identifiers: Option<MethodIdentifiers>,
+    /// Function Gas Estimates
+    pub gas_estimates: Option<GasEstimates>,
+    pub ewasm: Option<EWasm>,
 }
 
 /// eWasm related outputs

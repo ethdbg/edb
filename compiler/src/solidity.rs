@@ -1,4 +1,5 @@
 mod source_map;
+mod ast;
 mod err;
 
 use std::{
@@ -7,14 +8,14 @@ use std::{
     sync::Arc,
 };
 use log::*;
-use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
 
+use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
+use super::map::Map;
 use self::{
-    source_map::{SoliditySourceMap},
-    err::{SolidityError, SourceMapVariant},
+    err::{SolidityError},
 };
 
-use super::{SourceMap, Language};
+use super::{SourceMap, Language, ContractFile, Contract};
 
 /// A struct for Solidity Source Mapping
 pub struct Solidity {
@@ -33,9 +34,6 @@ impl Solidity {
         let mut source = String::new();
         info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
 
-        let mut code_map = CodeMap::new();
-        let file_map = code_map.add_filemap_from_disk(path.as_path())?;
-
         let compiled_source = SolcApiBuilder::default()
             .source_file(path)
             .evm_version(FoundationVersion::Byzantium)
@@ -48,9 +46,7 @@ impl Solidity {
                 v
                     .iter()
                     .map(|(inner_k, inner_v)| {
-                        let src_map = SoliditySourceMap::new(&inner_v.evm.deployed_bytecode.as_ref()
-                                                             .expect("Bytecode does not exist").source_map)
-                            .expect("Fatal Error: Could not build Source Map. Shutting Down...");
+
 
                     }).collect::<Vec<Mapping>>()
             })

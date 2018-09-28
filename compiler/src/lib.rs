@@ -85,11 +85,11 @@ pub struct ContractFile<T> where T: Transport {
     /// General source map for offsets--line number
     map: self::map::Map,
     // Abstract Syntax Tree of Source
-    // ast: Ast<Err=LanguageError>,
+    ast: Box<dyn Ast<Err=LanguageError>>,
 }
 
 impl<T> ContractFile<T> where T: Transport {
-    pub fn new(source: &str, id: usize, contracts: Vec<Contract<T>>, file_path: PathBuf)
+    pub fn new(source: &str, id: usize, contracts: Vec<Contract<T>>, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
                -> Result<Self, LanguageError>
     {
         let file_name = file_path
@@ -101,7 +101,7 @@ impl<T> ContractFile<T> where T: Transport {
 
         Ok(Self {
             map: self::map::Map::new(source),
-            file_name, file_path, id, contracts,
+            file_name, file_path, id, contracts, ast
         })
     }
 }
