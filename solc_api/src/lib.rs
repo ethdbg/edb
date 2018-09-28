@@ -85,6 +85,7 @@ impl SolcApiBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn ser_opts() {
         let solc_items = vec![SolcItem::Abi,

@@ -356,3 +356,51 @@ pub struct SourceLocation {
     pub start: usize,
     pub end: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Jump, SourceIndex, Instruction};
+
+    #[test]
+    fn decompress_mappings() {
+        let comp = "1:2:1:o;:9;2:1:2:-;;";
+        let de_comp = vec![
+            Instruction {
+                start: 1,
+                length: 2,
+                source_index: SourceIndex::Source(1),
+                jump: Jump::ReturnFunc,
+                position: 0,
+            },
+            Instruction {
+                start: 1,
+                length: 9,
+                source_index: SourceIndex::Source(1),
+                jump: Jump::ReturnFunc,
+                position: 1,
+            },
+            Instruction {
+                start: 2,
+                length: 1,
+                source_index: SourceIndex::Source(2),
+                jump: Jump::NormJump,
+                position: 2,
+            },
+            Instruction {
+                start: 2,
+                length: 1,
+                source_index: SourceIndex::Source(2),
+                jump: Jump::NormJump,
+                position: 3,
+            },
+            Instruction {
+                start: 2,
+                length: 1,
+                source_index: SourceIndex::Source(2),
+                jump: Jump::NormJump,
+                position: 4,
+            },
+        ];
+        assert_eq!(super::decompress(comp).unwrap(), de_comp);
+    }
+}

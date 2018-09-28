@@ -1,5 +1,5 @@
 //! Codefile represents one source code file and all of the files it imports
-use super::{Language, SourceMap, ContractFile, err::LanguageError};
+use super::{Language, SourceMap, ContractFile, Contract, err::LanguageError};
 use web3::Transport;
 use std::path::{Path, PathBuf};
 
