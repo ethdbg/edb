@@ -1,7 +1,8 @@
 //! Output Types for Solidities Standard JSON
 use std::{
     self,
-    collections::{HashMap, hash_map::Values },
+    collections::{HashMap, hash_map::{self, Values}},
+    iter::Filter,
     slice::Iter,
     str::FromStr
 };
@@ -13,7 +14,8 @@ use err::SolcApiError;
 
 /// name of the file, including extension
 type FileName = String;
-type Sources<'a> = Values<'a, FileName, CompiledSourceFile>;
+type Sources<'a> = Iter<'a, FileName, CompiledSourceFile>;
+type Contracts<'a> = Iter<'a, &'a Contract>;
 
 pub struct CompiledSource {
     /// Compiled Source File
@@ -22,7 +24,7 @@ pub struct CompiledSource {
     contracts: Vec<Contract>,
 }
 
-impl CompiledSource {
+impl<'a> CompiledSource {
     pub(crate) fn new(raw: RawCompiledSource) -> Self {
 
         let contracts = raw.contracts
@@ -54,12 +56,25 @@ impl CompiledSource {
         }
     }
 
+    /// Iterate all contracts
     pub fn contracts(&self) -> Iter<Contract> {
         self.contracts.iter()
     }
 
+    /// Iterate only the contracts that match the predicate
+    pub fn contracts_by<F>(&'a self, fun: F) -> Filter<Iter<Contract>, F>
+    where
+        F: FnMut(&&Contract) -> bool,
+        for<'r> F: FnMut<(&'r &'r Contract)>
+    {
+
+        self.contracts
+            .iter()
+            .filter(fun)
+    }
+
     pub fn sources(&self) -> Sources {
-        self.sources.values()
+        self.sources.iter()
     }
 }
 

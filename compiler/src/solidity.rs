@@ -1,45 +1,27 @@
 mod source_map;
 mod ast;
-mod err;
+pub mod err;
 
 use std::{
     path::PathBuf,
     io::Read,
     sync::Arc,
 };
+use itertools::*;
+use web3::Transport;
 use log::*;
 
-use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::FoundationVersion};
-use super::map::Map;
-use self::err::SolidityError;
-
-use super::{SourceMap, Language, ContractFile, Contract};
+use solc_api::{
+    CompiledSource, SolcApiBuilder, Contract as CompiledContract,
+    types::FoundationVersion
+};
+use self::{err::SolidityError, source_map::SoliditySourceMap};
+use super::{SourceMap, Language, ContractFile, Contract, err::LanguageError };
 
 /// A struct for Solidity Source Mapping
-pub struct Solidity {
-    /// Source code as a string. No transformations done on it.
-    source: String,
-    /// Compiled Source (via standard-json api)
-    compiled_source: CompiledSource,
-}
-
-pub struct SoliditySourceMap { }
-
-
-/// Solidity Compiler Interface
-impl Solidity {
-    pub fn new(path: PathBuf) -> Result<Self, SolidityError> {
-        let mut source = String::new();
-        info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
-
-        let compiled_source = SolcApiBuilder::default()
-            .source_file(path)
-            .evm_version(FoundationVersion::Byzantium)
-            .compile();
-
-        Ok(Solidity { source, compiled_source })
-    }
-
+#[derive(Debug, Clone, PartialEq)]
+pub struct Solidity;
+/*
     // find the mapping with the shortest length from the byte offset
     fn shortest_len<'a>(&self, lineno: u32, mapping: &'a Mapping) -> Option<&'a Instruction> {
         mapping.map.instructions
@@ -60,8 +42,43 @@ impl Solidity {
                 }
             })
     }
-}
+    */
 
+impl Language for Solidity {
+
+    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>)
+        -> Result<Vec<ContractFile<T>>, LanguageError>
+        where
+            T: Transport
+    {
+        let mut source = String::new();
+        info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
+
+        let parent = path.parent().ok_or(SolidityError::ParentNotFound)?;
+        let compiled_source = SolcApiBuilder::default()
+            .source_file(path)
+            .evm_version(FoundationVersion::Byzantium)
+            .compile();
+        let contracts = compiled_source
+            .sources()
+            .map(|file, compiled_file| {
+                let contracts = compiled_source
+                    .contracts_by(|c| c.file_name == file)
+                    .map(|c| {
+                        // if
+                        let import_path = parent.push(PathBuf::from(file.as_str()));
+                        let mut src = String::new();
+                        info!("Read {} bytes from source file: {}", std::fs::File::open(import_path.as_path())?.read_to_string(&mut src)?, file);
+                        Contract::new(c.name, eth.clone(), SoliditySourceMap::new(src.as_str()), c.abi, c.evm.bytecode.object)
+                    })
+                    .collect::<Result<Vec<CompiledContract, LanguageError>>>();
+                ContractFile::new(&source, source.id, )
+            })
+            .collect::<Vec<ContractFile<Solidity>>>();
+        Ok(contracts)
+    }
+}
+/*
 #[cfg(test)]
 mod test {
     use speculate::speculate;
@@ -90,3 +107,5 @@ mod test {
         }
     }
 }
+
+*/

@@ -19,14 +19,18 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
             .to_str()
             .ok_or(LanguageError::InvalidPath)?
             .to_owned();
-        let files: Vec<ContractFile<T>> = language.compile(path)?;
+
+        if path.is_dir() {
+            return Err(LanguageError::FileNotFound);
+        }
+        let files: Vec<ContractFile<T>> = language.compile(path, &client.eth())?;
         Ok(Self { language, client, files, name })
     }
 
     pub fn name(&self) -> &str {
         &self.name
     }
-
+/*
     pub fn contract(&self, name: &str) -> Option<&Contract<T>> {
         self.language
             .contracts()
@@ -34,4 +38,5 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
                 c.name == name
             })
     }
+    */
 }

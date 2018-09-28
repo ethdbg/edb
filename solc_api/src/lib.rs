@@ -1,4 +1,5 @@
 //! Standard JSON Input/Output for the Solidity Compiler
+#![feature(unboxed_closures)]
 #[macro_use] extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;

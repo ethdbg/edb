@@ -1,6 +1,7 @@
-use failure::Fail;
+use failure::{Fail, Error};
+use super::solidity::err::SolidityError;
 
-#[derive(Fail, Debug, Clone)]
+#[derive(Fail, Debug)]
 pub enum LanguageError {
     #[fail(display = "Could not obtain a Source Map")]
     SourceMap(#[cause] SourceMapError),
@@ -10,10 +11,15 @@ pub enum LanguageError {
     NodeIo(String),
     #[fail(display = "Could not parse source code file for line number positions")]
     ParseError,
-    #[fail(display = "Source path must be a file")]
+    #[fail(display = "Path specified must lead directly to a file")]
     FileNotFound,
     #[fail(display = "Path must be valid UTF-8")]
     InvalidPath,
+    #[fail(display = "IO Error")]
+    Io(#[fail(cause)] std::io::Error),
+    // Language-specific Errors (Solidity, Vyper, LLL, etc)
+    #[fail(display = "Language Error")]
+    Language(#[fail(cause)] Box<dyn Fail>)
 }
 
 #[derive(Fail, Debug, Clone)]
@@ -39,6 +45,12 @@ impl From<web3::error::Error> for LanguageError {
 impl From<std::num::ParseIntError> for SourceMapError {
     fn from(err: std::num::ParseIntError) -> SourceMapError {
         SourceMapError::Decode(err)
+    }
+}
+
+impl From<std::io::Error> for LanguageError {
+    fn from(err: std::io::Error) -> LanguageError {
+        LanguageError::Io(err)
     }
 }
 

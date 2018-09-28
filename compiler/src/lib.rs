@@ -15,31 +15,27 @@
 mod err;
 mod types;
 mod contract;
-mod source_map;
 pub mod map;
 pub mod code_file;
-// pub mod solidity;
+pub mod solidity;
 // pub mod vyper;
 use self::err::{LanguageError, NotFoundError};
 use serde_derive::*;
-use std::{
-    path::PathBuf,
-    slice::Iter,
-};
+use std::path::PathBuf;
 use web3::{
     types::{Address, BlockNumber},
     Transport,
 };
+use failure::Error;
 use futures::future::Future;
 use delegate::*;
 extern crate test;
 
 /// The Source File of a specific language
 pub trait Language {
-    // Language Functions
-    /// Returns an Iterator over all contracts in a source file (including imported contracts)
-    fn contracts<T>(&self) -> Iter<Contract<T>> where T: Transport;
-    fn compile<T>(&self, path: PathBuf) -> Result<Vec<ContractFile<T>>, LanguageError> where T: Transport;
+    /// Compiles Source Code File into a Vector of Contract Files
+    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>)
+        -> Result<Vec<ContractFile<T>>, LanguageError> where T: Transport;
 }
 
 /// Represents a Line - Line number and String (0-indexed)
@@ -110,7 +106,6 @@ pub struct Contract<T> where T: Transport {
     name: String,
     abi: ethabi::Contract,
     deployed: web3::contract::Contract<T>,
-    bytecode: Vec<u8>,
     runtime_bytecode: Vec<u8>,
     source_map: Box<dyn SourceMap<Err=LanguageError>>,
 }
@@ -119,9 +114,6 @@ pub struct Contract<T> where T: Transport {
 impl<T> Contract<T> where T: Transport {
     delegate! {
         target self.abi {
-            // loads contract abi from JSON
-            // pub fn load<T: std::io::Read>(reader: T) -> Result<Self, ethabi::Error>;
-
             /// Creates abi constructor call builder
             pub fn constructor(&self) -> Option<&ethabi::Constructor>;
             /// Creates abi function call builder
@@ -141,20 +133,21 @@ impl<T> Contract<T> where T: Transport {
                eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap<Err=LanguageError>>,
                abi: ethabi::Contract,
-               bytecode: Vec<u8>,
                runtime_bytecode: Vec<u8>,
     ) -> Result<Self, LanguageError>
     {
+
+        let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth)?;
         let contract = web3::contract::Contract::new(
-            eth.clone(),
-            Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth)?,
+            eth,
+            addr,
             abi.clone()
         );
+
         Ok(Self {
             name: name.to_string(),
             abi,
             deployed: contract,
-            bytecode,
             runtime_bytecode,
             source_map: map
         })
@@ -165,7 +158,6 @@ impl<T> Contract<T> where T: Transport {
     fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>)
                               -> Result<Address, LanguageError>
     {
-
         let accounts = eth.accounts().wait()?;
 
         for a in accounts.iter() {
