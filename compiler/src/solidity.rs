@@ -9,11 +9,9 @@ use std::{
 };
 use log::*;
 
-use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::input::FoundationVersion};
+use solc_api::{CompiledSource, SolcApiBuilder, Contract, types::FoundationVersion};
 use super::map::Map;
-use self::{
-    err::{SolidityError},
-};
+use self::err::SolidityError;
 
 use super::{SourceMap, Language, ContractFile, Contract};
 
@@ -39,20 +37,7 @@ impl Solidity {
             .evm_version(FoundationVersion::Byzantium)
             .compile();
 
-        let maps = compiled_source.contracts
-            .iter()
-            .enumerate()
-            .flat_map(|(i, (k, v))| {
-                v
-                    .iter()
-                    .map(|(inner_k, inner_v)| {
-
-
-                    }).collect::<Vec<Mapping>>()
-            })
-            .collect::<Vec<Mapping>>();
-
-        Ok(Solidity { code_map, file_map, source, compiled_source, maps })
+        Ok(Solidity { source, compiled_source })
     }
 
     // find the mapping with the shortest length from the byte offset

@@ -19,6 +19,7 @@ pub mod types {
         Ast, EWasm, GasEstimates, CreationGasEstimates, Evm, Bytecode, Instruction,
         SourceIndex, Jump, Position
     };
+    pub use super::internal_types::input::{FoundationVersion};
     pub use ethabi::Contract as ContractAbi;
 }
 
