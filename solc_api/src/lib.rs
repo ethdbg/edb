@@ -5,8 +5,11 @@ extern crate serde_json;
 extern crate solc;
 extern crate ethereum_types;
 extern crate ethabi;
+extern crate failure;
+extern crate hex;
 
 pub mod types;
+pub mod err;
 pub use self::types::output::{CompiledSource, Contract};
 use self::{
     types::input::*,

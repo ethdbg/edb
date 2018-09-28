@@ -1,9 +1,10 @@
 //! Output Types for Solidities Standard JSON
-use ethabi;
-use std::{
-    collections::HashMap,
-};
+use std::{ self, collections::HashMap, str::FromStr };
 use serde_derive::*;
+use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
+use { ethabi, hex };
+
+use err::SolcApiError;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CompiledSource {
@@ -103,26 +104,221 @@ pub struct Evm {
     pub deployed_bytecode: Option<Bytecode>
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct Bytecode {
     /// Bytecode as a hexstring
-    pub object: String,
+    pub object: Vec<u8>,
     /// Opcodes list (string)
     pub opcodes: Option<String>,
     /// Source Map (Decompressed)
-    #[serde(deserialize_with = "decompress_sourcemap")]
     pub source_map: Vec<Instruction>,
     /// If given, this is an unlinked Object
     pub link_references: Option<HashMap<String, HashMap<String, Vec<Position>>>>
 }
 
-fn decompress_sourcemap<'de, D>(deserializer: D) -> Result<Vec<Instruction>, D::Error>
-where
-    D: Deserializer<'de>
-{
+impl<'de> Deserialize<'de> for Bytecode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "camelCase")]
+        enum Field { Object, Opcodes, SourceMap, LinkReferences };
+
+        struct BytecodeVisitor;
+        impl<'de> Visitor<'de> for BytecodeVisitor {
+            type Value = Bytecode;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Bytecode")
+            }
+            fn visit_map<V>(self, mut map: V) -> Result<Bytecode, V::Error>
+            where
+                V: MapAccess<'de>
+            {
+                let (mut object, mut opcodes, mut source_map, mut link_references) = (None, None, None, None);
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Object => {
+                            if object.is_some() {
+                                return Err(de::Error::duplicate_field("object"));
+                            }
+                            let code: String = map.next_value()?;
+                            object = Some(hex::decode(code)
+                                .map_err(|e| de::Error::custom(format!("{}", e)))?);
+                        },
+                        Field::Opcodes => {
+                            if opcodes.is_some() {
+                                return Err(de::Error::duplicate_field("opcodes"));
+                            }
+                            opcodes = Some(map.next_value()?);
+                        },
+                        Field::SourceMap => {
+                            if source_map.is_some() {
+                                return Err(de::Error::duplicate_field("sourceMap"));
+                            }
+                            source_map = Some(decompress(map.next_value()?)
+                                .map_err(|e| de::Error::custom(format!("{}", e)))?);
+                        },
+                        Field::LinkReferences => {
+                            if link_references.is_some() {
+                                return Err(de::Error::duplicate_field("linkReferences"))
+                            }
+                            link_references = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let object = object.ok_or_else(|| de::Error::missing_field("object"))?;
+                // opcodes is an option already
+                let source_map = source_map.ok_or_else(||de::Error::missing_field("sourceMap"))?;
+                let link_references = link_references.ok_or_else(|| de::Error::missing_field("linkReferences"))?;
+
+                Ok(Bytecode { object, opcodes, source_map, link_references })
+            }
+        }
+        const FIELDS: &'static [&'static str] = &["object, opcodes, sourceMap, linkReferences"];
+        deserializer.deserialize_struct("Bytecode", FIELDS, BytecodeVisitor)
+    }
+}
 
 
+
+// RULES:
+// If a field is empty, the value of the preceding element is used.
+// If a : is missing, all following fields are considered empty.
+//
+// these are the same:
+// 1:2:1  ;  1:9:1  ;  2:1:2  ;  2:1:2  ;  2:1:2
+// 1:2:1  ;  :9     ;  2:1:2  ;         ;
+fn decompress(source_map: &str) -> Result<Vec<Instruction>, SolcApiError> {
+    let mut last_ele: [&str; 4] = [""; 4];
+    let values = source_map
+        .split(';')
+        .enumerate()
+        .map(|(idx, ele)| {
+            let mut parts = ele
+                .split(':')
+                .enumerate()
+                .map(|(i,e)| {
+                    if e == "" {last_ele[i]}
+                    else {e}
+                })
+                .collect::<Vec<&str>>();
+            last_ele.iter().enumerate().for_each(|(i, e)| {
+                if parts.get(i).is_none() {
+                    parts.push(e);
+                }
+            });
+            assert_eq!(parts.len(), 4);
+            last_ele = [parts[0], parts[1], parts[2], parts[3]];
+
+            let start = parts[0].parse().map_err(|e| SolcApiError::from(e));
+            let length = parts[1].parse().map_err(|e| SolcApiError::from(e));
+            let source_index = parts[2].parse();
+            let jump = parts[3].parse();
+            (start, length, source_index, jump, idx)
+        })
+        .collect::<Vec<(IterRes<usize>, IterRes<usize>, IterRes<SourceIndex>, IterRes<Jump>, usize)>>();
+    let mut instructions: Vec<Instruction> = Vec::new();
+    for instruction in values.into_iter() {
+        instructions.push(Instruction {
+            start: instruction.0?,
+            length: instruction.1?,
+            source_index: instruction.2?,
+            jump: instruction.3?,
+            position: instruction.4
+        });
+    }
+    Ok(instructions)
+}
+// used only to make the above collect::<_>() a bit more readable
+type IterRes<T> = Result<T, SolcApiError>;
+
+/// Struct representing s:l:f:j and a position -- the index in the bytecode
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Instruction {
+    /// Start Byte  offset in source
+    pub start: usize,
+    /// Length of code in source
+    pub length: usize,
+    /// Index of file in Solidity Compiler Output
+    pub source_index: SourceIndex,
+    /// Type of jump, if any
+    pub jump: Jump,
+    /// Position in bytecode
+    pub position: usize,
+}
+
+impl From<(usize, usize, SourceIndex, Jump, usize)> for Instruction {
+    fn from(values: (usize, usize, SourceIndex, Jump, usize)) -> Instruction {
+        Instruction {
+            start: values.0,
+            length: values.1,
+            source_index: values.2,
+            jump: values.3,
+            position: values.4
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SourceIndex {
+    NoSource,
+    Source(usize)
+}
+
+impl Default for SourceIndex {
+    fn default() -> SourceIndex {
+        SourceIndex::NoSource
+    }
+}
+
+impl FromStr for SourceIndex {
+    type Err = SolcApiError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "-1" => Ok(SourceIndex::NoSource),
+            _ => Ok(SourceIndex::Source(s.parse()?))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Jump {
+    IntoFunc,
+    ReturnFunc,
+    NormJump,
+}
+
+impl Default for Jump {
+    fn default() -> Jump {
+        Jump::NormJump
+    }
+}
+
+impl ToString for Jump {
+    fn to_string(&self) -> String {
+        match self {
+            Jump::IntoFunc   => "i".to_string(),
+            Jump::ReturnFunc => "o".to_string(),
+            Jump::NormJump   => "-".to_string(),
+        }
+    }
+}
+
+impl FromStr for Jump {
+    type Err = SolcApiError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "i" => Ok(Jump::IntoFunc),
+            "o" => Ok(Jump::ReturnFunc),
+            "-" => Ok(Jump::NormJump),
+            _ => {
+                Err(SolcApiError::UnknownJumpVariant)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

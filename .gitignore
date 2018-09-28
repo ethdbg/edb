@@ -18,6 +18,10 @@ target/
 #MAC
 .DS_Store
 
+#Vim config
+rusty-tags.vi
+tags
+
 out/
 
 rls/
