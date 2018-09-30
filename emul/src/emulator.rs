@@ -120,7 +120,7 @@ impl<T> Emulator<T> where T: Transport {
 
     /// get bytecode position
     pub fn offset(&self) -> usize {
-        self.vm.current_state().unwrap().position
+        self.vm.current_state().expect("Could not acquire current bytecode position").position
     }
 
     /// Chain a transaction with the state changes of the previous transaction.
@@ -409,44 +409,41 @@ mod test {
     use bigint::{Address, Gas};
     use sputnikvm::TransactionAction;
     use super::*;
-    use crate::tests::mock::MockWeb3Transport;
-    use crate::tests::*;
-    use std::str::FromStr;
+    use edb_test_helpers as edbtest;
 
     speculate! {
         describe "emulate" {
-            const simple: &'static str = include!("tests/solidity/simple.bin/SimpleStorage.bin");
 
             before {
                 pretty_env_logger::try_init();
-                let mock = MockWeb3Transport::default();
+                let mock = edbtest::MockWeb3Transport::default();
                 let client = web3::Web3::new(mock);
-                let contract = ethabi::Contract::load(include_bytes!("tests/solidity/simple.bin/simple.json") as &[u8]).unwrap();
+                let contract = edbtest::abi(edbtest::SIMPLE_STORAGE_ABI);
                 let set = contract.function("set").unwrap().encode_input(&[ethabi::Token::Uint(U256::from("1337"))]).unwrap();
                 let get = contract.function("get").unwrap().encode_input(&[]).unwrap();
                 let tx_set = ValidTransaction {
-                    caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
+                    caller: Some(edbtest::bigint_addr(edbtest::ADDR_CALLER)), // caller
                     gas_price: Gas::one(),
                     gas_limit: Gas::from(10000000 as u64),
                     // contract to call
-                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
+                    action: TransactionAction::Call(edbtest::bigint_addr(edbtest::SIMPLE_STORAGE_ADDR)),
                     value: bigint::U256::zero(),
                     input: Rc::new(set),
                     nonce: bigint::U256::zero(),
                 };
                 let tx_get = ValidTransaction {
-                    caller: Some(Address::from_str("94143ba98cdd5a0f3a80a6514b74c25b5bdb9b59").unwrap()), // caller
+                    caller: Some(edbtest::bigint_addr(edbtest::ADDR_CALLER)), // caller
                     gas_price: Gas::one(),
                     gas_limit: Gas::from(10000000 as u64),
                     // contract to call
-                    action: TransactionAction::Call(bigint::H160::from_str("0x884531EaB1bA4a81E9445c2d7B64E29c2F14587C").unwrap()),
+                    action: TransactionAction::Call(edbtest::bigint_addr(edbtest::SIMPLE_STORAGE_ADDR)),
                     value: bigint::U256::zero(),
                     input: Rc::new(get),
                     nonce: bigint::U256::zero(),
                 };
                 // miner
                 let headers = sputnikvm::HeaderParams {
-                    beneficiary: Address::from_str("11f275d2ad4390c41b150fa0efb5fb966dbc714d").unwrap(),
+                    beneficiary: edbtest::bigint_addr(edbtest::MINER),
                     timestamp: 1536291149 as u64,
                     number: bigint::U256::from(6285997 as u64),
                     difficulty: bigint::U256::from(3331693644712776 as u64),

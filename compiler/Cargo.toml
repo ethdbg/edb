@@ -24,3 +24,5 @@ itertools = "0.7.8"
 
 [dev-dependencies]
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }
+edb_test_helpers = { path = "../test_helpers" }
+

@@ -1,7 +1,7 @@
 use failure::Fail;
 use crate::err::LanguageError;
 
-#[derive(Debug, Clone, PartialEq, Fail)]
+#[derive(Debug, Fail)]
 pub enum SolidityError {
     #[fail(display = "Compiler Error")]
     Compiler,
@@ -11,6 +11,8 @@ pub enum SolidityError {
     Io(#[fail(cause)] std::io::Error),
     #[fail(display = "Parent directory not found; Path must not terminate in a root or prefix")]
     ParentNotFound,
+    #[fail(display = "Source Mapping Error")]
+    SourceMap(#[cause] SourceMapError)
 }
 
 impl From<std::io::Error> for SolidityError {
@@ -23,4 +25,14 @@ impl From<SolidityError> for LanguageError {
     fn from(err: SolidityError) -> LanguageError {
         LanguageError::Language(Box::new(err))
     }
+}
+
+#[derive(Debug, Fail)]
+pub enum SourceMapError {
+    #[fail(display = "Did not find line number that corresponded to offset provided")]
+    LineNotFound,
+    #[fail(display = "No offset found for line number provided")]
+    OffsetNotFound,
+    #[fail(display = "Number of last lines to display is greater than current line number")]
+    CountOutOfBounds,
 }

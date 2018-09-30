@@ -83,6 +83,7 @@ impl PartialEq<CharType> for char {
 }
 
 impl Map {
+
     /// new map
     pub fn new(source: &str) -> Self {
         let mut matrix = Vec::new();
@@ -96,8 +97,12 @@ impl Map {
                     vec
                 })
             });
-
         Self { matrix }
+    }
+
+    /// Returns how many lines are contained in the source file
+    pub fn len(&self) -> usize {
+        self.matrix.len()
     }
 
     /// find the line that contains this offset
@@ -196,10 +201,9 @@ impl Map {
 mod tests {
     use super::*;
     use speculate::speculate;
-
+    use edb_test_helpers as edbtest;
     use crate::test::Bencher;
     const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
-    const CONTRACT:&str = include_str!("../../tests/contracts/solidity/voting/voting.sol");
     const LINUX_SRC:&str = include_str!("map/linux_source.c");
     const LARGE:&str = include_str!("map/1MB.txt");
     const TEST_STR:&str =
@@ -250,7 +254,7 @@ contract Ballot {
 
     #[test]
     fn test_contract() {
-        Map::new(CONTRACT);
+        Map::new(edbtest::contract_path(edbtest::Contract::Voting).to_str().unwrap());
     }
 
     // TODO: testing the unicode range from 0 to 0x1fff. Does not yet work for unknown reasons
@@ -263,7 +267,7 @@ contract Ballot {
     #[bench]
     fn bench_contract(b: &mut Bencher) {
         b.iter(||
-               Map::new(CONTRACT)
+            Map::new(edbtest::contract_path(edbtest::Contract::Voting).to_str().unwrap())
         )
     }
 

@@ -16,7 +16,8 @@ members = [
   "compiler/",
   "debugger/",
   "emul/",
-  "solc_api"
+  "solc_api",
+  "test_helpers",
 ]
 
 [dependencies]
@@ -31,3 +32,6 @@ serde = "1.0.78"
 serde_test = "1.0.78"
 edb-emul = { path = "./emul" }
 edb-compiler = { path = "./compiler" }
+
+[dev-dependencies]
+edb_test_helpers = { path = "./test_helpers" }

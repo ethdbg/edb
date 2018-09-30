@@ -14,7 +14,7 @@ use err::SolcApiError;
 
 /// name of the file, including extension
 type FileName = String;
-type Sources<'a> = Iter<'a, FileName, CompiledSourceFile>;
+type Sources<'a> = hash_map::Iter<'a, FileName, CompiledSourceFile>;
 type Contracts<'a> = Iter<'a, &'a Contract>;
 
 pub struct CompiledSource {
@@ -62,18 +62,17 @@ impl<'a> CompiledSource {
     }
 
     /// Iterate only the contracts that match the predicate
-    pub fn contracts_by<F>(&'a self, fun: F) -> Filter<Iter<Contract>, F>
+    pub fn contracts_by<F>(&self, fun: F) -> impl Iterator<Item = &Contract>
     where
-        F: FnMut(&&Contract) -> bool,
-        for<'r> F: FnMut<(&'r &'r Contract)>
+        F: Fn(&Contract) -> bool,
     {
 
         self.contracts
             .iter()
-            .filter(fun)
+            .filter(move |c| fun(c))
     }
 
-    pub fn sources(&self) -> Sources {
+    pub fn sources(&self) -> impl Iterator<Item = (&FileName, &CompiledSourceFile)> {
         self.sources.iter()
     }
 }

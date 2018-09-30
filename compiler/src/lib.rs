@@ -22,12 +22,10 @@ pub mod solidity;
 use self::err::{LanguageError, NotFoundError};
 use serde_derive::*;
 use std::path::PathBuf;
-use web3::{
-    types::{Address, BlockNumber},
-    Transport,
-};
-use failure::Error;
+use web3::{ types::{Address, BlockNumber}, Transport };
+use log::info;
 use futures::future::Future;
+use failure::Error;
 use delegate::*;
 extern crate test;
 
@@ -35,30 +33,31 @@ extern crate test;
 pub trait Language {
     /// Compiles Source Code File into a Vector of Contract Files
     fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>)
-        -> Result<Vec<ContractFile<T>>, LanguageError> where T: Transport;
+        -> Result<Vec<ContractFile<T>>, Error> where T: Transport;
 }
 
 /// Represents a Line - Line number and String (0-indexed)
-pub type Line = (u32, String);
-
+pub type Line = (usize, String);
+pub type LineNo = usize;
+pub type Offset = usize;
 /// Represents a Source Map
 pub trait SourceMap {
-    type Err;
+
     /// Get the instruction offset from a line number in the Source Code
     /// Optional File - if not specified, takes first file in index
-    fn position_from_lineno(&self, lineno: usize) -> usize;
+    fn position_from_lineno(&self, lineno: usize) -> Result<Offset, Error>;
 
     /// The reverse of `position_from_lineno`
-    fn lineno_from_position(&self, offset: usize) -> usize;
+    fn lineno_from_position(&self, offset: usize) -> Result<LineNo, Error>;
 
     /// Get a line mapping (line number => str)
-    fn current_line(&self, offset: usize) -> Result<Line, Self::Err>;
+    fn current_line(&self, offset: usize) -> Result<Line, Error>;
 
     /// Get the last `count` number of lines (inclusive)
-    fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Self::Err>;
+    fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
 
     /// Get the next `count` number of lines (inclusive)
-    fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Self::Err>;
+    fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
 }
 
 //TODO: not yet implemented in solc_api
@@ -78,26 +77,44 @@ pub struct ContractFile<T> where T: Transport {
     /// name of source file
     file_name: String,
     /// General source map for offsets--line number
-    map: self::map::Map,
     // Abstract Syntax Tree of Source
     ast: Box<dyn Ast<Err=LanguageError>>,
 }
 
 impl<T> ContractFile<T> where T: Transport {
     pub fn new(source: &str, id: usize, contracts: Vec<Contract<T>>, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
-               -> Result<Self, LanguageError>
+               -> Result<Self, Error>
     {
         let file_name = file_path
             .file_name()
-            .ok_or(LanguageError::FileNotFound)?
+            .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
             .ok_or(LanguageError::InvalidPath)?
             .to_string();
 
         Ok(Self {
-            map: self::map::Map::new(source),
             file_name, file_path, id, contracts, ast
         })
+    }
+
+    /// Find the first contract that matches the predicate F
+    pub fn contract_by<F>(&self, fun: F) -> Option<&Contract<T>>
+    where
+        F: Fn(&Contract<T>) -> bool
+    {
+        self.contracts
+            .iter()
+            .find(move |c| fun(c))
+    }
+
+    /// Find all contracts that match the predicate F
+    pub fn contracts_by<F>(&self, fun: F) -> impl Iterator<Item=&Contract<T>>
+    where
+        F: Fn(&Contract<T>) -> bool
+    {
+        self.contracts
+            .iter()
+            .filter(move |c| fun(c))
     }
 }
 
@@ -107,7 +124,7 @@ pub struct Contract<T> where T: Transport {
     abi: ethabi::Contract,
     deployed: web3::contract::Contract<T>,
     runtime_bytecode: Vec<u8>,
-    source_map: Box<dyn SourceMap<Err=LanguageError>>,
+    source_map: Box<dyn SourceMap>,
 }
 
 // contract interface for the debugger. should be the same across all languages
@@ -131,10 +148,10 @@ impl<T> Contract<T> where T: Transport {
 
     pub fn new(name: &str,
                eth: web3::api::Eth<T>,
-               map: Box<dyn SourceMap<Err=LanguageError>>,
+               map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
                runtime_bytecode: Vec<u8>,
-    ) -> Result<Self, LanguageError>
+    ) -> Result<Self, Error>
     {
 
         let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth)?;
@@ -159,7 +176,6 @@ impl<T> Contract<T> where T: Transport {
                               -> Result<Address, LanguageError>
     {
         let accounts = eth.accounts().wait()?;
-
         for a in accounts.iter() {
             let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
             if needle == code.0.as_slice() {
@@ -175,7 +191,7 @@ impl<T> Contract<T> where T: Transport {
     }
 
     /// get the source map of this contract
-    pub fn source_map(&self) -> &Box<dyn SourceMap<Err=LanguageError>> {
+    pub fn source_map(&self) -> &Box<dyn SourceMap> {
         &self.source_map
     }
 }
