@@ -1,5 +1,5 @@
 //! Codefile represents one source code file and all of the files it imports
-use super::{Language, Line, Offset, LineNo, Contract, ContractFile, err::{LanguageError, NotFoundError}};
+use super::{Language, Line, Offset, LineNo, contract::{Contract, ContractFile}, err::{LanguageError, NotFoundError}};
 use failure::Error;
 use web3::Transport;
 use std::path::{PathBuf};
@@ -36,8 +36,8 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
     fn find_contract(&self, contract: &str) -> Result<&Contract<T>, LanguageError> {
         self.files
             .iter()
-            .filter_map(|f| f.contract_by(|c| c.name == contract))
-            .find(|c| c.name == contract)
+            .filter_map(|f| f.contract_by(|c| c.name() == contract))
+            .find(|c| c.name() == contract)
             .ok_or(LanguageError::NotFound(NotFoundError::Contract))
     }
 
@@ -59,15 +59,18 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
         contract.source_map().lineno_from_position(offset).map_err(|e| e.into())
     }
 
-    pub fn current_line(&self, offset: usize) -> Result<Line, Error> {
-        unimplemented!();
+    pub fn current_line(&self, offset: usize, contract: &str) -> Result<Line, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().current_line(offset).map_err(|e| e.into())
     }
 
-    pub fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error> {
-        unimplemented!();
+    pub fn last_lines(&self, offset: usize, count: usize, contract: &str) -> Result<Vec<Line>, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().last_lines(offset, count).map_err(|e| e.into())
     }
 
-    pub fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error> {
-        unimplemented!();
+    pub fn next_lines(&self, offset: usize, count: usize, contract: &str) -> Result<Vec<Line>, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().next_lines(offset, count).map_err(|e| e.into())
     }
 }

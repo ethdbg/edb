@@ -1,4 +1,4 @@
-use crate::{ SourceMap, Line, LineNo, Offset, err::LanguageError, map::Map };
+use crate::{ SourceMap, Line, LineNo, Offset, map::Map };
 use super::err::{SolidityError, SourceMapError};
 use solc_api::types::Instruction;
 use failure::Error;

@@ -1,8 +1,7 @@
 //! Output Types for Solidities Standard JSON
 use std::{
     self,
-    collections::{HashMap, hash_map::{self, Values}},
-    iter::Filter,
+    collections::{HashMap, hash_map},
     slice::Iter,
     str::FromStr
 };
@@ -14,8 +13,6 @@ use err::SolcApiError;
 
 /// name of the file, including extension
 type FileName = String;
-type Sources<'a> = hash_map::Iter<'a, FileName, CompiledSourceFile>;
-type Contracts<'a> = Iter<'a, &'a Contract>;
 
 pub struct CompiledSource {
     /// Compiled Source File

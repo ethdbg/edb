@@ -1,6 +1,5 @@
-use failure::{Fail, Error};
+use failure::Fail;
 use log::{error};
-use super::solidity::err::SolidityError;
 
 #[derive(Fail, Debug)]
 pub enum LanguageError {

@@ -10,11 +10,11 @@ use web3::Transport;
 use log::*;
 use failure::Error;
 use solc_api::{
-    SolcApiBuilder, Contract as CompiledContract,
+    SolcApiBuilder,
     types::FoundationVersion
 };
 use self::{err::SolidityError, source_map::SoliditySourceMap, ast::SolidityAst};
-use super::{Language, ContractFile, Contract, err::LanguageError };
+use super::{Language, contract::{ContractFile, Contract} };
 
 /// A struct for Solidity Source Mapping
 #[derive(Debug, Clone, PartialEq)]
@@ -55,7 +55,7 @@ impl Language for Solidity {
                                       ).map_err(|e| e.into())
                     })
                     .collect::<Result<Vec<Contract<T>>, Error>>()?;
-                ContractFile::new(&src, compiled_file.id, contracts, Box::new(SolidityAst::new(&src)?), import_path)
+                ContractFile::new(compiled_file.id, contracts, Box::new(SolidityAst::new(&src)?), import_path)
             })
             .collect::<Result<Vec<ContractFile<T>>, Error>>()?;
         Ok(contracts)

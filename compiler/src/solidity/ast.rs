@@ -20,7 +20,7 @@ impl<'ast> SolidityAst<'ast> {
 impl<'ast> Ast for SolidityAst<'ast> {
     type Err = LanguageError;
 
-    fn contract_by_offset(&self, offset: u32) -> Result<String, Self::Err> {
+    fn contract_by_offset(&self, _offset: u32) -> Result<String, Self::Err> {
         unimplemented!();
     }
 }
