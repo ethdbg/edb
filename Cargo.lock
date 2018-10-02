@@ -264,6 +264,12 @@ dependencies = [
 [[package]]
 name = "edb-core"
 version = "0.1.0"
+dependencies = [
+ "edb-compiler 0.1.0",
+ "edb-emul 0.1.0",
+ "failure 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "web3 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "edb-emul"
