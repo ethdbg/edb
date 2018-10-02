@@ -1,0 +1,293 @@
+[
+    {
+        "name": "delegated",
+        "outputs": [
+            {
+                "type": "bool",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "addr"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 733
+    },
+    {
+        "name": "directly_voted",
+        "outputs": [
+            {
+                "type": "bool",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "addr"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1159
+    },
+    {
+        "name": "__init__",
+        "outputs": [],
+        "inputs": [
+            {
+                "type": "bytes32[2]",
+                "name": "_proposalNames"
+            }
+        ],
+        "constant": false,
+        "payable": false,
+        "type": "constructor"
+    },
+    {
+        "name": "give_right_to_vote",
+        "outputs": [],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "voter"
+            }
+        ],
+        "constant": false,
+        "payable": false,
+        "type": "function",
+        "gas": 72157
+    },
+    {
+        "name": "forward_weight",
+        "outputs": [],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "delegate_with_weight_to_forward"
+            }
+        ],
+        "constant": false,
+        "payable": false,
+        "type": "function",
+        "gas": 126595
+    },
+    {
+        "name": "delegate",
+        "outputs": [],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "to"
+            }
+        ],
+        "constant": false,
+        "payable": false,
+        "type": "function",
+        "gas": 203996
+    },
+    {
+        "name": "vote",
+        "outputs": [],
+        "inputs": [
+            {
+                "type": "int128",
+                "name": "proposal"
+            }
+        ],
+        "constant": false,
+        "payable": false,
+        "type": "function",
+        "gas": 127782
+    },
+    {
+        "name": "winning_proposal",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 2419
+    },
+    {
+        "name": "winner_name",
+        "outputs": [
+            {
+                "type": "bytes32",
+                "name": "out"
+            }
+        ],
+        "inputs": [],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 4214
+    },
+    {
+        "name": "voters__weight",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 973
+    },
+    {
+        "name": "voters__voted",
+        "outputs": [
+            {
+                "type": "bool",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1003
+    },
+    {
+        "name": "voters__delegate",
+        "outputs": [
+            {
+                "type": "address",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1027
+    },
+    {
+        "name": "voters__vote",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1063
+    },
+    {
+        "name": "proposals__name",
+        "outputs": [
+            {
+                "type": "bytes32",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "int128",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1138
+    },
+    {
+        "name": "proposals__vote_count",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "int128",
+                "name": "arg0"
+            }
+        ],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 1174
+    },
+    {
+        "name": "voter_count",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 903
+    },
+    {
+        "name": "chairperson",
+        "outputs": [
+            {
+                "type": "address",
+                "name": "out"
+            }
+        ],
+        "inputs": [],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 933
+    },
+    {
+        "name": "int128_proposals",
+        "outputs": [
+            {
+                "type": "int128",
+                "name": "out"
+            }
+        ],
+        "inputs": [],
+        "constant": true,
+        "payable": false,
+        "type": "function",
+        "gas": 963
+    }
+]

@@ -1,5 +1,4 @@
-#![feature(proc_macro_gen)]
-#[cfg(test)] #[macro_use] mod tests;
+#![feature(proc_macro_gen, crate_visibility_modifier)]
 pub mod emulator;
 mod err;
 mod scary;

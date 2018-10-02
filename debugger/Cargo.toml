@@ -1,6 +1,0 @@
-[package]
-name = "ethdbg"
-version = "0.1.0"
-authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
-
-[dependencies]

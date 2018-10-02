@@ -1,5 +1,3 @@
-cargo-features = ['edition']
-
 [package]
 description = "Ethereum Debug"
 name = "edb"
@@ -9,19 +7,31 @@ authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 edition = '2018'
 
 
-[lib]
-path = "edb/lib.rs"
+[[bin]]
+path = "edb/main.rs"
 name = "edb"
 
 [workspace]
 members = [
   "compiler/",
-  "debugger/",
-  "emul/"
+  "edb-core",
+  "emul/",
+  "solc_api",
+  "test_helpers",
 ]
 
 [dependencies]
+# vyper = { path = "./vyper" }
 tokio-core = "0.1.17"
 futures = "0.1.23"
 web3 = { git = "https://github.com/tomusdrw/rust-web3" }
 failure = "0.1.2"
+serde_json = "1.0.27"
+serde_derive = "1.0.78"
+serde = "1.0.78"
+serde_test = "1.0.78"
+edb-emul = { path = "./emul" }
+edb-compiler = { path = "./compiler" }
+
+[dev-dependencies]
+edb_test_helpers = { path = "./test_helpers" }

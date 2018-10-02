@@ -1,2 +1,0 @@
-
-- implement error handling (EmulError)

@@ -3,6 +3,8 @@
 </p>
 
 # EDB
+https://www.youtube.com/channel/UCaN9mu_nq7_xlFaVq3986-g for development stream.
+
 
 Not built around 'Just a Hook'. This debugger is built directly onto a customized VM, and has all of it's tools at its disposal. We make the hooks.
 
@@ -19,15 +21,28 @@ Organizations Repository will include:
 
 
 ### Supported Languages
-- [ ] Solidity
+- [x] Solidity
+    - [x] Geth/Parity/GanacheCLI/etc
+    - [x] Single File
+    - [ ] imports/libraries
+    - [ ] multiple file
+    - [ ] automatic deployment
 - [ ] Vyper
 - [ ] Serpent
 - [ ] LLL
+- [ ] ASM
+
+### Daemon
+- [ ] Headless RPC
+- [ ] Unix Socket/IPC daemon
+- [ ] RLS (Remote Language Server)
 
 ### Supported Chains
-- [ ] Ethereum Main
+- [x] Ethereum Main
 - [ ] Ethereum Classic
 - [ ] Ellaism? (Research Required)
 - [ ] Ubiq? (Research Required)
 - [ ] Expanse? (Research Required)
 - [ ] Musicoin? (Research Required)
+_these networks are listed because they are supported by [sputnikvm](https://github.com/ETCDEVTeam/sputnikvm), the VM behind EDB_
+
