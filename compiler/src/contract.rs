@@ -3,27 +3,28 @@
 use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap};
 use web3::{ types::{Address, BlockNumber}, Transport };
 use delegate::*;
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 use futures::future::Future;
 use failure::Error;
 
-pub struct ContractFile<T> where T: Transport {
+pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
     id: usize,
     /// All the contracts contained in the souce
-    contracts: Vec<Contract<T>>,
+    // contracts: Vec<Contract<T>>,
     /// path to source file
     file_path: PathBuf,
     /// name of source file
     file_name: String,
+    source: String,
     /// General source map for offsets--line number
     // Abstract Syntax Tree of Source
     ast: Box<dyn Ast<Err=LanguageError>>,
 }
 
-impl<T> ContractFile<T> where T: Transport {
-    pub fn new(id: usize, contracts: Vec<Contract<T>>, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
-               -> Result<Self, Error>
+impl ContractFile {
+    pub fn new(source: String, id: usize, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
+        -> Result<Self, Error>
     {
         let file_name = file_path
             .file_name()
@@ -33,33 +34,18 @@ impl<T> ContractFile<T> where T: Transport {
             .to_string();
 
         Ok(Self {
-            file_name, file_path, id, contracts, ast
+            source, file_name, file_path, id, ast
         })
     }
 
-    /// Find the first contract that matches the predicate F
-    pub fn contract_by<F>(&self, fun: F) -> Option<&Contract<T>>
-    where
-        F: Fn(&Contract<T>) -> bool
-    {
-        self.contracts
-            .iter()
-            .find(move |c| fun(c))
-    }
-
-    /// Find all contracts that match the predicate F
-    pub fn contracts_by<F>(&self, fun: F) -> impl Iterator<Item=&Contract<T>>
-    where
-        F: Fn(&Contract<T>) -> bool
-    {
-        self.contracts
-            .iter()
-            .filter(move |c| fun(c))
+    pub fn source(&self) -> &str {
+        self.source.as_str()
     }
 }
 
 /// Contract
 pub struct Contract<T> where T: Transport {
+    file: Rc<ContractFile>,
     name: String,
     abi: ethabi::Contract,
     deployed: web3::contract::Contract<T>,
@@ -86,12 +72,12 @@ impl<T> Contract<T> where T: Transport {
         }
     }
 
-    pub fn new(name: &str,
+    pub fn new(file: Rc<ContractFile>,
+               name: String,
                eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
-               runtime_bytecode: Vec<u8>,
-    ) -> Result<Self, Error>
+               runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
 
         let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth)?;
@@ -101,13 +87,7 @@ impl<T> Contract<T> where T: Transport {
             abi.clone()
         );
 
-        Ok(Self {
-            name: name.to_string(),
-            abi,
-            deployed: contract,
-            runtime_bytecode,
-            source_map: map
-        })
+        Ok(Self { file, name, abi, deployed: contract, runtime_bytecode, source_map: map })
     }
 
     pub fn name(&self) -> &str {

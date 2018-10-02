@@ -1,6 +1,7 @@
 //! Map of source file. Line numbers are zero-indexed.
 //! Byte offset refers to character offset rather than actual UTF-8 bytes/codepoints
 use super::err::{MapError};
+use std::iter::FromIterator;
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -138,6 +139,14 @@ impl Map {
             Err(MapError::LineOutOfBounds)
         } else {
             Ok(self.matrix[line].as_slice())
+        }
+    }
+
+    pub fn lines(&self, range: std::ops::Range<usize>) -> Result<Vec<String>, MapError>{
+        if self.matrix.len() < range.end {
+            Err(MapError::LineOutOfBounds)
+        } else {
+            Ok(self.matrix[range].iter().map(|s| String::from_iter(s.as_slice())).collect::<Vec<String>>())
         }
     }
 

@@ -1,5 +1,5 @@
 #![recursion_limit="128"]
-#![feature(test)]
+#![feature(test, slice_concat_ext)]
 //! Interfaces 'compiler' modules must implement
 //! Three Main Traits:
 //!     - Contract: The Contract interface that represents *one* Contract
@@ -24,7 +24,7 @@ pub mod solidity;
 pub use self::code_file::CodeFile;
 pub use self::contract::{Contract, ContractFile};
 
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 use web3::Transport;
 use failure::Error;
 extern crate test;
@@ -34,7 +34,7 @@ extern crate test;
 pub trait Language {
     /// Compiles Source Code File into a Vector of Contract Files
     fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>)
-        -> Result<Vec<ContractFile<T>>, Error> where T: Transport;
+        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
 }
 
 /// Represents a Line - Line number and String (0-indexed)
