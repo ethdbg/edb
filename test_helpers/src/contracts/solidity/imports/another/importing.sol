@@ -1,6 +1,7 @@
 pragma solidity ^0.4.0;
+// For testing imports
 
-contract SimpleStorage {
+contract SimpleStorageTwo {
     uint storedData;
 
     function set(uint x) {

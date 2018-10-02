@@ -1,0 +1,98 @@
+{
+    "contracts": {
+        "importing.sol": {
+            "SimpleStorageTwo": {
+                "evm": {
+                    "deployedBytecode": {
+                        "linkReferences": {},
+                        "object": "6080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a72305820d1a775aec61f822ba80a83051893aea7f29ebfcd4e365817ba1de5d6c28d3a220029",
+                        "opcodes": "PUSH1 0x80 PUSH1 0x40 MSTORE PUSH1 0x4 CALLDATASIZE LT PUSH1 0x49 JUMPI PUSH1 0x0 CALLDATALOAD PUSH29 0x100000000000000000000000000000000000000000000000000000000 SWAP1 DIV PUSH4 0xFFFFFFFF AND DUP1 PUSH4 0x60FE47B1 EQ PUSH1 0x4E JUMPI DUP1 PUSH4 0x6D4CE63C EQ PUSH1 0x78 JUMPI JUMPDEST PUSH1 0x0 DUP1 REVERT JUMPDEST CALLVALUE DUP1 ISZERO PUSH1 0x59 JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST POP PUSH1 0x76 PUSH1 0x4 DUP1 CALLDATASIZE SUB DUP2 ADD SWAP1 DUP1 DUP1 CALLDATALOAD SWAP1 PUSH1 0x20 ADD SWAP1 SWAP3 SWAP2 SWAP1 POP POP POP PUSH1 0xA0 JUMP JUMPDEST STOP JUMPDEST CALLVALUE DUP1 ISZERO PUSH1 0x83 JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST POP PUSH1 0x8A PUSH1 0xAA JUMP JUMPDEST PUSH1 0x40 MLOAD DUP1 DUP3 DUP2 MSTORE PUSH1 0x20 ADD SWAP2 POP POP PUSH1 0x40 MLOAD DUP1 SWAP2 SUB SWAP1 RETURN JUMPDEST DUP1 PUSH1 0x0 DUP2 SWAP1 SSTORE POP POP JUMP JUMPDEST PUSH1 0x0 DUP1 SLOAD SWAP1 POP SWAP1 JUMP STOP LOG1 PUSH6 0x627A7A723058 KECCAK256 0xd1 0xa7 PUSH22 0xAEC61F822BA80A83051893AEA7F29EBFCD4E365817BA SAR 0xe5 0xd6 0xc2 DUP14 GASPRICE 0x22 STOP 0x29 ",
+                        "sourceMap": "48:187:0:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;102:52;;8:9:-1;5:2;;;30:1;27;20:12;5:2;102:52:0;;;;;;;;;;;;;;;;;;;;;;;;;;160:73;;8:9:-1;5:2;;;30:1;27;20:12;5:2;160:73:0;;;;;;;;;;;;;;;;;;;;;;;102:52;146:1;133:10;:14;;;;102:52;:::o;160:73::-;193:4;216:10;;209:17;;160:73;:::o"
+                    }
+                }
+            }
+        },
+        "simple.sol": {
+            "SimpleStorage": {
+                "evm": {
+                    "deployedBytecode": {
+                        "linkReferences": {},
+                        "object": "60806040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b1146100515780636d4ce63c1461007e575b600080fd5b34801561005d57600080fd5b5061007c600480360381019080803590602001909291905050506100a9565b005b34801561008a57600080fd5b506100936100f4565b6040518082815260200191505060405180910390f35b8060008190555080600260006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b6000600260009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d4ce63c6040518163ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401602060405180830381600087803b15801561017c57600080fd5b505af1158015610190573d6000803e3d6000fd5b505050506040513d60208110156101a657600080fd5b81019080805190602001909291905050506001819055506000549050905600a165627a7a723058202fcbe3c0191b9e01863b1a3fb07754d378fde04ee588cfca1f87ee70aab715a00029",
+                        "opcodes": "PUSH1 0x80 PUSH1 0x40 MSTORE PUSH1 0x4 CALLDATASIZE LT PUSH2 0x4C JUMPI PUSH1 0x0 CALLDATALOAD PUSH29 0x100000000000000000000000000000000000000000000000000000000 SWAP1 DIV PUSH4 0xFFFFFFFF AND DUP1 PUSH4 0x60FE47B1 EQ PUSH2 0x51 JUMPI DUP1 PUSH4 0x6D4CE63C EQ PUSH2 0x7E JUMPI JUMPDEST PUSH1 0x0 DUP1 REVERT JUMPDEST CALLVALUE DUP1 ISZERO PUSH2 0x5D JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST POP PUSH2 0x7C PUSH1 0x4 DUP1 CALLDATASIZE SUB DUP2 ADD SWAP1 DUP1 DUP1 CALLDATALOAD SWAP1 PUSH1 0x20 ADD SWAP1 SWAP3 SWAP2 SWAP1 POP POP POP PUSH2 0xA9 JUMP JUMPDEST STOP JUMPDEST CALLVALUE DUP1 ISZERO PUSH2 0x8A JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST POP PUSH2 0x93 PUSH2 0xF4 JUMP JUMPDEST PUSH1 0x40 MLOAD DUP1 DUP3 DUP2 MSTORE PUSH1 0x20 ADD SWAP2 POP POP PUSH1 0x40 MLOAD DUP1 SWAP2 SUB SWAP1 RETURN JUMPDEST DUP1 PUSH1 0x0 DUP2 SWAP1 SSTORE POP DUP1 PUSH1 0x2 PUSH1 0x0 PUSH2 0x100 EXP DUP2 SLOAD DUP2 PUSH20 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF MUL NOT AND SWAP1 DUP4 PUSH20 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF AND MUL OR SWAP1 SSTORE POP POP JUMP JUMPDEST PUSH1 0x0 PUSH1 0x2 PUSH1 0x0 SWAP1 SLOAD SWAP1 PUSH2 0x100 EXP SWAP1 DIV PUSH20 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF AND PUSH20 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF AND PUSH4 0x6D4CE63C PUSH1 0x40 MLOAD DUP2 PUSH4 0xFFFFFFFF AND PUSH29 0x100000000000000000000000000000000000000000000000000000000 MUL DUP2 MSTORE PUSH1 0x4 ADD PUSH1 0x20 PUSH1 0x40 MLOAD DUP1 DUP4 SUB DUP2 PUSH1 0x0 DUP8 DUP1 EXTCODESIZE ISZERO DUP1 ISZERO PUSH2 0x17C JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST POP GAS CALL ISZERO DUP1 ISZERO PUSH2 0x190 JUMPI RETURNDATASIZE PUSH1 0x0 DUP1 RETURNDATACOPY RETURNDATASIZE PUSH1 0x0 REVERT JUMPDEST POP POP POP POP PUSH1 0x40 MLOAD RETURNDATASIZE PUSH1 0x20 DUP2 LT ISZERO PUSH2 0x1A6 JUMPI PUSH1 0x0 DUP1 REVERT JUMPDEST DUP2 ADD SWAP1 DUP1 DUP1 MLOAD SWAP1 PUSH1 0x20 ADD SWAP1 SWAP3 SWAP2 SWAP1 POP POP POP PUSH1 0x1 DUP2 SWAP1 SSTORE POP PUSH1 0x0 SLOAD SWAP1 POP SWAP1 JUMP STOP LOG1 PUSH6 0x627A7A723058 KECCAK256 0x2f 0xcb 0xe3 0xc0 NOT SHL SWAP15 ADD DUP7 EXTCODESIZE BYTE 0x3f 0xb0 PUSH24 0x54D378FDE04EE588CFCA1F87EE70AAB715A0002900000000 ",
+                        "sourceMap": "52:324:1:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;159:95;;8:9:-1;5:2;;;30:1;27;20:12;5:2;159:95:1;;;;;;;;;;;;;;;;;;;;;;;;;;260:114;;8:9:-1;5:2;;;30:1;27;20:12;5:2;260:114:1;;;;;;;;;;;;;;;;;;;;;;;159:95;203:1;190:10;:14;;;;245:1;214:11;;:33;;;;;;;;;;;;;;;;;;159:95;:::o;260:114::-;293:4;323:11;;;;;;;;;;;:15;;;:17;;;;;;;;;;;;;;;;;;;;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;323:17:1;;;;8:9:-1;5:2;;;45:16;42:1;39;24:38;77:16;74:1;67:27;5:2;323:17:1;;;;;;;13:2:-1;8:3;5:11;2:2;;;29:1;26;19:12;2:2;323:17:1;;;;;;;;;;;;;;;;309:11;:31;;;;357:10;;350:17;;260:114;:::o"
+                    }
+                }
+            }
+        }
+    },
+    "errors": [
+        {
+            "component": "general",
+            "formattedMessage": "importing.sol:7:5: Warning: No visibility specified. Defaulting to \"public\". \n    function set(uint x) {\n    ^ (Relevant source part starts here and spans across multiple lines).\n",
+            "message": "No visibility specified. Defaulting to \"public\". ",
+            "severity": "warning",
+            "sourceLocation": {
+                "end": 154,
+                "file": "importing.sol",
+                "start": 102
+            },
+            "type": "Warning"
+        },
+        {
+            "component": "general",
+            "formattedMessage": "importing.sol:11:5: Warning: No visibility specified. Defaulting to \"public\". \n    function get() constant returns (uint) {\n    ^ (Relevant source part starts here and spans across multiple lines).\n",
+            "message": "No visibility specified. Defaulting to \"public\". ",
+            "severity": "warning",
+            "sourceLocation": {
+                "end": 233,
+                "file": "importing.sol",
+                "start": 160
+            },
+            "type": "Warning"
+        },
+        {
+            "component": "general",
+            "formattedMessage": "simple.sol:10:5: Warning: No visibility specified. Defaulting to \"public\". \n    function set(uint x) {\n    ^ (Relevant source part starts here and spans across multiple lines).\n",
+            "message": "No visibility specified. Defaulting to \"public\". ",
+            "severity": "warning",
+            "sourceLocation": {
+                "end": 254,
+                "file": "simple.sol",
+                "start": 159
+            },
+            "type": "Warning"
+        },
+        {
+            "component": "general",
+            "formattedMessage": "simple.sol:15:5: Warning: No visibility specified. Defaulting to \"public\". \n    function get() constant returns (uint) {\n    ^ (Relevant source part starts here and spans across multiple lines).\n",
+            "message": "No visibility specified. Defaulting to \"public\". ",
+            "severity": "warning",
+            "sourceLocation": {
+                "end": 374,
+                "file": "simple.sol",
+                "start": 260
+            },
+            "type": "Warning"
+        },
+        {
+            "component": "general",
+            "formattedMessage": "simple.sol:16:9: Warning: Function declared as view, but this expression (potentially) modifies the state and thus requires non-payable (the default) or payable.\n        from_import = some_import.get();\n        ^---------^\n",
+            "message": "Function declared as view, but this expression (potentially) modifies the state and thus requires non-payable (the default) or payable.",
+            "severity": "warning",
+            "sourceLocation": {
+                "end": 320,
+                "file": "simple.sol",
+                "start": 309
+            },
+            "type": "Warning"
+        }
+    ],
+    "sources": {
+        "importing.sol": {
+            "id": 0
+        },
+        "simple.sol": {
+            "id": 1
+        }
+    }
+}

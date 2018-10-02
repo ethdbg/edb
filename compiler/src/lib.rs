@@ -1,4 +1,6 @@
-//! Traits 'compiler' modules must implement
+#![recursion_limit="128"]
+#![feature(test)]
+//! Interfaces 'compiler' modules must implement
 //! Three Main Traits:
 //!     - Contract: The Contract interface that represents *one* Contract
 //!     - Language: Represents the Language Type, and everything that can be done with a Language
@@ -10,41 +12,59 @@
 //!         - Mapping Byte offsets to positions in file
 //!         - getting information about the mapping from Source to Bytecode, Source to AST
 //!     - `CodeFile` Struct accepts a type that implements Language and SourceMap
-pub mod solidity;
-// mod vyper;
 mod err;
 mod types;
+mod contract;
+pub mod map;
+mod code_file;
+
+pub mod solidity;
+// pub mod vyper;
+
+pub use self::code_file::CodeFile;
+pub use self::contract::{Contract, ContractFile};
+
+use std::path::PathBuf;
+use web3::Transport;
+use failure::Error;
+extern crate test;
 
 
-
+/// The Source File of a specific language
 pub trait Language {
-    // Language Functions
+    /// Compiles Source Code File into a Vector of Contract Files
+    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>)
+        -> Result<Vec<ContractFile<T>>, Error> where T: Transport;
 }
 
-pub trait Contract {
-    // Contract Interface Functions
-}
+/// Represents a Line - Line number and String (0-indexed)
+pub type Line = (usize, String);
+pub type LineNo = usize;
+pub type Offset = usize;
+/// Represents a Source Map
+pub trait SourceMap {
 
-/*
- * TBA trait for walking, and getting information from AST
- */
-pub trait SourceMap { // maybe rename to `BytecodeSourceMap`
     /// Get the instruction offset from a line number in the Source Code
     /// Optional File - if not specified, takes first file in index
-    fn position_from_lineno(&self, file: &FileIdentifier, lineno: u32) -> usize;
-    /// Get the source code
-    fn source(&self) -> &str;
-    /// get the ABI of a contract
-    fn abi(&self, contract_name: &str) -> ethabi::Contract;
+    fn position_from_lineno(&self, lineno: usize) -> Result<Offset, Error>;
+
+    /// The reverse of `position_from_lineno`
+    fn lineno_from_position(&self, offset: usize) -> Result<LineNo, Error>;
+
+    /// Get a line mapping (line number => str)
+    fn current_line(&self, offset: usize) -> Result<Line, Error>;
+
+    /// Get the last `count` number of lines (inclusive)
+    fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
+
+    /// Get the next `count` number of lines (inclusive)
+    fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
 }
 
-// this may be totally unnecessary
-/// Identifier for where code resides.
-pub enum FileIdentifier {
-    /// Identified by file name
-    File(String),
-    /// Identified by Contract Name
-    Contract(String),
-    /// Identified by index in compiled code (IE: Standard JSON)
-    Index(usize),
+//TODO: not yet implemented in solc_api
+pub trait Ast {
+    type Err;
+    /// Get a contract by it's byte offset in the source file
+    fn contract_by_offset(&self, offset: u32) -> Result<String, Self::Err>;
 }
+
