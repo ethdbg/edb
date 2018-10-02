@@ -7,14 +7,14 @@ authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 edition = '2018'
 
 
-[lib]
-path = "edb/lib.rs"
+[[bin]]
+path = "edb/main.rs"
 name = "edb"
 
 [workspace]
 members = [
   "compiler/",
-  "debugger/",
+  "edb-core",
   "emul/",
   "solc_api",
   "test_helpers",

@@ -1,5 +1,5 @@
 [package]
-name = "ethdbg"
+name = "edb-core"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 

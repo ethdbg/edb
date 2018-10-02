@@ -3,6 +3,7 @@ name = "edb-emul"
 version = "0.1.0"
 authors = ["Andrew Plaza <aplaza@liquidthink.net>"]
 edition = '2018'
+license = "GPLv3"
 
 [dependencies]
 log = "0.3"
