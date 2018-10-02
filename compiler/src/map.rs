@@ -213,7 +213,7 @@ mod tests {
     use edb_test_helpers as edbtest;
     use crate::test::Bencher;
     const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
-    const LINUX_SRC:&str = include_str!("map/linux_source.c");
+    const LINUX_SRC:&str = include_str!("map/linux-source-c.test");
     const LARGE:&str = include_str!("map/1MB.txt");
     const TEST_STR:&str =
 "pragma solidity ^0.4.22;
