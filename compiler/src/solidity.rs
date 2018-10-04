@@ -8,7 +8,7 @@ use std::{
     iter::FromIterator,
     rc::Rc,
 };
-use web3::Transport;
+use web3::{Transport, types::Address};
 use log::*;
 use failure::Error;
 use solc_api::{
@@ -24,7 +24,7 @@ pub struct Solidity;
 
 impl Language for Solidity {
 
-    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>)
+    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>, addresses: &[&Address])
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error>
         where
             T: Transport
@@ -57,6 +57,7 @@ impl Language for Solidity {
                                       eth.clone(),
                                       Box::new(SoliditySourceMap::new(cfile.clone().source(), deployed_code.source_map)),
                                       c.abi.clone(),
+                                      addresses,
                                       deployed_code.object
                                       ).map_err(|e| e.into())
                     }));

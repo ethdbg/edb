@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
-    matrix: Vec<Vec<char>>, // matrix of chars.  every index of outer Vec is a line
+    pub matrix: Vec<Vec<char>>, // matrix of chars.  every index of outer Vec is a line
 }
 
 /// A line number
@@ -88,16 +88,12 @@ impl Map {
     /// new map
     pub fn new(source: &str) -> Self {
         let mut matrix = Vec::new();
-        source
-            .lines() // possibly use map instead of for_each
-            .for_each(|l| {
-                matrix.push({
-                    // str.lines() does not include newlines
-                    let mut vec = l.chars().collect::<Vec<char>>();
-                    vec.push('\n');
-                    vec
-                })
-            });
+
+        for line in source.lines() {
+            let mut vec = line.chars().collect::<Vec<char>>();
+            vec.push('\n');
+            matrix.push(vec);
+        }
         Self { matrix }
     }
 
@@ -108,11 +104,12 @@ impl Map {
 
     /// find the line that contains this offset
     pub fn find_line(&self, byte_offset: ByteOffset) -> Option<Line> {
+
         self.matrix
             .iter()
             .enumerate()
-            .find(|(line_num, _)| {
-                self.in_range(byte_offset, *line_num)
+            .find(|(line, _)| {
+                self.in_range(byte_offset, *line)
             })
             .map(|(idx, _)| idx)
     }
@@ -159,20 +156,16 @@ impl Map {
         let start = self.matrix
             .iter()
             .take(line.get_line())
-            .inspect(|l| println!("Line: {:?}", l))
             .fold(0, |acc, l| acc + l.len());
         let end = start + line_str.len();
+        println!("Byte Range: {} - {}", start, end);
 
         match line {
             LineNumber::NoLeadingWhitespace(_) | LineNumber::NoWhitespaceRange(_) => {
                 let local_idx = line_str
                     .iter()
                     .enumerate()
-                    .inspect(|(_, &c)| {
-                        println!("CHARTYPE: {}, CHAR: {}", c == CharType::Whitespace, c);
-                    })
                     .skip_while(|(_, &c)| c == CharType::Whitespace)
-                    .inspect(|(i, _)| println!("Index: {}", i))
                     .map(|(idx, _)| idx)
                     .take(1)
                     .fold(0, |acc, i| acc + i);
@@ -200,7 +193,7 @@ impl Map {
     /// check if `offset` is in range of a character slice
     fn in_range(&self, offset: usize, line_num: Line) -> bool {
         let (start, end) = self.range(LineNumber::Range(line_num)).expect("Should never be out of range in internal function; qed");
-        offset >= start && offset <= end
+        (offset >= start) && (offset <= end)
     }
 }
 

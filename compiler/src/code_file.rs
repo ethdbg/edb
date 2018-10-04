@@ -1,8 +1,9 @@
 //! Codefile represents one source code file and all of the files it imports
 use super::{Language, Line, Offset, LineNo, contract::{Contract, ContractFile}, err::{LanguageError, NotFoundError}};
 use failure::Error;
-use web3::Transport;
+use web3::{Transport, types::Address};
 use std::{path::{PathBuf}, rc::Rc};
+use log::*;
 
 // every CodeFile is associated with a language
 pub struct CodeFile<L: Language, T: Transport> {
@@ -20,7 +21,7 @@ pub struct CodeFile<L: Language, T: Transport> {
 impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Create a new instance of Code File
-    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>) -> Result<Self, Error> {
+    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, addresses: &[&Address]) -> Result<Self, Error> {
         let name = path.file_name()
             .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
@@ -30,7 +31,8 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
         if path.is_dir() {
             return Err(LanguageError::NotFound(NotFoundError::File)).map_err(|e| e.into());
         }
-        let (files, contracts) = language.compile(path, &client.eth())?;
+        let (files, contracts) = language.compile(path, &client.eth(), addresses)?;
+        info!("Files: {:?}", files);
         Ok(Self { language, client, files, contracts, name })
     }
 
@@ -45,6 +47,7 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Find the root contract that is being debugged
     pub fn root_name(&self) -> &str {
+        info!("Root Name!: {}", self.name);
         &self.name
     }
 

@@ -1,11 +1,11 @@
 use failure::Fail;
-use log::{error};
+use log::*;
 
 #[derive(Fail, Debug)]
 pub enum LanguageError {
     #[fail(display = "Could not obtain a Source Map")]
     SourceMap(#[cause] SourceMapError),
-    #[fail(display = "")]
+    #[fail(display = "{}", _0)]
     NotFound(NotFoundError),
     #[fail(display = "An error occurred while communicating with the local test node")]
     NodeIo(String),

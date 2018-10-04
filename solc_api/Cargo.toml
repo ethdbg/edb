@@ -11,4 +11,5 @@ ethereum-types = "0.4.0"
 ethabi = "6.0.1"
 failure = "*"
 hex = "0.3.2"
+serde_bytes = "0.10.4"
 solc = { git =  "https://github.com/InsidiousMind/rust_solc", branch = "insi_add-whitelisted-paths" }

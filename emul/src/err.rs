@@ -6,12 +6,12 @@ use failure::Fail;
 pub enum EmulError {
     #[fail(display = "An error occurred during the execution of the Emulator")]
     Execution,
-    #[fail(display = "VM Error Occurred")]
+    #[fail(display = "VM Error Occurred, _0")]
     Vm(VmError),
     #[fail(display = "Web3 Error: {}", _0)]
     Web3(String),
-    #[fail(display = "An error occurred storing or retrieving data for an ethereum account from local storage")]
-    State( #[fail(cause)] StateError), 
+    #[fail(display = "An error occurred storing or retrieving data for an ethereum account from local storage {}", _0)]
+    State( #[fail(cause)] StateError),
 }
 
 /// Errors that occured while interacting with In-Memory or cached Ethereum State Storage
@@ -41,7 +41,8 @@ impl From<web3::Error> for EmulError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Fail, Debug, Clone)]
 pub enum VmError {
+    #[fail(display = "Commit {:?}", _0)]
     Commit(sputnikvm::errors::CommitError),
 }

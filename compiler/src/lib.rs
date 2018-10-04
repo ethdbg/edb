@@ -25,7 +25,7 @@ pub use self::code_file::CodeFile;
 pub use self::contract::{Contract, ContractFile};
 
 use std::{path::PathBuf, rc::Rc};
-use web3::Transport;
+use web3::{Transport, types::{Address}};
 use failure::Error;
 extern crate test;
 
@@ -33,7 +33,7 @@ extern crate test;
 /// The Source File of a specific language
 pub trait Language {
     /// Compiles Source Code File into a Vector of Contract Files
-    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>)
+    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, addresses: &[&Address])
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
 }
 
