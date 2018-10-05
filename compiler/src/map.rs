@@ -1,5 +1,6 @@
 //! Map of source file. Line numbers are zero-indexed.
 //! Byte offset refers to character offset rather than actual UTF-8 bytes/codepoints
+use log::*;
 use super::err::{MapError};
 use std::iter::FromIterator;
 // creates a map of the source file
@@ -19,6 +20,7 @@ pub type Range = (ByteOffset, ByteOffset);
 
 /// An offset represented by an enum.
 /// Options for where the offset should reside
+#[derive(Debug, Clone, PartialEq)]
 pub enum LineNumber {
     /// get the start of a line without including the leading whitespace
     NoLeadingWhitespace(Line),
@@ -30,6 +32,12 @@ pub enum LineNumber {
     Range(Line),
     /// Get the range of a line, without leading whitespace
     NoWhitespaceRange(Line),
+}
+
+impl std::fmt::Display for LineNumber {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.get_line())
+    }
 }
 
 impl LineNumber {
@@ -151,14 +159,12 @@ impl Map {
     /// For LineNumber::Start, and LineNumber::End, returns canoncial start and end
     /// LineNumber::NoLeadingWhitespace returns start and end w/o leading whitespace
     pub fn range(&self, line: LineNumber) -> Result<Range, MapError> {
-        println!("Finding byte range of line: {}: {:?}", line.get_line(), self.line(line.get_line())?);
         let line_str = self.line(line.get_line())?;
         let start = self.matrix
             .iter()
             .take(line.get_line())
             .fold(0, |acc, l| acc + l.len());
         let end = start + line_str.len();
-        println!("Byte Range: {} - {}", start, end);
 
         match line {
             LineNumber::NoLeadingWhitespace(_) | LineNumber::NoWhitespaceRange(_) => {

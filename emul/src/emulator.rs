@@ -1,24 +1,13 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
-use log::{info, error, warn, log};
 use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
-use web3::{
-    api::Web3,
-    Transport,
-    types::{BlockNumber, U256, Bytes},
-};
-use std::{
-    rc::Rc,
-    cell::RefCell,
-    collections::HashMap,
-};
-use super::{
-    err::{EmulError, StateError},
-};
-
+use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
+use std::{ rc::Rc, cell::RefCell, collections::HashMap };
+use super::err::{EmulError, StateError};
+use log::*;
 
 /// An action or what should happen for the next step of execution
 pub enum Action {
@@ -168,7 +157,6 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
-        info!("Positions: {:?}", self.positions);
         let mut curr_pos = 0;
         if let Some(x) = self.positions.pop() {
             curr_pos = x;
@@ -177,8 +165,6 @@ impl<T> Emulator<T> where T: Transport {
         let mut last_pos = 0;
         let (txinfo, header) = self.transaction.clone();
         let new_vm = sputnikvm::TransactionVM::new(txinfo, header);
-        info!("Stepping vm back to last position {}, from current position {}",
-              *self.positions.get(self.positions.len() - 1).unwrap_or(&0), curr_pos);
         std::mem::replace(&mut self.vm, new_vm);
 
         // run the vm until the latest stored position
@@ -198,7 +184,6 @@ impl<T> Emulator<T> where T: Transport {
         if let Some(x) = self.vm.current_state() {
             self.positions.push(x.position);
         } else {
-            warn!("The VM Status is {:?} but not initialized. Pushing 0 to positions", self.vm.status());
             self.positions.push(0);
         }
         Ok(())
@@ -221,7 +206,6 @@ impl<T> Emulator<T> where T: Transport {
             let result = self.vm.fire();
             self.persist()?;
             if handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? {
-                info!("Vm  exited with code {:?}", self.vm.status());
                 break 'run;
             }
         }
@@ -245,7 +229,6 @@ impl<T> Emulator<T> where T: Transport {
         let res = self.vm.accounts().map(|acc| {
             match acc {
                 AccountChange::Full {nonce, address, balance, changing_storage, code} => {
-                    info!("Changing storage: {:?}", changing_storage);
                     if changing_storage.len() > 0 && self.state_cache.borrow().contains_key(&address) {
                         for item in 0..changing_storage.len() {
                             self.state_cache
@@ -299,7 +282,6 @@ impl<T> Emulator<T> where T: Transport {
                 }
             }
         }).collect::<Result<(), EmulError>>();
-        info!("Result of persist: {:?}", res);
         res
     }
 
@@ -335,12 +317,9 @@ where
             Ok(true)
         },
         Err(RequireError::Account(addr)) => {
-            info!("Acquiring account {:#x} for VM", addr);
-            info!("Getting nonce");
+            info!("Acquiring balance, code, and nonce of account {:#x} for VM", addr);
             let nonce = client.eth().transaction_count(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?;
-            info!("Getting balance");
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
-            info!("Getting code");
             let mut code = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait(); // Bytes
             if code.is_err() {
                 code = Ok(Bytes(vec![0]));
@@ -356,9 +335,9 @@ where
         },
         Err(RequireError::AccountStorage(addr, index)) => {
             info!("Acquiring account storage at {:#x}, {:#x} for VM", addr, index);
-            info!("Local Storage: {:?}", cache);
+            debug!("Local Storage: {:?}", cache);
             if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.read(index).is_ok() {
-                info!("Found storage in Local Cache. Committing...");
+                debug!("Found storage in Local Cache. Committing...");
                 cache.borrow().get(&addr).and_then(|x| {
                     let res = vm.commit_account(AccountCommitment::Storage {
                         address: addr,
@@ -371,7 +350,6 @@ where
                         _ => Some(x)
                     }
                 });
-                info!("Returning!");
                 Ok(false)
             } else {
                 let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
@@ -466,7 +444,7 @@ mod test {
                 emul.fire(Action::StepForward).unwrap();
                 emul.fire(Action::StepForward).unwrap();
                 emul.read_raw(|vm| {
-                    info!("current PC: {}", vm.current_state().unwrap().position);
+                    trace!("current PC: {}", vm.current_state().unwrap().position);
                     assert_eq!(2, vm.current_state().unwrap().position);
                     Ok(())
                 }).unwrap();
@@ -478,11 +456,11 @@ mod test {
                 emul.fire(Action::StepForward).unwrap();
                 emul.read_raw(|vm| {
                     assert_eq!(4, vm.current_state().unwrap().position);
-                    info!("Current PC: {}", vm.current_machine().unwrap().pc().position());
-                    info!("Current Opcode Pos: {}", vm.current_machine().unwrap().pc().opcode_position());
-                    info!("Code: {:?}", vm.current_machine().unwrap().pc().code());
-                    info!("Next Opcode: {:?}", vm.current_machine().unwrap().pc().peek_opcode().unwrap());
-                    info!("Next Instruction: {:?}", vm.current_machine().unwrap().pc().peek().unwrap());
+                    trace!("Current PC: {}", vm.current_machine().unwrap().pc().position());
+                    trace!("Current Opcode Pos: {}", vm.current_machine().unwrap().pc().opcode_position());
+                    trace!("Code: {:?}", vm.current_machine().unwrap().pc().code());
+                    trace!("Next Opcode: {:?}", vm.current_machine().unwrap().pc().peek_opcode().unwrap());
+                    trace!("Next Instruction: {:?}", vm.current_machine().unwrap().pc().peek().unwrap());
                     Ok(())
                 });
                 emul.fire(Action::StepBack).unwrap();
@@ -495,7 +473,7 @@ mod test {
             it "can execute the entire program" {
                 emul.fire(Action::Exec).unwrap();
                 emul.read_raw(|vm| {
-                    info!("VM PC: {}", vm.current_state().unwrap().position);
+                    trace!("VM PC: {}", vm.current_state().unwrap().position);
                     Ok(())
                 }).unwrap();
             }

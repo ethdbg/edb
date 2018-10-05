@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 edb-compiler = { path = "../compiler" }
 edb-emul = { path = "../emul"}
-web3 = { path = "../../../rust-web3" }
+web3 = { git = "https://github.com/InsidiousMind/rust-web3", branch = "bytes-deser" }
 failure = "0.1.2"
-log = "*"
 futures = "0.1.23"

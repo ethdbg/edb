@@ -1,5 +1,4 @@
 use failure::Fail;
-use log::*;
 
 #[derive(Fail, Debug)]
 pub enum LanguageError {
@@ -38,7 +37,7 @@ pub enum SourceMapError {
 
 impl From<web3::error::Error> for LanguageError {
     fn from(err: web3::error::Error) -> LanguageError {
-        error!("Web3 Error. Backtrace: {:?}, Kind: {:?}, description: {}", err.backtrace(), err.kind(), err.description());
+        println!("Web3 Error. Backtrace: {:?}, Kind: {:?}, description: {}", err.backtrace(), err.kind(), err.description());
         LanguageError::NodeIo(format!("{}", err))
     }
 }

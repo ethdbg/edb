@@ -1,70 +1,52 @@
 use crate::{ SourceMap, Line, LineNo, Offset, map::Map };
-use std::iter::FromIterator;
+use std::{iter::FromIterator, collections::HashMap };
 use super::err::{SolidityError, SourceMapError};
-use solc_api::types::{Instruction, SourceIndex, Jump};
-use failure::Error;
+use solc_api::types::Instruction;
 use log::*;
-use std::io::{Write};
+use failure::Error;
 
 // TODO many of these Strings, Vec<> can be made references with a lifetime on ContractFile
 pub struct SoliditySourceMap {
     /// simple map of the source itself
     map: Map,
     /// Source map acquired from Solidity Compiler
-    program_map: Vec<Instruction>
+    program_map: Vec<Instruction>,
+    line_cache: HashMap<usize, Option<usize>>
+
 }
 
 impl SoliditySourceMap {
 
     pub fn new(src: &str, source_map: Vec<Instruction>) -> Self {
-        info!("Source Map: {:?}", source_map);
+        let mut cache = HashMap::new();
+        let map = Map::new(src);
+        for line in src.lines().enumerate() {
+            cache.insert(line.0, Self::shortest_len(&source_map, &map, line.0).map(|i| i.position));
+        }
+
         Self {
             map: Map::new(src),
             program_map: source_map,
+            line_cache: cache
         }
     }
 
     // find the instructions with shortest length, and returns the line number that contains that
     // offset
-    fn shortest_len(&self, lineno: usize) -> Option<&Instruction> {
-        // println!("Line Number: {}", lineno);
+    fn shortest_len<'a>(prog_map: &'a Vec<Instruction>, map: &Map, lineno: usize) -> Option<&'a Instruction> {
         let mut shortest = None;
-        for inst in self.program_map.iter() {
-            info!("INST START: {}", inst.start);
+        for inst in prog_map.iter() {
             shortest = match shortest {
-                None => {
-                    match self.map.find_line(inst.start) {
-                        None => panic!("Could not find line for offset {}", inst.start),
-                        Some(_) => {
-                            if self.map.find_line(inst.start).unwrap() == (lineno-1) { Some(inst) } else { None }
-                        }
-                    }
-                },
+                None => if map.find_line(inst.start).unwrap() == (lineno) { Some(inst) } else { None },
                 Some(current) => {
-                    match self.map.find_line(inst.start) {
-                        None => panic!("Could not find line for offset {}", inst.start),
-                        Some(_) => {
-                            if self.map.find_line(inst.start).unwrap() == (lineno-1) && inst.length < current.length {
-                                Some(inst)
-                            } else {
-                                Some(current)
-                            }
-                        }
+                    if map.find_line(inst.start).unwrap() == (lineno) && inst.length < current.length {
+                        Some(inst)
+                    } else {
+                        Some(current)
                     }
                 }
-            };
+            }
         }
-
-        /*
-        let shortest =  Some(Instruction {
-            start: 20,
-            length: 5,
-            source_index: SourceIndex::Source(0),
-            jump: Jump::NormJump,
-            position: 200,
-        });
-        */
-        println!("Found: {:?} to be the shortest", shortest);
         shortest
     }
 }
@@ -72,9 +54,9 @@ impl SoliditySourceMap {
 impl SourceMap for SoliditySourceMap {
 
     fn position_from_lineno(&self, lineno: usize) -> Result<Offset, Error> {
-        let shortest = self.shortest_len(lineno).ok_or(SolidityError::SourceMap(SourceMapError::OffsetNotFound))?.position;
-        info!("Shortest: {}", shortest);
-        Ok(shortest)
+        Ok(self.line_cache.get(&lineno)
+            .ok_or(SolidityError::SourceMap(SourceMapError::OffsetNotFound))?
+            .ok_or(SolidityError::SourceMap(SourceMapError::OffsetNotFound))?)
     }
 
     fn lineno_from_position(&self, offset: usize) -> Result<LineNo, Error> {

@@ -3,7 +3,6 @@ use super::{Language, Line, Offset, LineNo, contract::{Contract, ContractFile}, 
 use failure::Error;
 use web3::{Transport, types::Address};
 use std::{path::{PathBuf}, rc::Rc};
-use log::*;
 
 // every CodeFile is associated with a language
 pub struct CodeFile<L: Language, T: Transport> {
@@ -32,7 +31,6 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
             return Err(LanguageError::NotFound(NotFoundError::File)).map_err(|e| e.into());
         }
         let (files, contracts) = language.compile(path, &client.eth(), addresses)?;
-        info!("Files: {:?}", files);
         Ok(Self { language, client, files, contracts, name })
     }
 
@@ -47,7 +45,6 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Find the root contract that is being debugged
     pub fn root_name(&self) -> &str {
-        info!("Root Name!: {}", self.name);
         &self.name
     }
 

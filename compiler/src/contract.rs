@@ -5,7 +5,6 @@ use web3::{ types::{Address, BlockNumber}, Transport };
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
 use futures::future::Future;
-use log::*;
 use failure::Error;
 
 pub struct ContractFile {
@@ -102,11 +101,8 @@ impl<T> Contract<T> where T: Transport {
     fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[&Address])
                               -> Result<Address, LanguageError>
     {
-        info!("Needle: {:?}", needle);
         for a in addr.iter() {
-            info!("acc: {:?}", a);
             let code = eth.code(**a, Some(BlockNumber::Latest)).wait()?;
-            info!("Code: {:?}", code);
             if needle == code.0.as_slice() {
                 return Ok((*a).clone());
             }
