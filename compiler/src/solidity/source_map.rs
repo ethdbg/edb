@@ -1,4 +1,4 @@
-use crate::{ SourceMap, Line, LineNo, Offset, map::{Map, LineNumber} };
+use crate::{ SourceMap, Line, LineNo, CharOffset, OpcodeOffset, map::{Map, LineNumber} };
 use std::{iter::FromIterator, collections::HashMap };
 use super::err::{SolidityError, SourceMapError};
 use solc_api::types::Instruction;
@@ -53,36 +53,55 @@ impl SoliditySourceMap {
 }
 
 impl SourceMap for SoliditySourceMap {
+
+    fn unique_exists(&self, lineno: LineNo) -> bool {
+        self.line_cache.get(&lineno).is_some() && self.line_cache.get(&lineno).unwrap().is_some()
+    }
+
     // bytecode position from lineno
-    fn opcode_pos_from_lineno(&self, lineno: LineNo) -> Result<Offset, Error> {
+    fn unique_opcode_pos(&self, lineno: LineNo) -> Result<OpcodeOffset, Error> {
         Ok(self.line_cache.get(&lineno)
             .ok_or(SolidityError::SourceMap(SourceMapError::OffsetNotFound))?
             .ok_or(SolidityError::SourceMap(SourceMapError::OffsetNotFound))?)
     }
 
-    fn char_pos_from_lineno(&self, lineno: LineNo) -> Result<Offset, Error> {
+    fn opcode_pos_from_lineno(&self, lineno: LineNo, from: OpcodeOffset) -> Result<OpcodeOffset, Error> {
+        if from > self.program_map.len() {
+            return Err(SolidityError::SourceMap(SourceMapError::PositionOutOfBounds)).map_err(|e| e.into());
+        }
+        let (lineStart, lineEnd) = self.map.range(LineNumber::Range(lineno))?;
+
+        for inst in &self.program_map[from..] {
+            if self.map.find_line(inst.start).expect("line in program map should always be found in source code; qed") == lineno {
+                return Ok(inst.position);
+            }
+        }
+        Err(SolidityError::SourceMap(SourceMapError::PositionNotFound)).map_err(|e| e.into())
+    }
+
+    fn char_pos_from_lineno(&self, lineno: LineNo) -> Result<CharOffset, Error> {
         Ok(self.map.find_offset(LineNumber::NoLeadingWhitespace(lineno))?)
     }
 
-    fn lineno_from_char_pos(&self, offset: Offset) -> Result<LineNo, Error> {
+    fn lineno_from_char_pos(&self, offset: CharOffset) -> Result<LineNo, Error> {
         Ok(self.map.find_line(offset).ok_or(SolidityError::SourceMap(SourceMapError::LineNotFound))?)
     }
 
-    fn lineno_from_opcode_pos(&self, offset: usize) -> Result<LineNo, Error> {
+    fn lineno_from_opcode_pos(&self, offset: OpcodeOffset) -> Result<LineNo, Error> {
         let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
         assert_eq!(pos.position, offset);
         Ok(self.map.find_line(pos.start).ok_or(SolidityError::SourceMap(SourceMapError::LineNotFound))?)
     }
 
     /// Finds the current line from the an opcode offset
-    fn current_line(&self, offset: usize) -> Result<Line, Error> {
+    fn current_line(&self, offset: OpcodeOffset) -> Result<Line, Error> {
         let line = self.lineno_from_opcode_pos(offset)?;
         let line_str = self.map.line(line)?;
         Ok((line, String::from_iter(line_str)))
     }
 
     /// finds the last `count` lines from a bytecode offset
-    fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error> {
+    fn last_lines(&self, offset: OpcodeOffset, count: usize) -> Result<Vec<Line>, Error> {
         let line = self.lineno_from_opcode_pos(offset)?;
         if count > line {
             return Err(SolidityError::SourceMap(SourceMapError::CountOutOfBounds)).map_err(|e| e.into());
@@ -95,7 +114,7 @@ impl SourceMap for SoliditySourceMap {
     }
 
     /// Finds the next `count` lines from a bytecode offset
-    fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error> {
+    fn next_lines(&self, offset: OpcodeOffset, count: usize) -> Result<Vec<Line>, Error> {
         let line = self.lineno_from_opcode_pos(offset)?;
         if count > (self.map.len() - line) {
             return Err(SolidityError::SourceMap(SourceMapError::CountOutOfBounds)).map_err(|e| e.into());

@@ -37,4 +37,6 @@ pub enum SourceMapError {
     CountOutOfBounds,
     #[fail(display = "Opcode position not found in program map")]
     PositionNotFound,
+    #[fail(display = "Opcode position is out of bounds of the bytecode length")]
+    PositionOutOfBounds
 }

@@ -22,6 +22,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
                   client: web3::Web3<T>,
                   tx: ValidTransaction,
                   block: HeaderParams,
+                  contract_name: &str
                   )
         -> Result<Self, Error>
     {
@@ -29,21 +30,17 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
         let file = CodeFile::new(lang, path, client.clone(), &cache.as_vec().as_slice())?;
         let emul = Emulator::new(tx, block, client);
         let breakpoints = Vec::new();
-        let curr_name = String::from("");
+        let curr_name = String::from(contract_name);
         Ok(Self {file, emul, breakpoints, cache, curr_name})
     }
 
     /// Begins the program, and runs until it hits a breakpoint
-    pub fn run(&mut self, name: Option<&str>) -> Result<(), Error> {
+    pub fn run(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            if name.is_none() {
-                panic!("name not specified");
-            }
-            self.curr_name = name.unwrap().to_string();
-            let pos = self.file.opcode_pos_from_lineno(b, name.unwrap())?;
+            let pos = self.file.unique_opcode_pos(b, self.curr_name.as_str())?;
             self.emul.fire(Action::RunUntil(pos))?;
             Ok(())
-        } else {
+        } else { // if no breakpoints, just execute the contract
             self.emul.fire(Action::Exec)?;
             Ok(())
         }
@@ -57,15 +54,17 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     /// Sets a breakpoint at a line number
     pub fn set_breakpoint(&mut self, line: Breakpoint) -> Result<(), Error> {
-        match self.breakpoints.binary_search(&line) {
-            Ok(_) => {} // already inserted
-            Err(pos) => self.breakpoints.insert(pos, line)
-        };
+        if self.file.unique_exists(line, self.curr_name.as_str())? {
+            match self.breakpoints.binary_search(&line) {
+                Ok(_) => {} // already inserted
+                Err(pos) => self.breakpoints.insert(pos, line)
+            };
+        }
         Ok(())
     }
 
-    /// Removes a breakpoint if it matches the predicate F
-    pub fn remove_breakpoint_by(&mut self, line: Breakpoint) {
+    /// Removes a breakpoint
+    pub fn remove_breakpoint(&mut self, line: Breakpoint) {
         match self.breakpoints.binary_search(&line) {
             Ok(pos) => {self.breakpoints.remove(pos); },
             Err(_) => {} // element not in array
@@ -75,8 +74,8 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Steps to the next line of execution
     pub fn step(&mut self) -> Result<(), Error> {
         debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
-        let line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
-        let run_to = self.file.opcode_pos_from_lineno(line+1, self.curr_name.as_str())?;
+        let current_line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
+        let run_to = self.file.opcode_pos_from_lineno(current_line+1, self.emul.offset(), self.curr_name.as_str())?;
         debug!("Running VM to {}", run_to);
         self.emul.fire(Action::RunUntil(run_to))?;
         Ok(())
@@ -85,7 +84,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.curr_name.as_str())?))?;
+            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.offset(), self.curr_name.as_str())?))?;
         } else {
             self.emul.fire(Action::Exec)?;
         }
