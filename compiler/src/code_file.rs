@@ -20,7 +20,7 @@ pub struct CodeFile<L: Language, T: Transport> {
 impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Create a new instance of Code File
-    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, addresses: &[&Address]) -> Result<Self, Error> {
+    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, addresses: &[Address]) -> Result<Self, Error> {
         let name = path.file_name()
             .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
@@ -49,16 +49,25 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
     }
 
     // passthrough for Source Map Trait
-    /// Get a byte offset from a line number
-    pub fn position_from_lineno(&self, lineno: usize, contract: &str) -> Result<Offset, Error> {
+    /// Get a byte offset in the bytecode from a line number
+    pub fn opcode_pos_from_lineno(&self, lineno: LineNo, contract: &str) -> Result<Offset, Error> {
         let contract = self.find_contract(contract)?;
-        contract.source_map().position_from_lineno(lineno)
+        contract.source_map().opcode_pos_from_lineno(lineno)
     }
 
-    /// Get a line number from a byte offset
-    pub fn lineno_from_position(&self, offset: usize, contract: &str) -> Result<LineNo, Error> {
+    pub fn char_pos_from_lineno(&self, lineno: LineNo, contract: &str) -> Result<Offset, Error> {
         let contract = self.find_contract(contract)?;
-        contract.source_map().lineno_from_position(offset).map_err(|e| e.into())
+        contract.source_map().char_pos_from_lineno(lineno)
+    }
+
+    pub fn lineno_from_char_pos(&self, offset: Offset, contract: &str) -> Result<LineNo, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().lineno_from_char_pos(offset)
+    }
+
+    pub fn lineno_from_opcode_pos(&self, offset: Offset, contract: &str) -> Result<LineNo, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().lineno_from_opcode_pos(offset)
     }
 
     pub fn current_line(&self, offset: usize, contract: &str) -> Result<Line, Error> {

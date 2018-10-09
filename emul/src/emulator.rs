@@ -5,7 +5,7 @@ use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
 use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
-use std::{ rc::Rc, cell::RefCell, collections::HashMap };
+use std::{ rc::Rc, cell::RefCell, collections::{HashMap} };
 use super::err::{EmulError, StateError};
 use log::*;
 
@@ -26,8 +26,16 @@ pub enum Action {
 struct Account {
     nonce: bigint::U256,
     balance: bigint::U256,
-    storage: Storage,
+    storage: HashMap<bigint::U256, bigint::M256>,
     code: Rc<Vec<u8>>
+}
+
+impl Account {
+    // Merge a Storage struct with local cache
+    fn merge(&mut self, storage: Storage) -> () {
+        let map: HashMap<bigint::U256, bigint::M256> = storage.into();
+        self.storage.extend(map.iter())
+    }
 }
 
 /// Emulation Object
@@ -109,7 +117,7 @@ impl<T> Emulator<T> where T: Transport {
 
     /// get bytecode position
     pub fn offset(&self) -> usize {
-        self.vm.current_state().expect("Could not acquire current bytecode position").position
+        self.vm.current_machine().expect("Could not acquire current bytecode position").pc().opcode_position()
     }
 
     /// Chain a transaction with the state changes of the previous transaction.
@@ -168,10 +176,10 @@ impl<T> Emulator<T> where T: Transport {
         std::mem::replace(&mut self.vm, new_vm);
 
         // run the vm until the latest stored position
-        while last_pos < *self.positions.get(self.positions.len() - 1).unwrap_or(&0) {
+        while last_pos < *self.positions.last().unwrap_or(&0) {
             self.step()?;
-            if let Some(x) = self.vm.current_state() {
-                last_pos = x.position;
+            if let Some(x) = self.vm.current_machine() {
+                last_pos = x.pc().opcode_position();
             } else {
                 panic!("Vm stepped but state is not initialized");
             }
@@ -181,22 +189,18 @@ impl<T> Emulator<T> where T: Transport {
 
     fn step_forward(&mut self) -> Result<(), EmulError> {
         self.step()?;
-        if let Some(x) = self.vm.current_state() {
-            self.positions.push(x.position);
+        if let Some(x) = self.vm.current_machine() {
+            self.positions.push(x.pc().opcode_position());
         } else {
             self.positions.push(0);
         }
         Ok(())
     }
 
-    fn run_until(&mut self, pc: usize) -> Result<(), EmulError> {
-
+    fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
         // If position is 0, we haven't started the VM yet
-        while *self.positions.get(self.positions.len()).unwrap_or(&0) < pc {
-            self.step()?;
-            if let Some(x) = self.vm.current_state() {
-                self.positions.push(x.position);
-            }
+        while *self.positions.last().unwrap_or(&0) < opcode_pos {
+            self.step_forward()?;
         }
         Ok(())
     }
@@ -207,6 +211,24 @@ impl<T> Emulator<T> where T: Transport {
             self.persist()?;
             if handle_requires(&result, self.state_cache.clone(), &mut self.vm, &self.client)? {
                 break 'run;
+            }
+        }
+        Ok(())
+    }
+
+    /// steps the vm, querying node for any information that the VM needs
+    /// vm returns true when execution is finished
+    fn step(&mut self) -> Result<(), EmulError> {
+        let mut res = self.vm.step();
+        trace!("VM Step {:?}", res);
+        self.persist()?;
+        'require: loop {
+            let req = handle_requires(&res, self.state_cache.clone(), &mut self.vm, &self.client)?;
+            if req {
+                break 'require;
+            } else {
+                res = self.vm.step();
+                self.persist()?;
             }
         }
         Ok(())
@@ -230,17 +252,10 @@ impl<T> Emulator<T> where T: Transport {
             match acc {
                 AccountChange::Full {nonce, address, balance, changing_storage, code} => {
                     if changing_storage.len() > 0 && self.state_cache.borrow().contains_key(&address) {
-                        for item in 0..changing_storage.len() {
-                            self.state_cache
-                                .borrow_mut()
-                                .get_mut(&address)
-                                .expect("scope conditional; qed")
-                                .storage
-                                .write(bigint::U256::from(item as u64),
-                                       changing_storage
-                                        .read(bigint::U256::from(item as u64)).expect("Storage should not be empty; qed"))
-                                .expect("require error not possible in the context of local cache; qed");
-                        }
+                        self.state_cache.borrow_mut()
+                            .get_mut(&address)
+                            .expect("Scope is conditional; qed")
+                            .merge(changing_storage.clone());
                         Ok(())
                     } else if changing_storage.len() > 0 { // if we don't have the key in our account cache yet
                         self.state_cache.borrow_mut().insert(address.clone(), Account {
@@ -284,23 +299,6 @@ impl<T> Emulator<T> where T: Transport {
         }).collect::<Result<(), EmulError>>();
         res
     }
-
-    /// steps the vm, querying node for any information that the VM needs
-    /// vm returns true when execution is finished
-    fn step(&mut self) -> Result<(), EmulError> {
-        let mut res = self.vm.step();
-        self.persist()?;
-        'require: loop {
-            let req = handle_requires(&res, self.state_cache.clone(), &mut self.vm, &self.client)?;
-            if req {
-                break 'require;
-            } else {
-                res = self.vm.step();
-                self.persist()?;
-            }
-        }
-        Ok(())
-    }
 }
 
 
@@ -319,8 +317,11 @@ where
         Err(RequireError::Account(addr)) => {
             info!("Acquiring balance, code, and nonce of account {:#x} for VM", addr);
             let nonce = client.eth().transaction_count(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?;
+            debug!("Nonce: {:#x}", nonce);
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
+            debug!("Balance: {:#x}", balance);
             let mut code = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait(); // Bytes
+            debug!("Code: {:?}", code);
             if code.is_err() {
                 code = Ok(Bytes(vec![0]));
             }
@@ -336,13 +337,13 @@ where
         Err(RequireError::AccountStorage(addr, index)) => {
             info!("Acquiring account storage at {:#x}, {:#x} for VM", addr, index);
             debug!("Local Storage: {:?}", cache);
-            if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.read(index).is_ok() {
-                debug!("Found storage in Local Cache. Committing...");
+            if cache.borrow().contains_key(&addr) && cache.borrow().get(&addr).unwrap().storage.get(&index).is_some() {
+                trace!("Found storage in Local Cache. Committing...");
                 cache.borrow().get(&addr).and_then(|x| {
                     let res = vm.commit_account(AccountCommitment::Storage {
                         address: addr,
                         index: index,
-                        value: x.storage.read(index).expect("scope is conditional; qed").clone()
+                        value: x.storage.get(&index).expect("scope is conditional; qed").clone()
                     });
                     // ignore AlreadyCommitted
                     match res {
@@ -353,6 +354,7 @@ where
                 Ok(false)
             } else {
                 let value = client.eth().storage(ethereum_types::H160(addr.0), ethereum_types::U256(index.0), Some(BlockNumber::Latest)).wait()?;
+                debug!("Committing account {:#x} with storage at {:#x} that is {:#x} to VM", addr, index, value);
                 vm.commit_account(AccountCommitment::Storage {
                     address: addr,
                     index: index,

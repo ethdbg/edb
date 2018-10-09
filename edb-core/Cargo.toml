@@ -10,3 +10,4 @@ edb-emul = { path = "../emul"}
 web3 = { git = "https://github.com/InsidiousMind/rust-web3", branch = "bytes-deser" }
 failure = "0.1.2"
 futures = "0.1.23"
+log = "*"

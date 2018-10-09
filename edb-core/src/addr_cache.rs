@@ -45,7 +45,7 @@ impl AddressCache {
         self.cache.iter()
     }
 
-    pub fn as_vec(&self) -> Vec<&Address> {
-        self.cache.iter().collect::<Vec<&Address>>()
+    pub fn as_vec(&self) -> Vec<Address> {
+        self.cache.iter().map(|a| a.clone()).collect::<Vec<Address>>()
     }
 }

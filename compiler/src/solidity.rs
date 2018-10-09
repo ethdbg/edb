@@ -21,7 +21,7 @@ pub struct Solidity;
 
 impl Language for Solidity {
 
-    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>, addresses: &[&Address])
+    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>, addresses: &[Address])
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error>
         where
             T: Transport
@@ -82,6 +82,6 @@ mod test {
         let mock = edbtest::MockWeb3Transport::default();
         let client = web3::Web3::new(mock);
         let path = edbtest::contract_path(edbtest::Contract::Voting);
-        Solidity::compile(&Solidity, path, &client.eth()).unwrap();
+        Solidity::compile(&Solidity, path, &client.eth(), edbtest::eth_contract_addrs().as_slice()).unwrap();
     }
 }

@@ -246,6 +246,7 @@ contract Ballot {
 
         it "can get a line from an offset" {
             assert_eq!(map.find_line(62).unwrap(), 3);
+            assert_eq!(map.find_line(354).unwrap(), 10);
         }
 
         it "can get an offset" {
@@ -257,6 +258,10 @@ contract Ballot {
         it "should strip leading whitespace from offset" {
             assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(7)).unwrap(), 211);
             assert_eq!(*map.get_char(CharPosition::Offset(211)).unwrap(), 's');
+        }
+
+        it "should convert between offset and line number" {
+            assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(10)).unwrap(), map.find_line(353).unwrap());
         }
     }
 

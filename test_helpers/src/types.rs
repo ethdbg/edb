@@ -1,12 +1,27 @@
 //! Types/addresses/bytecode for contracts that different edb libraries test against
 use std::{str::FromStr, path::PathBuf };
 use log::*;
-
 // use bigint::Address;
-// ethereum_types::Address (H160)
+// ethereum_types::Address;
+use ethereum_types::Address as EAddr;
+
 pub enum Contract {
     SimpleStorage,
     Voting,
+}
+
+pub const CONTRACT_ADDRS: [&'static str; 3] = [
+    "0x884531eab1ba4a81e9445c2d7b64e29c2f14587c",
+    "0x7205b1bb42edce6e0ced37d1fd0a9d684f5a860f",
+    "0x98a2559a814c300b274325c92df1682ae0d344e3"
+];
+
+pub fn bigint_contract_addrs() -> Vec<bigint::Address> {
+    vec![bigint::Address::from_str(CONTRACT_ADDRS[0]).unwrap(), bigint::Address::from_str(CONTRACT_ADDRS[1]).unwrap(), bigint::Address::from_str(CONTRACT_ADDRS[2]).unwrap()]
+}
+
+pub fn eth_contract_addrs() -> Vec<ethereum_types::Address> {
+    vec![EAddr::from(CONTRACT_ADDRS[0]), EAddr::from(CONTRACT_ADDRS[1]), EAddr::from(CONTRACT_ADDRS[2])]
 }
 
 /// A caller stocked with ETH

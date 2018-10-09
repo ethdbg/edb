@@ -78,7 +78,7 @@ impl<T> Contract<T> where T: Transport {
                eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
-               possible_addr: &[&Address],
+               possible_addr: &[Address],
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
 
@@ -98,13 +98,13 @@ impl<T> Contract<T> where T: Transport {
 
     // TODO: Make parallel/async
     /// Find a contract from it's bytecode and a local ethereum node
-    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[&Address])
+    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[Address])
                               -> Result<Address, LanguageError>
     {
         for a in addr.iter() {
-            let code = eth.code(**a, Some(BlockNumber::Latest)).wait()?;
+            let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
             if needle == code.0.as_slice() {
-                return Ok((*a).clone());
+                return Ok(a.clone());
             }
         }
         return Err(LanguageError::NotFound(NotFoundError::Contract))

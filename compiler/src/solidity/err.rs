@@ -35,4 +35,6 @@ pub enum SourceMapError {
     OffsetNotFound,
     #[fail(display = "Number of last lines to display is greater than current line number")]
     CountOutOfBounds,
+    #[fail(display = "Opcode position not found in program map")]
+    PositionNotFound,
 }

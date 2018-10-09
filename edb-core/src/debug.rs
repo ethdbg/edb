@@ -3,6 +3,7 @@ use edb_compiler::{Language, CodeFile};
 use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
 use super::addr_cache::AddressCache;
 use std::path::PathBuf;
+use log::*;
 
 pub struct Debugger<T, L> where T: web3::Transport, L: Language {
     file: CodeFile<L, T>,
@@ -15,6 +16,7 @@ pub struct Debugger<T, L> where T: web3::Transport, L: Language {
 pub type Breakpoint = usize;
 
 impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
+
     pub fn new(path: PathBuf,
                   lang: L,
                   client: web3::Web3<T>,
@@ -38,7 +40,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
                 panic!("name not specified");
             }
             self.curr_name = name.unwrap().to_string();
-            let pos = self.file.position_from_lineno(b, name.unwrap())?;
+            let pos = self.file.opcode_pos_from_lineno(b, name.unwrap())?;
             self.emul.fire(Action::RunUntil(pos))?;
             Ok(())
         } else {
@@ -72,8 +74,10 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     /// Steps to the next line of execution
     pub fn step(&mut self) -> Result<(), Error> {
-        let line = self.file.lineno_from_position(self.emul.offset(), self.curr_name.as_str())?;
-        let run_to = self.file.position_from_lineno(line+1, self.curr_name.as_str())?;
+        debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
+        let line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
+        let run_to = self.file.opcode_pos_from_lineno(line+1, self.curr_name.as_str())?;
+        debug!("Running VM to {}", run_to);
         self.emul.fire(Action::RunUntil(run_to))?;
         Ok(())
     }
@@ -81,7 +85,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            self.emul.fire(Action::RunUntil(self.file.position_from_lineno(b, self.curr_name.as_str())?))?;
+            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.curr_name.as_str())?))?;
         } else {
             self.emul.fire(Action::Exec)?;
         }

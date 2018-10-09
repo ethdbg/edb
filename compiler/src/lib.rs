@@ -33,7 +33,7 @@ extern crate test;
 /// The Source File of a specific language
 pub trait Language {
     /// Compiles Source Code File into a Vector of Contract Files
-    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, addresses: &[&Address])
+    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, addresses: &[Address])
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
 }
 
@@ -41,23 +41,29 @@ pub trait Language {
 pub type Line = (usize, String);
 pub type LineNo = usize;
 pub type Offset = usize;
+
 /// Represents a Source Map
 pub trait SourceMap {
 
     /// Get the instruction offset from a line number in the Source Code
-    /// Optional File - if not specified, takes first file in index
-    fn position_from_lineno(&self, lineno: usize) -> Result<Offset, Error>;
+    fn opcode_pos_from_lineno(&self, lineno: LineNo) -> Result<Offset, Error>;
 
-    /// The reverse of `position_from_lineno`
-    fn lineno_from_position(&self, offset: usize) -> Result<LineNo, Error>;
+    /// Get the character position in a file from a line number (Ignores leading whitespace)
+    fn char_pos_from_lineno(&self, lineno: LineNo) -> Result<Offset, Error>;
 
-    /// Get a line mapping (line number => str)
+    /// Get the LineNumber that corresponds with a character offset
+    fn lineno_from_char_pos(&self, offset: Offset) -> Result<LineNo, Error>;
+
+    /// Get the linenumber that corresponds to an opcode position
+    fn lineno_from_opcode_pos(&self, offset: Offset) -> Result<LineNo, Error>;
+
+    /// Get a line mapping (line number => str) from opcode position/offset
     fn current_line(&self, offset: usize) -> Result<Line, Error>;
 
-    /// Get the last `count` number of lines (inclusive)
+    /// Get the last `count` number of lines (inclusive) from opcode position/offset
     fn last_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
 
-    /// Get the next `count` number of lines (inclusive)
+    /// Get the next `count` number of lines (inclusive) from opcode position/offset
     fn next_lines(&self, offset: usize, count: usize) -> Result<Vec<Line>, Error>;
 }
 

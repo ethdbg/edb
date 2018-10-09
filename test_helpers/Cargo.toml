@@ -16,4 +16,5 @@ futures = "0.1.24"
 jsonrpc-core = "8.0.1"
 etcommon-bigint = "0.2.9"
 ethereum-types = "0.4.0"
+openssl = {version = "0.10", features = ["vendored"]}
 
