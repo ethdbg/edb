@@ -1,10 +1,11 @@
 //! Codefile represents one source code file and all of the files it imports
-use super::{Language, Line, Offset, LineNo, contract::{Contract, ContractFile}, err::{LanguageError, NotFoundError}};
+use super::{Language, Line, OpcodeOffset, CharOffset, LineNo, contract::{Contract, ContractFile}, err::{LanguageError, NotFoundError}};
 use failure::Error;
-use web3::Transport;
+use web3::{Transport, types::Address};
 use std::{path::{PathBuf}, rc::Rc};
 
 // every CodeFile is associated with a language
+
 pub struct CodeFile<L: Language, T: Transport> {
     language: L,
     client: web3::Web3<T>,
@@ -20,7 +21,7 @@ pub struct CodeFile<L: Language, T: Transport> {
 impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Create a new instance of Code File
-    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>) -> Result<Self, Error> {
+    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, addresses: &[Address]) -> Result<Self, Error> {
         let name = path.file_name()
             .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
@@ -30,7 +31,7 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
         if path.is_dir() {
             return Err(LanguageError::NotFound(NotFoundError::File)).map_err(|e| e.into());
         }
-        let (files, contracts) = language.compile(path, &client.eth())?;
+        let (files, contracts) = language.compile(path, &client.eth(), addresses)?;
         Ok(Self { language, client, files, contracts, name })
     }
 
@@ -48,17 +49,36 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
         &self.name
     }
 
-    // passthrough for Source Map Trait
-    /// Get a byte offset from a line number
-    pub fn position_from_lineno(&self, lineno: usize, contract: &str) -> Result<Offset, Error> {
+    pub fn unique_exists(&self, lineno: LineNo, contract: &str) -> Result<bool, Error> {
         let contract = self.find_contract(contract)?;
-        contract.source_map().position_from_lineno(lineno)
+        Ok(contract.source_map().unique_exists(lineno))
     }
 
-    /// Get a line number from a byte offset
-    pub fn lineno_from_position(&self, offset: usize, contract: &str) -> Result<LineNo, Error> {
+    pub fn unique_opcode_pos(&self, lineno: LineNo, contract: &str) -> Result<OpcodeOffset, Error> {
         let contract = self.find_contract(contract)?;
-        contract.source_map().lineno_from_position(offset).map_err(|e| e.into())
+        contract.source_map().unique_opcode_pos(lineno)
+    }
+
+    // passthrough for Source Map Trait
+    /// Get a byte offset in the bytecode from a line number
+    pub fn opcode_pos_from_lineno(&self, lineno: LineNo, from: OpcodeOffset, contract: &str) -> Result<OpcodeOffset, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().opcode_pos_from_lineno(lineno, from)
+    }
+
+    pub fn char_pos_from_lineno(&self, lineno: LineNo, contract: &str) -> Result<CharOffset, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().char_pos_from_lineno(lineno)
+    }
+
+    pub fn lineno_from_char_pos(&self, offset: CharOffset, contract: &str) -> Result<LineNo, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().lineno_from_char_pos(offset)
+    }
+
+    pub fn lineno_from_opcode_pos(&self, offset: OpcodeOffset, contract: &str) -> Result<LineNo, Error> {
+        let contract = self.find_contract(contract)?;
+        contract.source_map().lineno_from_opcode_pos(offset)
     }
 
     pub fn current_line(&self, offset: usize, contract: &str) -> Result<Line, Error> {

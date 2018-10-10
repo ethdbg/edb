@@ -10,8 +10,6 @@ use failure::Error;
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
     id: usize,
-    /// All the contracts contained in the souce
-    // contracts: Vec<Contract<T>>,
     /// path to source file
     file_path: PathBuf,
     /// name of source file
@@ -55,6 +53,7 @@ pub struct Contract<T> where T: Transport {
 
 // contract interface for the debugger. should be the same across all languages
 impl<T> Contract<T> where T: Transport {
+
     delegate! {
         target self.abi {
             /// Creates abi constructor call builder
@@ -77,10 +76,11 @@ impl<T> Contract<T> where T: Transport {
                eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
+               possible_addr: &[Address],
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
 
-        let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth)?;
+        let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth, possible_addr)?;
         let contract = web3::contract::Contract::new(
             eth,
             addr,
@@ -96,14 +96,13 @@ impl<T> Contract<T> where T: Transport {
 
     // TODO: Make parallel/async
     /// Find a contract from it's bytecode and a local ethereum node
-    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>)
+    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[Address])
                               -> Result<Address, LanguageError>
     {
-        let accounts = eth.accounts().wait()?;
-        for a in accounts.iter() {
+        for a in addr.iter() {
             let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
             if needle == code.0.as_slice() {
-                return Ok(*a);
+                return Ok(a.clone());
             }
         }
         return Err(LanguageError::NotFound(NotFoundError::Contract))

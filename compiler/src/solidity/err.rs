@@ -11,7 +11,7 @@ pub enum SolidityError {
     Io(#[fail(cause)] std::io::Error),
     #[fail(display = "Parent directory not found; Path must not terminate in a root or prefix")]
     ParentNotFound,
-    #[fail(display = "Source Mapping Error")]
+    #[fail(display = "Source Mapping Error {}", _0)]
     SourceMap(#[cause] SourceMapError)
 }
 
@@ -35,4 +35,8 @@ pub enum SourceMapError {
     OffsetNotFound,
     #[fail(display = "Number of last lines to display is greater than current line number")]
     CountOutOfBounds,
+    #[fail(display = "Opcode position not found in program map")]
+    PositionNotFound,
+    #[fail(display = "Opcode position is out of bounds of the bytecode length")]
+    PositionOutOfBounds
 }

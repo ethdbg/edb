@@ -8,13 +8,10 @@ use std::{
     iter::FromIterator,
     rc::Rc,
 };
-use web3::Transport;
-use log::*;
+use web3::{Transport, types::Address};
 use failure::Error;
-use solc_api::{
-    SolcApiBuilder,
-    types::FoundationVersion
-};
+use solc_api::{ SolcApiBuilder, types::FoundationVersion };
+use log::*;
 use self::{err::SolidityError, source_map::SoliditySourceMap, ast::SolidityAst};
 use super::{Language, contract::{ContractFile, Contract} };
 
@@ -24,13 +21,14 @@ pub struct Solidity;
 
 impl Language for Solidity {
 
-    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>)
+    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>, addresses: &[Address])
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error>
         where
             T: Transport
     {
         let mut source = String::new();
-        info!("Read {} bytes from Source File", std::fs::File::open(path.as_path())?.read_to_string(&mut source)?);
+        let read = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
+        info!("Read {} bytes from Source File", read);
 
         let parent = path.parent().ok_or(SolidityError::ParentNotFound)?.to_path_buf();
         let compiled_source = SolcApiBuilder::default()
@@ -45,7 +43,9 @@ impl Language for Solidity {
                 let mut import_path = parent.clone();
                 import_path.push(PathBuf::from(file.as_str()));
                 let mut src = String::new();
-                info!("Read {} bytes from source file: {}", std::fs::File::open(import_path.as_path())?.read_to_string(&mut src)?, file);
+                let read = std::fs::File::open(import_path.as_path())?.read_to_string(&mut src)?;
+                info!("Read {} bytes from source file: {}", read, file);
+
                 let ast = SolidityAst::new(&src)?;
                 let cfile = Rc::new(ContractFile::new(src, compiled_file.id, Box::new(ast), import_path)?);
                 contracts.extend(compiled_source
@@ -57,6 +57,7 @@ impl Language for Solidity {
                                       eth.clone(),
                                       Box::new(SoliditySourceMap::new(cfile.clone().source(), deployed_code.source_map)),
                                       c.abi.clone(),
+                                      addresses,
                                       deployed_code.object
                                       ).map_err(|e| e.into())
                     }));
@@ -81,6 +82,6 @@ mod test {
         let mock = edbtest::MockWeb3Transport::default();
         let client = web3::Web3::new(mock);
         let path = edbtest::contract_path(edbtest::Contract::Voting);
-        Solidity::compile(&Solidity, path, &client.eth()).unwrap();
+        Solidity::compile(&Solidity, path, &client.eth(), edbtest::eth_contract_addrs().as_slice()).unwrap();
     }
 }

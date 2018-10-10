@@ -32,6 +32,7 @@ serde = "1.0.78"
 serde_test = "1.0.78"
 edb-emul = { path = "./emul" }
 edb-compiler = { path = "./compiler" }
+log = "*"
 
 [dev-dependencies]
 edb_test_helpers = { path = "./test_helpers" }

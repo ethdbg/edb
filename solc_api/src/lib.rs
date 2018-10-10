@@ -8,6 +8,7 @@ extern crate ethereum_types;
 extern crate ethabi;
 extern crate failure;
 extern crate hex;
+extern crate serde_bytes;
 
 mod internal_types;
 mod err;

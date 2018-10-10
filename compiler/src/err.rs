@@ -1,11 +1,10 @@
 use failure::Fail;
-use log::{error};
 
 #[derive(Fail, Debug)]
 pub enum LanguageError {
     #[fail(display = "Could not obtain a Source Map")]
     SourceMap(#[cause] SourceMapError),
-    #[fail(display = "")]
+    #[fail(display = "{}", _0)]
     NotFound(NotFoundError),
     #[fail(display = "An error occurred while communicating with the local test node")]
     NodeIo(String),
@@ -38,7 +37,7 @@ pub enum SourceMapError {
 
 impl From<web3::error::Error> for LanguageError {
     fn from(err: web3::error::Error) -> LanguageError {
-        error!("Web3 Error. Backtrace: {:?}, Kind: {:?}, description: {}", err.backtrace(), err.kind(), err.description());
+        println!("Web3 Error. Backtrace: {:?}, Kind: {:?}, description: {}", err.backtrace(), err.kind(), err.description());
         LanguageError::NodeIo(format!("{}", err))
     }
 }

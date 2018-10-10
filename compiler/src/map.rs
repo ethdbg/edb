@@ -1,11 +1,12 @@
 //! Map of source file. Line numbers are zero-indexed.
 //! Byte offset refers to character offset rather than actual UTF-8 bytes/codepoints
+use log::*;
 use super::err::{MapError};
 use std::iter::FromIterator;
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
-    matrix: Vec<Vec<char>>, // matrix of chars.  every index of outer Vec is a line
+    pub matrix: Vec<Vec<char>>, // matrix of chars.  every index of outer Vec is a line
 }
 
 /// A line number
@@ -19,6 +20,7 @@ pub type Range = (ByteOffset, ByteOffset);
 
 /// An offset represented by an enum.
 /// Options for where the offset should reside
+#[derive(Debug, Clone, PartialEq)]
 pub enum LineNumber {
     /// get the start of a line without including the leading whitespace
     NoLeadingWhitespace(Line),
@@ -30,6 +32,12 @@ pub enum LineNumber {
     Range(Line),
     /// Get the range of a line, without leading whitespace
     NoWhitespaceRange(Line),
+}
+
+impl std::fmt::Display for LineNumber {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.get_line())
+    }
 }
 
 impl LineNumber {
@@ -88,16 +96,12 @@ impl Map {
     /// new map
     pub fn new(source: &str) -> Self {
         let mut matrix = Vec::new();
-        source
-            .lines() // possibly use map instead of for_each
-            .for_each(|l| {
-                matrix.push({
-                    // str.lines() does not include newlines
-                    let mut vec = l.chars().collect::<Vec<char>>();
-                    vec.push('\n');
-                    vec
-                })
-            });
+
+        for line in source.lines() {
+            let mut vec = line.chars().collect::<Vec<char>>();
+            vec.push('\n');
+            matrix.push(vec);
+        }
         Self { matrix }
     }
 
@@ -108,11 +112,12 @@ impl Map {
 
     /// find the line that contains this offset
     pub fn find_line(&self, byte_offset: ByteOffset) -> Option<Line> {
+
         self.matrix
             .iter()
             .enumerate()
-            .find(|(line_num, _)| {
-                self.in_range(byte_offset, *line_num)
+            .find(|(line, _)| {
+                self.in_range(byte_offset, *line)
             })
             .map(|(idx, _)| idx)
     }
@@ -154,12 +159,10 @@ impl Map {
     /// For LineNumber::Start, and LineNumber::End, returns canoncial start and end
     /// LineNumber::NoLeadingWhitespace returns start and end w/o leading whitespace
     pub fn range(&self, line: LineNumber) -> Result<Range, MapError> {
-        println!("Finding byte range of line: {}: {:?}", line.get_line(), self.line(line.get_line())?);
         let line_str = self.line(line.get_line())?;
         let start = self.matrix
             .iter()
             .take(line.get_line())
-            .inspect(|l| println!("Line: {:?}", l))
             .fold(0, |acc, l| acc + l.len());
         let end = start + line_str.len();
 
@@ -168,11 +171,7 @@ impl Map {
                 let local_idx = line_str
                     .iter()
                     .enumerate()
-                    .inspect(|(_, &c)| {
-                        println!("CHARTYPE: {}, CHAR: {}", c == CharType::Whitespace, c);
-                    })
                     .skip_while(|(_, &c)| c == CharType::Whitespace)
-                    .inspect(|(i, _)| println!("Index: {}", i))
                     .map(|(idx, _)| idx)
                     .take(1)
                     .fold(0, |acc, i| acc + i);
@@ -200,7 +199,7 @@ impl Map {
     /// check if `offset` is in range of a character slice
     fn in_range(&self, offset: usize, line_num: Line) -> bool {
         let (start, end) = self.range(LineNumber::Range(line_num)).expect("Should never be out of range in internal function; qed");
-        offset >= start && offset <= end
+        (offset >= start) && (offset <= end)
     }
 }
 
@@ -247,6 +246,7 @@ contract Ballot {
 
         it "can get a line from an offset" {
             assert_eq!(map.find_line(62).unwrap(), 3);
+            assert_eq!(map.find_line(354).unwrap(), 10);
         }
 
         it "can get an offset" {
@@ -258,6 +258,10 @@ contract Ballot {
         it "should strip leading whitespace from offset" {
             assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(7)).unwrap(), 211);
             assert_eq!(*map.get_char(CharPosition::Offset(211)).unwrap(), 's');
+        }
+
+        it "should convert between offset and line number" {
+            assert_eq!(map.find_offset(LineNumber::NoLeadingWhitespace(10)).unwrap(), map.find_line(353).unwrap());
         }
     }
 
