@@ -76,13 +76,25 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     pub fn step(&mut self) -> Result<(), Error> {
         debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
+        trace!("Current Instruction: {:?}", self.file.opcode_pos_from_lineno(current_line, self.emul.offset(), self.curr_name.as_str())?);
 
         let file = &self.file; let curr_name = self.curr_name.as_str();
         self.emul.step_until(|mach| { // step until opcode reaches a line that is not the current line
-            let line = file.lineno_from_opcode_pos(mach.pc().opcode_position(), curr_name)
-                .expect("opcode position should always be found in file if it is present in vm; qed");
-            line != current_line
-        });
+            let line = file.lineno_from_opcode_pos(mach.pc().opcode_position(), curr_name)?;
+            trace!("Line found step_until(): {}, current line: {}", line, current_line);
+            Ok(line != current_line)
+        })?;
+
+        self.emul.read_raw(|vm| {
+            if let Some(mach) = vm.current_machine() {
+                trace!("PC: {}", mach.pc().position());
+                trace!("Opcode Position: {}", mach.pc().opcode_position());
+                trace!("Next Opcode: {:?}", mach.pc().peek_opcode().unwrap());
+                Ok(())
+            } else {
+                Ok(())
+            }
+        })?;
         Ok(())
     }
 

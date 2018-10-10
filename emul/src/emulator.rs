@@ -103,10 +103,10 @@ impl<T> Emulator<T> where T: Transport {
 
     /// alternative to `fire`, manually step the vm until predicate `F` returns True
     /// Gives direct (immutable) access to underlying VM machine
-    pub fn step_until<F>(&mut self, fun: F) -> Result<(), EmulError>
-        where F: Fn(&EVM<SeqMemory<ByzantiumPatch>, ByzantiumPatch>) -> bool
+    pub fn step_until<F>(&mut self, fun: F) -> Result<(), Error>
+        where F: Fn(&EVM<SeqMemory<ByzantiumPatch>, ByzantiumPatch>) -> Result<bool, Error>
     {
-        while !fun(self.vm.current_machine().ok_or(EmulError::Vm(VmError::MachineNotInitialized))?) {
+        while !fun(self.vm.current_machine().ok_or(EmulError::Vm(VmError::MachineNotInitialized))?)? {
             self.step_forward()?;
         }
         Ok(())

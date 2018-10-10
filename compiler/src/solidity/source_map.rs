@@ -73,6 +73,7 @@ impl SourceMap for SoliditySourceMap {
 
         for inst in &self.program_map[from..] {
             if self.map.find_line(inst.start).expect("line in program map should always be found in source code; qed") == lineno {
+                trace!("Instruction: {}", inst);
                 return Ok(inst.position);
             }
         }
