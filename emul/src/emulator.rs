@@ -1,12 +1,12 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
+use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC, Machine as EVM};
 use futures::future::Future;
 use sputnikvm_network_foundation::ByzantiumPatch;
 use failure::Error;
 use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
 use std::{ rc::Rc, cell::RefCell, collections::{HashMap} };
-use super::err::{EmulError, StateError};
+use super::err::{EmulError, VmError, StateError};
 use log::*;
 
 /// An action or what should happen for the next step of execution
@@ -101,6 +101,17 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
+    /// alternative to `fire`, manually step the vm until predicate `F` returns True
+    /// Gives direct (immutable) access to underlying VM machine
+    pub fn step_until<F>(&mut self, fun: F) -> Result<(), EmulError>
+        where F: Fn(&EVM<SeqMemory<ByzantiumPatch>, ByzantiumPatch>) -> bool
+    {
+        while !fun(self.vm.current_machine().ok_or(EmulError::Vm(VmError::MachineNotInitialized))?) {
+            self.step_forward()?;
+        }
+        Ok(())
+    }
+
     /// any output that the transaction may have produced during VM execution
     pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
@@ -165,10 +176,11 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
-        let mut curr_pos = 0;
+        /*let mut curr_pos = 0;
         if let Some(x) = self.positions.pop() {
             curr_pos = x;
         }
+        */
 
         let mut last_pos = 0;
         let (txinfo, header) = self.transaction.clone();

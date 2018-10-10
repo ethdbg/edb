@@ -6,13 +6,13 @@ use log::*;
 use failure::Error;
 
 // TODO many of these Strings, Vec<> can be made references with a lifetime on ContractFile
+#[derive(Debug, Clone)]
 pub struct SoliditySourceMap {
     /// simple map of the source itself
     map: Map,
     /// Source map acquired from Solidity Compiler
     program_map: Vec<Instruction>,
     line_cache: HashMap<usize, Option<usize>>
-
 }
 
 impl SoliditySourceMap {

@@ -10,8 +10,6 @@ use failure::Error;
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
     id: usize,
-    /// All the contracts contained in the souce
-    // contracts: Vec<Contract<T>>,
     /// path to source file
     file_path: PathBuf,
     /// name of source file

@@ -75,9 +75,12 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     pub fn step(&mut self) -> Result<(), Error> {
         debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
-        let run_to = self.file.opcode_pos_from_lineno(current_line+1, self.emul.offset(), self.curr_name.as_str())?;
-        debug!("Running VM to {}", run_to);
-        self.emul.fire(Action::RunUntil(run_to))?;
+        let file = &self.file; let curr_name = self.curr_name.as_str();
+        self.emul.step_until(|mach| { // step until opcode reaches a line that is not the current line
+            let line = file.lineno_from_opcode_pos(mach.pc().opcode_position(), curr_name)
+                .expect("opcode position should always be found in file if it is present in vm; qed");
+            line != current_line
+        });
         Ok(())
     }
 

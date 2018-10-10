@@ -45,4 +45,6 @@ impl From<web3::Error> for EmulError {
 pub enum VmError {
     #[fail(display = "Commit {:?}", _0)]
     Commit(sputnikvm::errors::CommitError),
+    #[fail(display = "Machine has not been initialized")]
+    MachineNotInitialized
 }
