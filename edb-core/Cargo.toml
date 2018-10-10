@@ -11,3 +11,6 @@ web3 = { git = "https://github.com/InsidiousMind/rust-web3", branch = "bytes-des
 failure = "0.1.2"
 futures = "0.1.23"
 log = "*"
+etcommon-bigint = "0.2.9"
+ethereum-types = "0.4.0"
+sputnikvm = "0.10.1"

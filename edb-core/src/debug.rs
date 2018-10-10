@@ -1,9 +1,10 @@
 use failure::Error;
+use std::path::PathBuf;
+use log::*;
 use edb_compiler::{Language, CodeFile};
 use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
 use super::addr_cache::AddressCache;
-use std::path::PathBuf;
-use log::*;
+use super::err::EvmError;
 
 pub struct Debugger<T, L> where T: web3::Transport, L: Language {
     file: CodeFile<L, T>,
@@ -75,6 +76,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     pub fn step(&mut self) -> Result<(), Error> {
         debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
+
         let file = &self.file; let curr_name = self.curr_name.as_str();
         self.emul.step_until(|mach| { // step until opcode reaches a line that is not the current line
             let line = file.lineno_from_opcode_pos(mach.pc().opcode_position(), curr_name)
@@ -110,7 +112,20 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     }
 
     /// Returns the EVM Stack
-    pub fn stack(&self) -> Result<(), Error> {
-        unimplemented!();
+    pub fn stack(&self) -> Result<Vec<ethereum_types::U256>, Error> {
+        let mut stack_vec = Vec::new();
+
+        self.emul.read_raw(|vm| {
+            let state = vm.current_state().ok_or(EvmError::NotInitialized)?;
+            for i in 0..state.stack.len() {
+                stack_vec.push({
+                    let item = state.stack.peek(i).map_err(|e| EvmError::from(e))?;
+                    ethereum_types::U256((item.0).0)
+                });
+            }
+            Ok(())
+        });
+
+        Ok(stack_vec)
     }
 }

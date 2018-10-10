@@ -168,9 +168,9 @@ impl<T> Emulator<T> where T: Transport {
     ///     let machine = vm.current_machine();
     /// });
     /// ```
-    pub fn read_raw<F>(&self, fun: F) -> Result<(), Error>
+    pub fn read_raw<F>(&self, mut fun: F) -> Result<(), Error>
     where
-        F: Fn(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
+        F: FnMut(&SeqTransactionVM<ByzantiumPatch>) -> Result<(), Error>
     {
         fun(&self.vm)
     }
