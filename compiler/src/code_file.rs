@@ -37,7 +37,7 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
 
     /// find the first contract with name `contract`
-    fn find_contract(&self, contract: &str) -> Result<&Contract<T>, LanguageError> {
+    pub fn find_contract(&self, contract: &str) -> Result<&Contract<T>, LanguageError> {
         self.contracts
             .iter()
             .find(|c| c.name() == contract)

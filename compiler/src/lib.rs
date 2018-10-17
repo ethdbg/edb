@@ -12,6 +12,11 @@
 //!         - Mapping Byte offsets to positions in file
 //!         - getting information about the mapping from Source to Bytecode, Source to AST
 //!     - `CodeFile` Struct accepts a type that implements Language and SourceMap
+// TODO: Consider the tradeoffs of adding lifetimes to CodeFile and traits.
+//  - would slightly complicate public facing API, and force users to use lifetimes themselves if
+//  they want to put traits/structs/whatever in a composition
+//  - but would allow storing of direct references
+//  - work better with Implementations which themselves put lifetimes on structs
 mod err;
 mod types;
 mod contract;
@@ -27,7 +32,6 @@ pub use self::contract::{Contract, ContractFile};
 use std::{path::PathBuf, rc::Rc};
 use web3::{Transport, types::{Address}};
 use failure::Error;
-extern crate test;
 
 
 /// The Source File of a specific language
@@ -45,6 +49,7 @@ pub type LineNo = usize;
 pub type OpcodeOffset = usize;
 /// Offset into the source file
 pub type CharOffset = usize;
+pub type SourceRange = (usize, usize);
 
 //TODO: Can merge some of these functions by passing in an enum
 /// Represents a Source Map
@@ -85,10 +90,73 @@ pub trait SourceMap {
     fn next_lines(&self, offset: OpcodeOffset, count: usize) -> Result<Vec<Line>, Error>;
 }
 
-//TODO: not yet implemented in solc_api
+
+/// loosely and generally represents a Node in the Ast attached to a particular language item
+#[derive(Debug, Clone, PartialEq)]
+pub struct AstItem {
+    pub variant: AstType,
+    pub name: String,
+    pub location: SourceRange,
+}
+
+/// Type of node being represented
+#[derive(Debug, Clone, PartialEq)]
+pub enum AstType {
+    /// Contract Declaration
+    Contract,
+    /// Variable/const declaration
+    VarDeclaration,
+}
+
+pub trait AbstractFunction {
+    /// Name of the function
+    fn name(&self) -> String;
+    /// Parameters of function
+    fn params(&self) -> ethabi::Param;
+    /// Function Returns
+    fn returns(&self) -> ethabi::Param;
+    /// Any mutations to state that occur within the function
+    fn mutations(&self) -> Box<Iterator<Item=Mutation>>;
+    fn location(&self) -> SourceRange;
+}
+
+/// Enum representing the mutations to state that may occur within a function body
+pub enum Mutation {
+    LocalMutation(Variable, Variable),
+    InstanceMutation(Variable, Variable),
+}
+
+/// General variable type
+pub struct Variable {
+    name: String,
+    var_type: VariableType
+}
+
+/// Types that may be used within source code
+pub enum VariableType {
+    Address,
+    Bytes,
+    Mapping,
+    Int(usize),
+    Uint(usize),
+    Bool(bool),
+    String(String),
+}
+
 pub trait Ast {
-    type Err;
-    /// Get a contract by it's byte offset in the source file
-    fn contract_by_offset(&self, offset: u32) -> Result<String, Self::Err>;
+    /// get a variable declaration
+    fn variable(&self, name: &str) -> Result<AstItem, Error>;
+    /// Get a contract declaration
+    fn contract(&self, name: &str) -> Result<AstItem, Error>;
+    /// Access a Function via a Closure
+    fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>)) -> Result<(), Error>;
+    /// Find a contract by it's byte offset in the source file
+    fn find_contract(&self, offset: CharOffset) -> Option<AstItem>;
+    /// Find a function name by a character offset in source code. Resulting function information is accessed
+    /// via a closure
+    // the reason for a closure here is to avoid having to redundantly re-describe all the types
+    // which may already be described within an Ast implementation (Ex: Lunarity). This preserves
+    // more information about the function too.
+    fn find_function(&self, offset: CharOffset, fun: &mut FnMut(Option<&AbstractFunction>));
 }
 

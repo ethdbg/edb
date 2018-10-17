@@ -1,6 +1,6 @@
 //! Contract Interface for Codefile/SourceMap/Debugger operations
+use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap, AbstractFunction, AstItem, CharOffset};
 
-use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap};
 use web3::{ types::{Address, BlockNumber}, Transport };
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
@@ -17,11 +17,11 @@ pub struct ContractFile {
     source: String,
     /// General source map for offsets--line number
     // Abstract Syntax Tree of Source
-    ast: Box<dyn Ast<Err=LanguageError>>,
+    ast: Box<dyn Ast>,
 }
 
 impl ContractFile {
-    pub fn new(source: String, id: usize, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
+    pub fn new(source: String, id: usize, ast: Box<dyn Ast>, file_path: PathBuf)
         -> Result<Self, Error>
     {
         let file_name = file_path
@@ -38,6 +38,16 @@ impl ContractFile {
 
     pub fn source(&self) -> &str {
         self.source.as_str()
+    }
+
+    delegate! {
+        target self.ast {
+            pub fn variable(&self, name: &str) -> Result<AstItem, Error>;
+            pub fn contract(&self, name: &str) -> Result<AstItem, Error>;
+            pub fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>)) -> Result<(), Error>;
+            pub fn find_contract(&self, offset: CharOffset) -> Option<AstItem>;
+            pub fn find_function(&self, offset: CharOffset, fun: &mut FnMut(Option<&AbstractFunction>));
+        }
     }
 }
 
@@ -92,6 +102,10 @@ impl<T> Contract<T> where T: Transport {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn file(&self) -> Rc<ContractFile> {
+        self.file.clone()
     }
 
     // TODO: Make parallel/async
