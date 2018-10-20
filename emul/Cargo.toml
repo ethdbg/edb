@@ -10,7 +10,6 @@ pretty_env_logger = "*"
 sputnikvm = "0.10.1"
 sputnikvm-network-foundation = "0.10.0"
 failure = "0.1.2"
-web3 = { git = "https://github.com/InsidiousMind/rust-web3", branch = "bytes-deser" }
 futures = "0.1.24"
 etcommon-bigint = "0.2.9"
 ethereum-types = "0.4.0"
@@ -24,5 +23,9 @@ ethabi = "6.0.1"
 jsonrpc-core = "8.0.1"
 edb_test_helpers = { path = "../test_helpers/" }
 hex = "*"
-openssl = {version = "0.10", features = ["vendored"]}
 
+[dependencies.web3]
+git = "https://github.com/InsidiousMind/rust-web3"
+branch = "bytes-deser"
+default-features = false
+features = ["http"]

@@ -10,19 +10,24 @@ log = "*"
 failure = "0.1.2"
 solc = { git = "https://github.com/InsidiousMind/rust_solc", branch = "insi_add-whitelisted-paths" }
 solc_api = { path = "../solc_api" }
-lunarity = { git = "https://github.com/paritytech/lunarity" }
+lunarity-ast = "0.1"
+lunarity-parser = "0.1"
 ethereum-types = "0.4.0"
 serde_json = "1.0.27"
 serde_derive = "1.0.78"
 serde = "1.0.78"
 ethabi = "6.0.1"
-web3 = { git = "https://github.com/InsidiousMind/rust-web3", branch = "bytes-deser" }
 delegate = "0.1.3"
 futures = "0.1.24"
 itertools = "0.7.8"
-openssl = {version = "0.10", features = ["vendored"]}
 
 [dev-dependencies]
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }
 edb_test_helpers = { path = "../test_helpers" }
 pretty_env_logger = "*"
+
+[dependencies.web3]
+git = "https://github.com/InsidiousMind/rust-web3"
+branch = "bytes-deser"
+default-features = false
+features = ["http"]

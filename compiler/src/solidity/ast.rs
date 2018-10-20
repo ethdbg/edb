@@ -1,6 +1,6 @@
 use failure::Error;
 use log::*;
-use lunarity::ast::{Program, SourceUnit, ContractPart, FunctionDefinition};
+use lunarity_ast::{Program, SourceUnit, ContractPart, FunctionDefinition};
 use super::err::SolidityError;
 use crate::{Ast, CharOffset, AstItem, AstType, AbstractFunction, Mutation, SourceRange};
 
@@ -10,7 +10,7 @@ pub struct SolidityAst<'ast> {
 
 impl<'ast> SolidityAst<'ast> {
     pub fn new(source: &str) -> Result<Self, SolidityError> {
-        let program = lunarity::parse(source)
+        let program: Program<'ast> = lunarity_parser::parse(source)
             .map_err(|e| SolidityError::AstParse(format!("{:?}", e)))?;
         Ok(Self { program })
     }

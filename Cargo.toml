@@ -33,6 +33,7 @@ serde_test = "1.0.78"
 edb-emul = { path = "./emul" }
 edb-compiler = { path = "./compiler" }
 log = "*"
+openssl = {version = "0.10", features = ["vendored"]}
 
 [dev-dependencies]
 edb_test_helpers = { path = "./test_helpers" }
