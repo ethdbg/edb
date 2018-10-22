@@ -6,6 +6,7 @@ use delegate::*;
 use std::{path::PathBuf, rc::Rc};
 use futures::future::Future;
 use failure::Error;
+use log::*;
 
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
@@ -44,9 +45,9 @@ impl ContractFile {
         target self.ast {
             pub fn variable(&self, name: &str) -> Result<AstItem, Error>;
             pub fn contract(&self, name: &str) -> Result<AstItem, Error>;
-            pub fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>)) -> Result<(), Error>;
+            pub fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>) -> bool) -> Result<AstItem, Error>;
             pub fn find_contract(&self, offset: CharOffset) -> Option<AstItem>;
-            pub fn find_function(&self, offset: CharOffset, fun: &mut FnMut(Option<&AbstractFunction>));
+            pub fn find_function(&self, fun: &mut FnMut(&AbstractFunction) -> bool) -> Option<AstItem>;
         }
     }
 }
@@ -96,7 +97,8 @@ impl<T> Contract<T> where T: Transport {
             addr,
             abi.clone()
         );
-
+        trace!("Contract Instantiation Code Length: {}", runtime_bytecode.len());
+        trace!("{:?}", runtime_bytecode);
         Ok(Self { file, name, abi, deployed: contract, runtime_bytecode, source_map: map })
     }
 

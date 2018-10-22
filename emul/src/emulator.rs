@@ -1,13 +1,13 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC, Machine as EVM};
-use futures::future::Future;
+use sputnikvm::{Opcode, ValidTransaction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC, Machine as EVM};
 use sputnikvm_network_foundation::ByzantiumPatch;
-use failure::Error;
 use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
+use futures::future::Future;
+use failure::Error;
+use log::*;
 use std::{ rc::Rc, cell::RefCell, collections::{HashMap} };
 use super::err::{EmulError, VmError, StateError};
-use log::*;
 
 /// An action or what should happen for the next step of execution
 pub enum Action {
@@ -44,7 +44,8 @@ pub struct Emulator<T: Transport> {
     positions: Vec<usize>,
     transaction: (ValidTransaction, HeaderParams),
     client: web3::Web3<T>,
-    state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>
+    state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>,
+    // the amount of instructions have we stepped
 }
 
 /// A vm that emulates a transaction, allowing for mutations during execution
@@ -82,7 +83,7 @@ impl<T> Emulator<T> where T: Transport {
             vm: sputnikvm::TransactionVM::new(transaction, block),
             positions: Vec::new(),
             client,
-            state_cache: Rc::new(RefCell::new(HashMap::new()))
+            state_cache: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -112,6 +113,14 @@ impl<T> Emulator<T> where T: Transport {
         Ok(())
     }
 
+    fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
+        // If position is 0, we haven't started the VM yet
+        while *self.positions.last().unwrap_or(&0) < opcode_pos {
+            self.step_forward()?;
+        }
+        Ok(())
+    }
+
     /// any output that the transaction may have produced during VM execution
     pub fn output(&self) -> Vec<u8> {
         self.vm.out().into()
@@ -129,6 +138,32 @@ impl<T> Emulator<T> where T: Transport {
     /// get bytecode position
     pub fn offset(&self) -> usize {
         self.vm.current_machine().expect("Could not acquire current bytecode position").pc().opcode_position()
+    }
+
+    /// return the instruction position from an opcode offset
+    pub fn instruction(&self) -> usize {
+        Self::into_instruction(self.offset(), self.vm.current_machine().expect("could not acquire current machine").pc().code())
+    }
+
+    fn into_instruction(position: usize, code: &[u8]) -> usize {
+        let mut opcode_pos = 0;
+        let mut instruction_pos = 0;
+        'interpreter: loop {
+            if opcode_pos >= position {
+                break 'interpreter;
+            }
+
+            let instruction = code[opcode_pos];
+            match Opcode::from(instruction) {
+                Opcode::PUSH(bytes) => opcode_pos += bytes + 1,
+                Opcode::DUP(bytes)  => opcode_pos += bytes + 1,
+                Opcode::SWAP(bytes) => opcode_pos += bytes + 1,
+                Opcode::LOG(bytes)  => opcode_pos += bytes + 1,
+                _ => opcode_pos += 1,
+            }
+            instruction_pos += 1;
+        }
+        instruction_pos
     }
 
     /// Chain a transaction with the state changes of the previous transaction.
@@ -205,14 +240,6 @@ impl<T> Emulator<T> where T: Transport {
             self.positions.push(x.pc().opcode_position());
         } else {
             self.positions.push(0);
-        }
-        Ok(())
-    }
-
-    fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
-        // If position is 0, we haven't started the VM yet
-        while *self.positions.last().unwrap_or(&0) < opcode_pos {
-            self.step_forward()?;
         }
         Ok(())
     }

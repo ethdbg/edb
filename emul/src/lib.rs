@@ -1,4 +1,4 @@
-#![feature(proc_macro_gen, crate_visibility_modifier)]
+#![feature(crate_visibility_modifier)]
 pub mod emulator;
 mod err;
 mod scary;

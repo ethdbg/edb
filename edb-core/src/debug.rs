@@ -5,6 +5,7 @@ use edb_compiler::{Language, CodeFile, AbstractFunction};
 use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
 use super::addr_cache::AddressCache;
 use super::err::EvmError;
+use sputnikvm::Memory;
 
 pub struct Debugger<T, L> where T: web3::Transport, L: Language {
     file: CodeFile<L, T>,
@@ -37,9 +38,17 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {
+        self.emul.fire(Action::StepForward)?;
         if let Some(b) = self.breakpoints.pop() {
-            let pos = self.file.unique_opcode_pos(b, self.curr_name.as_str())?;
-            self.emul.fire(Action::RunUntil(pos))?;
+            'step: loop {
+                let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
+                if line == b {
+                    break 'step;
+                } else {
+                    self.emul.fire(Action::StepForward)?;
+                }
+                info!("Current line: {}", self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?);
+            }
             Ok(())
         } else { // if no breakpoints, just execute the contract
             self.emul.fire(Action::Exec)?;
@@ -75,34 +84,33 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Steps to the next line of execution
     pub fn step(&mut self) -> Result<(), Error> {
         let contract = self.file.find_contract(self.curr_name.as_str())?;
-        debug!("Finding Line from position {}, and contract {}", self.emul.offset(), self.curr_name.as_str());
-        let current_line = self.file.lineno_from_opcode_pos(self.emul.offset(), self.curr_name.as_str())?;
+        debug!("Finding Line from position {}, and contract {}", self.emul.instruction(), self.curr_name.as_str());
+        let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
+        debug!("Current line: {}", current_line);
         let offset = self.file.char_pos_from_lineno(current_line, self.curr_name.as_str())?;
-        trace!("Current Instruction: {:?}", self.file.opcode_pos_from_lineno(current_line, self.emul.offset(), self.curr_name.as_str())?);
+        /*trace!("Current Instruction: {:?}",
+               self.file.opcode_pos_from_lineno(current_line, self.emul.offset(),
+               self.curr_name.as_str())?
+        );*/
 
-        let mut func_range = None;
-        contract.file().find_function(offset, &mut |func| func_range = Some(func.expect("Location").location()));
-        let (func_start, func_end) = func_range.expect("Range");
-
-        let file = &self.file; let curr_name = self.curr_name.as_str();
-        self.emul.step_until(|mach| { // step until opcode reaches a line that is not the current line
-            let line = file.lineno_from_opcode_pos(mach.pc().opcode_position(), curr_name)?;
-            trace!("Line found step_until(): {}, current line: {}", line, current_line);
-            let char_offset = file.char_pos_from_lineno(line, curr_name)?;
-
-            Ok(line != current_line && char_offset >= func_start && char_offset <= func_end)
-        })?;
-
-        self.emul.read_raw(|vm| {
-            if let Some(mach) = vm.current_machine() {
-                trace!("PC: {}", mach.pc().position());
-                trace!("Opcode Position: {}", mach.pc().opcode_position());
-                trace!("Next Opcode: {:?}", mach.pc().peek_opcode().expect("Opcode"));
-                Ok(())
-            } else {
-                Ok(())
+        let function = contract.file().find_function(&mut |func| {
+            let  (start, end) = func.location();
+            if start <= offset && end >= offset {
+                return true;
             }
-        })?;
+            false
+        }).expect("Could not find function");
+        let (func_start, func_end) = function.location;
+
+        'step: loop {
+            let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
+            let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
+            if line != current_line && func_start <= char_offset && func_end >= char_offset {
+                break 'step;
+            } else {
+                self.emul.fire(Action::StepForward)?;
+            }
+        }
         Ok(())
     }
 
@@ -118,17 +126,17 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     /// returns the current line of execution
     pub fn current_line(&self) -> Result<(usize, String), Error> {
-        self.file.current_line(self.emul.offset(), self.curr_name.as_str())
+        self.file.current_line(self.emul.instruction(), self.curr_name.as_str())
     }
 
     /// Returns the `count` number of last lines relative to current line of execution
     pub fn last_lines(&self,count: usize) -> Result<Vec<(usize, String)>, Error> {
-        self.file.last_lines(self.emul.offset(), count, self.curr_name.as_str())
+        self.file.last_lines(self.emul.instruction(), count, self.curr_name.as_str())
     }
 
     /// Returns the `count` number of next lines relative to the current line of execution
     pub fn next_lines(&self, count: usize) -> Result<Vec<(usize, String)>, Error> {
-        self.file.next_lines(self.emul.offset(), count, self.curr_name.as_str())
+        self.file.next_lines(self.emul.instruction(), count, self.curr_name.as_str())
     }
 
     /// Returns the EVM Stack

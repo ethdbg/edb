@@ -20,7 +20,7 @@ impl SoliditySourceMap {
     pub fn new(src: &str, source_map: Vec<Instruction>) -> Self {
         let mut cache = HashMap::new();
         let map = Map::new(src);
-        for (lineno, line_str) in src.lines().enumerate() {
+        for (lineno, _) in src.lines().enumerate() {
             cache.insert(lineno, Self::shortest_len(&source_map, &map, lineno).map(|i| i.position));
         }
         trace!("Line Cache: {:?}", cache);
@@ -89,8 +89,8 @@ impl SourceMap for SoliditySourceMap {
     }
 
     fn lineno_from_opcode_pos(&self, offset: OpcodeOffset) -> Result<LineNo, Error> {
+        trace!("Instruction {}, {:?}", offset, self.program_map.get(offset).unwrap());
         let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
-        assert_eq!(pos.position, offset);
         Ok(self.map.find_line(pos.start).ok_or(SolidityError::SourceMap(SourceMapError::LineNotFound))?)
     }
 

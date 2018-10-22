@@ -30,7 +30,7 @@ impl<'ast> Ast for SolidityAst<'ast> {
     }
 
     /// Access a Function via a Closure
-    fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>)) -> Result<(), Error> {
+    fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>) -> bool) -> Result<AstItem, Error> {
         unimplemented!();
     }
 
@@ -57,16 +57,21 @@ impl<'ast> Ast for SolidityAst<'ast> {
         None
     }
 
-    fn find_function(&self, offset: CharOffset, fun: &mut FnMut(Option<&AbstractFunction>)) {
+    fn find_function(&self, fun: &mut FnMut(&AbstractFunction) -> bool) -> Option<AstItem> {
         for node in self.program.body().iter() {
             match node.value {
                 SourceUnit::ContractDefinition(c) => {
                     for cnode in c.body.iter() {
                         match cnode.value {
                             ContractPart::FunctionDefinition(f) => {
-                                info!("Observing Function {:?} with parameters {:?}", f.name, f.params);
-                                if offset >= cnode.start as usize && offset <= cnode.end as usize {
-                                    fun(Some(&f as &AbstractFunction))
+                                info!("Observing Function {:?} with parameters {:?} at {} - {}",
+                                      f.name, f.params, cnode.start, cnode.end);
+                                if fun(&f as &AbstractFunction) {
+                                    return Some(AstItem {
+                                        variant: AstType::Function,
+                                        name: f.name.unwrap().value.to_string(),
+                                        location: (cnode.start as usize, cnode.end as usize)
+                                    });
                                 }
                             },
                             _ => (),
@@ -76,7 +81,7 @@ impl<'ast> Ast for SolidityAst<'ast> {
                 _=> (),
             }
         }
-        fun(None)
+        None
     }
 }
 
@@ -136,7 +141,19 @@ mod tests {
         }
 
         it "can find a function" {
-            let function = ast.find_function(200, &mut |func| { info!("Found function") });
+            let function = ast.find_function(&mut |func| {
+                let (start, end) = func.location();
+                if start <= 200 && end >= 200 {
+                    return true;
+                }
+                false
+            });
+
+            assert_eq!(function, Some(AstItem {
+                name: "set".to_string(),
+                variant: AstType::Function,
+                location: (150, 510)
+            }));
         }
     }
 }

@@ -22,7 +22,6 @@ mod types;
 mod contract;
 pub mod map;
 mod code_file;
-
 pub mod solidity;
 // pub mod vyper;
 
@@ -32,7 +31,7 @@ pub use self::contract::{Contract, ContractFile};
 use std::{path::PathBuf, rc::Rc};
 use web3::{Transport, types::{Address}};
 use failure::Error;
-
+#[cfg(test)] extern crate test;
 
 /// The Source File of a specific language
 pub trait Language {
@@ -106,6 +105,7 @@ pub enum AstType {
     Contract,
     /// Variable/const declaration
     VarDeclaration,
+    Function
 }
 
 pub trait AbstractFunction {
@@ -149,14 +149,12 @@ pub trait Ast {
     /// Get a contract declaration
     fn contract(&self, name: &str) -> Result<AstItem, Error>;
     /// Access a Function via a Closure
-    fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>)) -> Result<(), Error>;
+    fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>) -> bool) -> Result<AstItem, Error>;
     /// Find a contract by it's byte offset in the source file
     fn find_contract(&self, offset: CharOffset) -> Option<AstItem>;
-    /// Find a function name by a character offset in source code. Resulting function information is accessed
-    /// via a closure
-    // the reason for a closure here is to avoid having to redundantly re-describe all the types
-    // which may already be described within an Ast implementation (Ex: Lunarity). This preserves
-    // more information about the function too.
-    fn find_function(&self, offset: CharOffset, fun: &mut FnMut(Option<&AbstractFunction>));
+    /// Find a function via the closure `fun`. The abstract function from AST is passed into the
+    /// closure and individual AST nodes may be accessed through it. Returns an AST item based on
+    /// result of closure
+    fn find_function(&self, fun: &mut FnMut(&AbstractFunction) -> bool) -> Option<AstItem>;
 }
 
