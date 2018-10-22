@@ -40,15 +40,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     pub fn run(&mut self) -> Result<(), Error> {
         self.emul.fire(Action::StepForward)?;
         if let Some(b) = self.breakpoints.pop() {
-            'step: loop {
-                let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
-                if line == b {
-                    break 'step;
-                } else {
-                    self.emul.fire(Action::StepForward)?;
-                }
-                info!("Current line: {}", self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?);
-            }
+            self.step_loop(|line| line == b)?;
             Ok(())
         } else { // if no breakpoints, just execute the contract
             self.emul.fire(Action::Exec)?;
@@ -82,18 +74,15 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     }
 
     /// Steps to the next line of execution
-    pub fn step(&mut self) -> Result<(), Error> {
-        let contract = self.file.find_contract(self.curr_name.as_str())?;
+    pub fn step_forward(&mut self) -> Result<(), Error> {
+        // let contract = self.file.find_contract(self.curr_name.as_str())?;
+
         debug!("Finding Line from position {}, and contract {}", self.emul.instruction(), self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
         debug!("Current line: {}", current_line);
-        let offset = self.file.char_pos_from_lineno(current_line, self.curr_name.as_str())?;
-        /*trace!("Current Instruction: {:?}",
-               self.file.opcode_pos_from_lineno(current_line, self.emul.offset(),
-               self.curr_name.as_str())?
-        );*/
+        // let offset = self.file.char_pos_from_lineno(current_line, self.curr_name.as_str())?;
 
-        let function = contract.file().find_function(&mut |func| {
+/*        let function = contract.file().find_function(&mut |func| {
             let  (start, end) = func.location();
             if start <= offset && end >= offset {
                 return true;
@@ -101,11 +90,21 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
             false
         }).expect("Could not find function");
         let (func_start, func_end) = function.location;
+        */
 
+        self.step_loop(|line| *line != current_line)?;
+        Ok(())
+    }
+
+    fn step_loop<F>(&mut self, fun: F) -> Result<(), Error>
+    where
+        F: Fn(&usize) -> bool
+    {
         'step: loop {
             let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
-            let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
-            if line != current_line && func_start <= char_offset && func_end >= char_offset {
+            // let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
+            info!("Current line: {}", line);
+            if fun(&line) {
                 break 'step;
             } else {
                 self.emul.fire(Action::StepForward)?;
