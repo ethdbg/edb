@@ -14,7 +14,7 @@ name = "edb"
 [workspace]
 members = [
   "compiler/",
-  "edb-core",
+  "core",
   "emul/",
   "solc_api",
   "test_helpers",

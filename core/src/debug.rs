@@ -40,7 +40,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     pub fn run(&mut self) -> Result<(), Error> {
         self.emul.fire(Action::StepForward)?;
         if let Some(b) = self.breakpoints.pop() {
-            self.step_loop(|line| line == b)?;
+            self.step_loop(|line| *line == b)?;
             Ok(())
         } else { // if no breakpoints, just execute the contract
             self.emul.fire(Action::Exec)?;
@@ -76,7 +76,6 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Steps to the next line of execution
     pub fn step_forward(&mut self) -> Result<(), Error> {
         // let contract = self.file.find_contract(self.curr_name.as_str())?;
-
         debug!("Finding Line from position {}, and contract {}", self.emul.instruction(), self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
         debug!("Current line: {}", current_line);
@@ -104,7 +103,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
             let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
             // let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
             info!("Current line: {}", line);
-            if fun(&line) {
+            if fun(&line) || self.emul.finished() {
                 break 'step;
             } else {
                 self.emul.fire(Action::StepForward)?;
@@ -116,7 +115,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.offset(), self.curr_name.as_str())?))?;
+            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.instruction(), self.curr_name.as_str())?))?;
         } else {
             self.emul.fire(Action::Exec)?;
         }
@@ -138,6 +137,17 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
         self.file.next_lines(self.emul.instruction(), count, self.curr_name.as_str())
     }
 
+    /// Chain another transaction on the VM, optionally with a new blockheader
+    /// executes with previous state of VM
+    pub fn chain(&mut self, tx: ValidTransaction, block: Option<HeaderParams>) {
+        self.emul.chain(tx, block)
+    }
+
+    /// get the return value of the function
+    pub fn output(&self) -> Vec<u8> {
+        self.emul.output()
+    }
+
     /// Returns the EVM Stack
     pub fn stack(&self) -> Result<Vec<ethereum_types::U256>, Error> {
         let mut stack_vec = Vec::new();
@@ -151,7 +161,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
                 });
             }
             Ok(())
-        });
+        })?;
 
         Ok(stack_vec)
     }

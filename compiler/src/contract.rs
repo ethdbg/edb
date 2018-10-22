@@ -118,6 +118,7 @@ impl<T> Contract<T> where T: Transport {
         for a in addr.iter() {
             let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
             if needle == code.0.as_slice() {
+                debug!("Found code! {:x?}", code.0);
                 return Ok(a.clone());
             }
         }

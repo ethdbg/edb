@@ -1,7 +1,7 @@
 use crate::{ SourceMap, Line, LineNo, CharOffset, OpcodeOffset, map::{Map, LineNumber} };
 use std::{iter::FromIterator, collections::HashMap };
 use super::err::{SolidityError, SourceMapError};
-use solc_api::types::Instruction;
+use solc_api::types::{Instruction, SourceIndex};
 use log::*;
 use failure::Error;
 
@@ -23,8 +23,16 @@ impl SoliditySourceMap {
         for (lineno, _) in src.lines().enumerate() {
             cache.insert(lineno, Self::shortest_len(&source_map, &map, lineno).map(|i| i.position));
         }
-        trace!("Line Cache: {:?}", cache);
-        trace!("Instructions: {:?}", source_map);
+        debug!("Instruction length: {}", source_map.len());
+        let mut neg_one_len = 0;
+        source_map.iter().for_each(|x| {
+            info!("Instruction: {:?}", x);
+            match x.source_index {
+                SourceIndex::NoSource => neg_one_len += 1,
+                _=> (),
+            }
+        });
+        debug!("Instructions without a source file: {}", neg_one_len);
         Self {
             map: Map::new(src),
             program_map: source_map,
@@ -98,6 +106,7 @@ impl SourceMap for SoliditySourceMap {
     fn current_line(&self, offset: OpcodeOffset) -> Result<Line, Error> {
         let line = self.lineno_from_opcode_pos(offset)?;
         let line_str = self.map.line(line)?;
+
         Ok((line, String::from_iter(line_str)))
     }
 
