@@ -154,18 +154,33 @@ impl<T> Emulator<T> where T: Transport {
         let mut instruction_pos = 0;
         'interpreter: loop {
             let instruction = code[opcode_pos];
+            // check for CBOR-encoded AUXDATA first. this will always start with 0xa1
+            // this should be unique enough to avoid conflicts with other languages
+            // So far, AFAIK, Solidity is the only language that adds an extra 'metadata' portion
+            // to the end of runtime bytecode
+            match instruction {
+                0xa1 => {
+                    let code_slice = &code[opcode_pos..];
+                                                  // b     z     z      r     0
+                    if &code_slice[1..9] == &[0x65, 0x62, 0x7a, 0x7a, 0x72, 0x30, 0x58, 0x20] {
+                        break 'interpreter;
+                    }
+                }
+                _ => (),
+            };
             match Opcode::from(instruction) {
                 Opcode::PUSH(bytes) => {
                     opcode_pos += bytes + 1;
+                    instruction_pos += 1;
                 },
                 _ => {
                     opcode_pos += 1;
+                    instruction_pos += 1;
                 },
             }
             if opcode_pos >= position {
                 break 'interpreter;
             }
-            instruction_pos += 1;
         }
         instruction_pos
     }
@@ -235,7 +250,7 @@ impl<T> Emulator<T> where T: Transport {
 
     fn step_forward(&mut self) -> Result<(), EmulError> {
         self.step()?;
-        // debug!("Instruction in STEP: {}", Self::into_instruction(633, self.vm.current_machine().unwrap().pc().code()));
+        debug!("Instruction in STEP: {}", Self::into_instruction(633, self.vm.current_machine().unwrap().pc().code()));
         if let Some(x) = self.vm.current_machine() {
             self.positions.push(x.pc().opcode_position());
         } else {
@@ -504,7 +519,7 @@ mod test {
                     trace!("Next Opcode: {:?}", vm.current_machine().unwrap().pc().peek_opcode().unwrap());
                     trace!("Next Instruction: {:?}", vm.current_machine().unwrap().pc().peek().unwrap());
                     Ok(())
-                });
+                }).unwrap();
                 emul.fire(Action::StepBack).unwrap();
                 emul.read_raw(|vm| {
                     assert_eq!(2, vm.current_state().unwrap().position);
