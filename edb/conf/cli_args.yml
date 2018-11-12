@@ -1,0 +1,29 @@
+name: EDB
+version: "0.0.1-alpha"
+author: Andrew P. <andrew.plaza@parity.io>
+about: General Purpose Debugger for Ethereum
+args:
+  - file:
+        short: f
+        long: file
+        value_name: FILE
+        help: "Debug a file"
+        required: true
+        takes_value: true
+  - verbose:
+        short: v
+        multiple: true
+        help: Sets level of verbosity
+  - contract:
+        short: c
+        long: contract
+        help: "Restrict debugging to specific contract"
+        required: false
+        takes_value: true
+  - addr:
+        short: a
+        long: address
+        help: "Address of deployed contract"
+        required: true
+        takes_value: true
+
