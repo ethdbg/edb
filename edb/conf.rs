@@ -1,8 +1,8 @@
 pub mod cli;
+mod helpers;
 use self::cli::{LogLevel, CLIArgs};
 
 use failure::Error;
-use log::*;
 use fern::colors::{Color, ColoredLevelConfig};
 
 use std::{
@@ -38,7 +38,11 @@ fn init_logger(level: log::LevelFilter) {
         .error(Color::Red)
         .debug(Color::Blue)
         .trace(Color::Magenta);
-
+    let mut log_dir = dirs::data_local_dir()
+        .expect("failed to find local data dir for logs");
+    log_dir.push("edb");
+    self::helpers::create_dir(log_dir.clone());
+    log_dir.push("edb.logs");
     fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
@@ -58,7 +62,7 @@ fn init_logger(level: log::LevelFilter) {
             .level_for("edb_emul", log::LevelFilter::Trace)
             .level_for("edb_core", log::LevelFilter::Trace)
             .level_for("edb", log::LevelFilter::Trace)
-            .chain(fern::log_file("edb.logs").expect("Failed to create edb.logs file"))
+            .chain(fern::log_file(log_dir).expect("Failed to create edb.logs file"))
         )
         .chain(
             fern::Dispatch::new()

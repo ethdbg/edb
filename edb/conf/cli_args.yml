@@ -20,7 +20,7 @@ args:
         help: "Restrict debugging to specific contract"
         required: false
         takes_value: true
-  - addr:
+  - address:
         short: a
         long: address
         help: "Address of deployed contract"
