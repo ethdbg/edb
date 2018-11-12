@@ -1,6 +1,6 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
-use sputnikvm::{Opcode, VMStatus, ValidTransaction, HeaderParams, SeqTransactionVM, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
+use sputnikvm::{Opcode, VMStatus, ValidTransaction, TransactionAction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
 use sputnikvm_network_foundation::ByzantiumPatch;
 use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
 use futures::future::Future;
@@ -102,6 +102,25 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
+    pub fn memory(&self) -> &SeqMemory<ByzantiumPatch> {
+        &self.vm.current_state()
+            .expect("Could not acquire current state. is the VM started?").memory
+    }
+
+    pub fn storage(&self) -> Option<HashMap<bigint::U256, bigint::M256>> {
+        self.state_cache.borrow()
+            .get(&self.resident_address())
+            .map(|acc| acc.storage.clone())
+    }
+
+    // The address of the contract that is being debugged
+    fn resident_address(&self) -> bigint::H160 {
+        let (tx, _) = &self.transaction;
+        match tx.action {
+            TransactionAction::Call(addr) => addr,
+            _ => panic!("Cannot debug creation of contracts")
+        }
+    }
     fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
         // If position is 0, we haven't started the VM yet
         while *self.positions.last().unwrap_or(&0) < opcode_pos {
@@ -214,7 +233,6 @@ impl<T> Emulator<T> where T: Transport {
             let (txinfo, block) = self.transaction.clone();
             self.vm = sputnikvm::TransactionVM::new(txinfo, block);
         }
-
     }
 
     /// Access the underyling vm implementation directly via the predicate F
@@ -252,7 +270,6 @@ impl<T> Emulator<T> where T: Transport {
 
     fn step_forward(&mut self) -> Result<(), EmulError> {
         self.step()?;
-        debug!("Instruction in STEP: {}", Self::into_instruction(self.vm.current_machine().unwrap().pc().code().len(), self.vm.current_machine().unwrap().pc().code()));
         if let Some(x) = self.vm.current_machine() {
             self.positions.push(x.pc().opcode_position());
         } else {

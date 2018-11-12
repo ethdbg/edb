@@ -106,7 +106,7 @@ impl SourceMap for SoliditySourceMap {
         let line = self.lineno_from_opcode_pos(offset)?;
         let line_str = self.map.line(line)?;
         let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
-        trace!("Real line: \n{}\n", self.map.line_from_range((pos.start, pos.start + pos.length)).unwrap());
+        // trace!("Real line: \n{}\n", self.map.line_from_range((pos.start, pos.start + pos.length)).unwrap());
         Ok((line, String::from_iter(line_str)))
     }
 

@@ -1,5 +1,8 @@
 use failure::Error;
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    collections::HashMap
+};
 use log::*;
 use edb_compiler::{Language, CodeFile, AbstractFunction};
 use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
@@ -39,7 +42,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {
         self.emul.fire(Action::StepForward)?;
-        if let Some(b) = self.breakpoints.pop() {
+        if let Some(b) = ed at 'eself.breakpoints.pop() {
             self.step_loop(|line| *line == b)?;
             Ok(())
         } else { // if no breakpoints, just execute the contract
@@ -164,5 +167,19 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
         })?;
 
         Ok(stack_vec)
+    }
+
+    /// returns evm memory
+    pub fn memory(&self) -> Result<Vec<bigint::M256>, Error> {
+        let mut mem_vec = Vec::new();
+        let mem = self.emul.memory();
+        for i in 0..mem.len() {
+            mem_vec.push(mem.read(i.into()));
+        }
+        Ok(mem_vec)
+    }
+
+    pub fn storage(&self) -> Option<HashMap<bigint::U256, bigint::M256>> {
+        self.emul.storage()
     }
 }
