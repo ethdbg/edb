@@ -20,14 +20,10 @@ ethabi = "6.0.1"
 delegate = "0.1.3"
 futures = "0.1.24"
 itertools = "0.7.8"
+web3 = { git = "https://github.com/tomusdrw/rust-web3", branch="master" }
 
 [dev-dependencies]
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }
 edb_test_helpers = { path = "../test_helpers" }
 pretty_env_logger = "*"
 
-[dependencies.web3]
-git = "https://github.com/InsidiousMind/rust-web3"
-branch = "bytes-deser"
-default-features = false
-features = ["http"]

@@ -14,6 +14,7 @@ futures = "0.1.24"
 etcommon-bigint = "0.2.9"
 ethereum-types = "0.4.0"
 log = "*"
+web3 = { git = "https://github.com/tomusdrw/rust-web3", branch="master" }
 
 [dev-dependencies]
 serde_json = "1.0.27"
@@ -24,8 +25,3 @@ jsonrpc-core = "8.0.1"
 edb_test_helpers = { path = "../test_helpers/" }
 hex = "*"
 
-[dependencies.web3]
-git = "https://github.com/InsidiousMind/rust-web3"
-branch = "bytes-deser"
-default-features = false
-features = ["http"]

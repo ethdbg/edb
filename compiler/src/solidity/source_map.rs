@@ -26,13 +26,12 @@ impl SoliditySourceMap {
         debug!("Instruction length: {}", source_map.len());
         let mut neg_one_len = 0;
         source_map.iter().for_each(|x| {
-            info!("Instruction: {:?}", x);
             match x.source_index {
                 SourceIndex::NoSource => neg_one_len += 1,
                 _=> (),
             }
         });
-        debug!("Instructions without a source file: {}", neg_one_len);
+
         Self {
             map: Map::new(src),
             program_map: source_map,
@@ -106,7 +105,8 @@ impl SourceMap for SoliditySourceMap {
     fn current_line(&self, offset: OpcodeOffset) -> Result<Line, Error> {
         let line = self.lineno_from_opcode_pos(offset)?;
         let line_str = self.map.line(line)?;
-
+        let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
+        trace!("Real line: \n{}\n", self.map.line_from_range((pos.start, pos.start + pos.length)).unwrap());
         Ok((line, String::from_iter(line_str)))
     }
 

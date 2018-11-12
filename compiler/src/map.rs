@@ -3,6 +3,8 @@
 use log::*;
 use super::err::{MapError};
 use std::iter::FromIterator;
+use std::string::ToString;
+
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -179,6 +181,11 @@ impl Map {
             },
             LineNumber::Start(_) | LineNumber::End(_) | LineNumber::Range(_) => Ok((start, end))
         }
+    }
+
+    pub fn line_from_range(&self, range: (usize, usize)) -> Result<String, MapError> {
+        let src = self.matrix.clone().into_iter().flatten().collect::<Vec<char>>();
+        Ok(src[range.0..range.1].iter().collect())
     }
 
     pub fn get_char(&self, char_pos: CharPosition) -> Result<&char, MapError> {
