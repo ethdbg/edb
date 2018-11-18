@@ -21,7 +21,7 @@ Organizations Repository will include:
 
 ### Supported Languages
 - [x] Solidity
-    - [x] Geth/Parity/GanacheCLI/etc
+    - [x] Geth/Parity/etc
     - [x] Single File
     - [ ] imports/libraries
     - [ ] multiple file
