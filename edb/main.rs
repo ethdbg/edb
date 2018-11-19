@@ -1,4 +1,5 @@
 mod conf;
+mod shell;
 
 use log::*;
 use failure::Error;
