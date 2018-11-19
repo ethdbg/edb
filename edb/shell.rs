@@ -2,18 +2,27 @@
 
 mod commands;
 mod types;
-mod ops;
+mod client;
+mod provider;
 mod err;
+#[macro_use]
+mod helpers;
 
 use failure::Error;
+use log::*;
+
 use std::{
     io::{stdin, stdout, Write},
     str::SplitWhitespace
 };
 
 use self::commands::*;
-use self::ops::*;
+use self::client::*;
+use self::helpers::*;
 
+// a simple shell
+// Does nothing on no user input, will only crash with really fatal errors
+// otherwise errors which are fixable are printed
 pub fn shell() -> Result<(), Error> {
     welcome();
     'shell: loop {
@@ -28,7 +37,7 @@ pub fn shell() -> Result<(), Error> {
             let command = match command.parse() {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!("{}", e);
+                    shell_error!(e);
                     Command::None
                 },
             };
@@ -36,7 +45,7 @@ pub fn shell() -> Result<(), Error> {
             match commands(command, parts) {
                 Ok(_)  => (),
                 Err(e) => {
-                    eprintln!("{}", e)
+                    shell_error!(e);
                 }
             }
         } // do nothing on no input
@@ -46,6 +55,7 @@ pub fn shell() -> Result<(), Error> {
 fn commands(command: Command, _args: SplitWhitespace) -> Result<(), Error> {
     match command {
         Command::Help    => help(),
+        Command::Run     => unimplemented!(),
         Command::Step    => step(None, None),
         Command::Next    => next(),
         Command::Execute => execute(),

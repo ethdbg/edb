@@ -5,6 +5,7 @@ use super::err::ShellError;
 
 pub enum Command {
     Help,
+    Run,
     Step,
     Next,
     Execute,
@@ -21,6 +22,7 @@ impl From<&Command> for String {
     fn from(command: &Command) -> String {
         match *command {
             Command::Help    => String::from("help"),
+            Command::Run     => String::from("run"),
             Command::Step    => String::from("step"),
             Command::Next    => String::from("next"),
             Command::Execute => String::from("execute"),
@@ -44,6 +46,7 @@ impl FromStr for Command {
 
         match command.as_str() {
             "help"|"?"        => Ok(Command::Help),
+            "run"             => Ok(Command::Run),
             "step"            => Ok(Command::Step),
             "next"            => Ok(Command::Next),
             "execute"|"exec"  => Ok(Command::Execute),
