@@ -1,15 +1,20 @@
 use std::str::FromStr;
 use failure::Error;
 
+use super::err::ShellError;
+
 pub enum Command {
     Help,
     Step,
-    Exec,
+    Next,
+    Execute,
     Print,
     Stack,
     Memory,
     Storage,
-    Opcode
+    Opcode,
+    Quit,
+    None,
 }
 
 impl From<&Command> for String {
@@ -17,12 +22,15 @@ impl From<&Command> for String {
         match *command {
             Command::Help    => String::from("help"),
             Command::Step    => String::from("step"),
-            Command::Exec    => String::from("exec"),
+            Command::Next    => String::from("next"),
+            Command::Execute => String::from("execute"),
             Command::Print   => String::from("print"),
             Command::Stack   => String::from("stack"),
             Command::Memory  => String::from("memory"),
             Command::Storage => String::from("storage"),
-            Command::Opcode  => String::from("opcode")
+            Command::Opcode  => String::from("opcode"),
+            Command::Quit    => String::from("quit"),
+            Command::None    => String::from("none"),
         }
     }
 }
@@ -34,15 +42,18 @@ impl FromStr for Command {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let command = s.to_ascii_lowercase();
 
-        Ok(match command.as_str() {
-            "help" => Command::Help,
-            "step" => Command::Step,
-            "execute"|"exec" => Command::Exec,
-            "print" => Command::Print,
-            "stack" => Command::Stack,
-            "memory"|"mem" => Command::Memory,
-            "storage"|"storg" => Command::Storage,
-            "opcode"|"op" => Command::Opcode
-        })
+        match command.as_str() {
+            "help"|"?"        => Ok(Command::Help),
+            "step"            => Ok(Command::Step),
+            "next"            => Ok(Command::Next),
+            "execute"|"exec"  => Ok(Command::Execute),
+            "print"           => Ok(Command::Print),
+            "stack"           => Ok(Command::Stack),
+            "memory"|"mem"    => Ok(Command::Memory),
+            "storage"|"storg" => Ok(Command::Storage),
+            "opcode"|"op"     => Ok(Command::Opcode),
+            "quit"|"exit"     => Ok(Command::Quit),
+            _ => Err(ShellError::CommandNotFound(s.to_string()).into())
+        }
     }
 }
