@@ -1,12 +1,27 @@
 //! All Operations the edb shell may execute are here
 use ethereum_types::H160;
-use ethabi;
+use failure::Error;
+
+use std::str::{FromStr, SplitWhitespace};
+
 use super::types::*;
+use super::err::ShellError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Direction {
     Forward,
     Backward
+}
+
+impl FromStr for Direction {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Direction, Error> {
+        match s {
+            "forward"|"f" => Ok(Direction::Forward),
+            "back"|"backward"|"b" => Ok(Direction::Backward),
+            _ => Err(ShellError::DirectionNotFound(s.to_string()).into())
+        }
+    }
 }
 
 impl Default for Direction {
@@ -15,8 +30,7 @@ impl Default for Direction {
     }
 }
 
-
-// the EDB Welcome Message
+/// the EDB Welcome Message
 pub fn welcome() {
     let (longer, other) = {
         if LOGO.lines().count() > SHELL.lines().count() {
@@ -42,11 +56,17 @@ pub fn help() {
     println!("{}", HELP);
 }
 
-pub fn run(address: H160, func: &str, params: Vec<ethabi::Param>) {
+// need the function ABI to be able to match params
+pub fn run(address: &str, contract: &str, func: &str, params: SplitWhitespace) {
     unimplemented!()
 }
 
-pub fn step(dir: Option<Direction>, num: Option<usize>) {
+pub fn step(dir: Option<&str>, num: Option<&str>) {
+    unimplemented!();
+}
+
+/// set breakpoints
+pub fn br(line: &str) {
     unimplemented!();
 }
 

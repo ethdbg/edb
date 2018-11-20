@@ -22,6 +22,7 @@ members = [
 
 [dependencies]
 # vyper = { path = "./vyper" }
+termion = "1.5"
 clap = { version = "2.32", features = ["yaml"] }
 tokio-core = "0.1"
 futures = "0.1.23"

@@ -26,12 +26,13 @@ pub const HELP: &'static str = "
     If you need help with a specific command, use 'COMMAND help' like this: `step help` or `step?`
 
     Available Commands:
-    run 
-    execute
-    step
-    next
-    memory
-    storage
-    stack
-    print
+    run - need the Address of deployed contract, Contract Name, Function to run, and the function parameters
+    execute - Execute the contract without stopping at any breakpionts
+    step - Step a line of execution
+    next - Go to the next breakpoint
+    break - Set a breakpoint
+    memory - Display the Memory
+    storage - Display the Storage
+    stack - Display the Stack
+    print - Print things
 ";
