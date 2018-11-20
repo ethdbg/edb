@@ -352,6 +352,12 @@ pub struct Instruction {
     pub position: usize,
 }
 
+impl std::fmt::Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Instruction {} in source {} - {}. Jump: {:?}", self.position, self.start, self.start+self.length, self.jump)
+    }
+}
+
 impl From<(usize, usize, SourceIndex, Jump, usize)> for Instruction {
     fn from(values: (usize, usize, SourceIndex, Jump, usize)) -> Instruction {
         Instruction {
@@ -445,6 +451,7 @@ pub struct Errors {
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum ErrorVariant {
+    SyntaxError,
     TypeError,
     InternalCompilerError,
     Exception,

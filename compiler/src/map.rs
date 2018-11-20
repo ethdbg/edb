@@ -3,6 +3,8 @@
 use log::*;
 use super::err::{MapError};
 use std::iter::FromIterator;
+use std::string::ToString;
+
 // creates a map of the source file
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -181,6 +183,11 @@ impl Map {
         }
     }
 
+    pub fn line_from_range(&self, range: (usize, usize)) -> Result<String, MapError> {
+        let src = self.matrix.clone().into_iter().flatten().collect::<Vec<char>>();
+        Ok(src[range.0..range.1].iter().collect())
+    }
+
     pub fn get_char(&self, char_pos: CharPosition) -> Result<&char, MapError> {
 
         match char_pos {
@@ -211,9 +218,9 @@ mod tests {
     use speculate::speculate;
     use edb_test_helpers as edbtest;
     use crate::test::Bencher;
-    const UNICODE_RANGE: &str = include_str!("map/utf8-test.txt");
-    const LINUX_SRC:&str = include_str!("map/linux-source-c.test");
-    const LARGE:&str = include_str!("map/1MB.txt");
+    const UNICODE_RANGE: &str = include_str!("test_files/utf8-test.txt");
+    const LINUX_SRC:&str = include_str!("test_files/linux-source-c.test");
+    const LARGE:&str = include_str!("test_files/1MB.txt");
     const TEST_STR:&str =
 "pragma solidity ^0.4.22;
 

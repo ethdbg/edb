@@ -27,8 +27,8 @@ impl Language for Solidity {
             T: Transport
     {
         let mut source = String::new();
-        let read = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
-        info!("Read {} bytes from Source File", read);
+        let file = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
+        info!("Read {} bytes from Source File", file);
 
         let parent = path.parent().ok_or(SolidityError::ParentNotFound)?.to_path_buf();
         let compiled_source = SolcApiBuilder::default()
@@ -43,8 +43,8 @@ impl Language for Solidity {
                 let mut import_path = parent.clone();
                 import_path.push(PathBuf::from(file.as_str()));
                 let mut src = String::new();
-                let read = std::fs::File::open(import_path.as_path())?.read_to_string(&mut src)?;
-                info!("Read {} bytes from source file: {}", read, file);
+                let file_buf = std::fs::File::open(import_path.as_path())?.read_to_string(&mut src)?;
+                info!("Read {} bytes from source file: {}", file_buf, file);
 
                 let ast = SolidityAst::new(&src)?;
                 let cfile = Rc::new(ContractFile::new(src, compiled_file.id, Box::new(ast), import_path)?);

@@ -1,13 +1,13 @@
 //! Emulates transaction execution and allows for real-time debugging.
 //! debugs one transaction at a time (1:1 One VM, One TX)
-use sputnikvm::{ValidTransaction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC, Machine as EVM};
-use futures::future::Future;
+use sputnikvm::{Opcode, VMStatus, ValidTransaction, TransactionAction, HeaderParams, SeqTransactionVM, SeqMemory, AccountChange, errors::{RequireError, CommitError}, AccountCommitment, VM, Storage, PC};
 use sputnikvm_network_foundation::ByzantiumPatch;
-use failure::Error;
 use web3::{ api::Web3, Transport, types::{BlockNumber, U256, Bytes}};
-use std::{ rc::Rc, cell::RefCell, collections::{HashMap} };
-use super::err::{EmulError, VmError, StateError};
+use futures::future::Future;
+use failure::Error;
 use log::*;
+use std::{ rc::Rc, cell::RefCell, collections::{HashMap} };
+use super::err::{EmulError, StateError};
 
 /// An action or what should happen for the next step of execution
 pub enum Action {
@@ -44,7 +44,8 @@ pub struct Emulator<T: Transport> {
     positions: Vec<usize>,
     transaction: (ValidTransaction, HeaderParams),
     client: web3::Web3<T>,
-    state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>
+    state_cache: Rc<RefCell<HashMap<bigint::H160, Account>>>,
+    // the amount of instructions have we stepped
 }
 
 /// A vm that emulates a transaction, allowing for mutations during execution
@@ -82,7 +83,7 @@ impl<T> Emulator<T> where T: Transport {
             vm: sputnikvm::TransactionVM::new(transaction, block),
             positions: Vec::new(),
             client,
-            state_cache: Rc::new(RefCell::new(HashMap::new()))
+            state_cache: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -101,15 +102,46 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
-    /// alternative to `fire`, manually step the vm until predicate `F` returns True
-    /// Gives direct (immutable) access to underlying VM machine
-    pub fn step_until<F>(&mut self, fun: F) -> Result<(), EmulError>
-        where F: Fn(&EVM<SeqMemory<ByzantiumPatch>, ByzantiumPatch>) -> bool
-    {
-        while !fun(self.vm.current_machine().ok_or(EmulError::Vm(VmError::MachineNotInitialized))?) {
+    pub fn memory(&self) -> &SeqMemory<ByzantiumPatch> {
+        &self.vm.current_state()
+            .expect("Could not acquire current state. is the VM started?").memory
+    }
+
+    pub fn storage(&self) -> Option<HashMap<bigint::U256, bigint::M256>> {
+        self.state_cache.borrow()
+            .get(&self.resident_address())
+            .map(|acc| acc.storage.clone())
+    }
+
+    // The address of the contract that is being debugged
+    fn resident_address(&self) -> bigint::H160 {
+        let (tx, _) = &self.transaction;
+        match tx.action {
+            TransactionAction::Call(addr) => addr,
+            _ => panic!("Cannot debug creation of contracts")
+        }
+    }
+    fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
+        // If position is 0, we haven't started the VM yet
+        while *self.positions.last().unwrap_or(&0) < opcode_pos {
             self.step_forward()?;
         }
         Ok(())
+    }
+
+    pub fn finished(&self) -> bool {
+        match self.vm.status() {
+            VMStatus::Running => false,
+            VMStatus::ExitedOk => true,
+            VMStatus::ExitedErr(err) => {
+                warn!("VM Exited with err {:?}", err);
+                true
+            },
+            VMStatus::ExitedNotSupported(err) => {
+                warn!("VM Exited due to unsupported operation {:?}", err);
+                true
+            }
+        }
     }
 
     /// any output that the transaction may have produced during VM execution
@@ -129,6 +161,49 @@ impl<T> Emulator<T> where T: Transport {
     /// get bytecode position
     pub fn offset(&self) -> usize {
         self.vm.current_machine().expect("Could not acquire current bytecode position").pc().opcode_position()
+    }
+
+    /// return the instruction position from an opcode offset
+    pub fn instruction(&self) -> usize {
+        Self::into_instruction(self.offset(), self.vm.current_machine().expect("could not acquire current machine").pc().code())
+    }
+
+    fn into_instruction(position: usize, code: &[u8]) -> usize {
+        let mut opcode_pos = 0;
+        let mut instruction_pos = 0;
+        'interpreter: loop {
+            let instruction = code[opcode_pos];
+            // check for CBOR-encoded AUXDATA first. this will always start with 0xa1
+            // this should be unique enough to avoid conflicts with other languages
+            // So far, AFAIK, Solidity is the only language that adds an extra 'metadata' portion
+            // to the end of runtime bytecode
+            match instruction {
+                0xa1 => {
+                    let code_slice = &code[opcode_pos..];
+                                                  // b     z     z      r     0
+                    if &code_slice[1..9] == &[0x65, 0x62, 0x7a, 0x7a, 0x72, 0x30, 0x58, 0x20] {
+                        break 'interpreter;
+                    } else {
+                        continue;
+                    }
+                }
+                _ => (),
+            };
+            match Opcode::from(instruction) {
+                Opcode::PUSH(bytes) => {
+                    opcode_pos += bytes + 1;
+                },
+                _ => {
+                    opcode_pos += 1;
+                },
+            }
+            if opcode_pos >= position {
+                break 'interpreter;
+            }
+            instruction_pos += 1;
+        }
+        debug!("Instruction Position {}", instruction_pos);
+        instruction_pos
     }
 
     /// Chain a transaction with the state changes of the previous transaction.
@@ -158,8 +233,8 @@ impl<T> Emulator<T> where T: Transport {
             let (txinfo, block) = self.transaction.clone();
             self.vm = sputnikvm::TransactionVM::new(txinfo, block);
         }
-
     }
+
     /// Access the underyling vm implementation directly via the predicate F
     ///
     /// ```
@@ -176,12 +251,6 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     fn step_back(&mut self) -> Result<(), EmulError> {
-        /*let mut curr_pos = 0;
-        if let Some(x) = self.positions.pop() {
-            curr_pos = x;
-        }
-        */
-
         let mut last_pos = 0;
         let (txinfo, header) = self.transaction.clone();
         let new_vm = sputnikvm::TransactionVM::new(txinfo, header);
@@ -206,14 +275,7 @@ impl<T> Emulator<T> where T: Transport {
         } else {
             self.positions.push(0);
         }
-        Ok(())
-    }
 
-    fn run_until(&mut self, opcode_pos: usize) -> Result<(), EmulError> {
-        // If position is 0, we haven't started the VM yet
-        while *self.positions.last().unwrap_or(&0) < opcode_pos {
-            self.step_forward()?;
-        }
         Ok(())
     }
 
@@ -333,7 +395,7 @@ where
             let balance: U256 = client.eth().balance(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait()?; // U256
             debug!("Balance: {:#x}", balance);
             let mut code = client.eth().code(ethereum_types::H160(addr.0), Some(BlockNumber::Latest)).wait(); // Bytes
-            debug!("Code: {:?}", code);
+            debug!("Code: {:x?}", code);
             if code.is_err() {
                 code = Ok(Bytes(vec![0]));
             }
@@ -476,7 +538,7 @@ mod test {
                     trace!("Next Opcode: {:?}", vm.current_machine().unwrap().pc().peek_opcode().unwrap());
                     trace!("Next Instruction: {:?}", vm.current_machine().unwrap().pc().peek().unwrap());
                     Ok(())
-                });
+                }).unwrap();
                 emul.fire(Action::StepBack).unwrap();
                 emul.read_raw(|vm| {
                     assert_eq!(2, vm.current_state().unwrap().position);
@@ -505,6 +567,14 @@ mod test {
                 emul.fire(Action::Exec).unwrap();
                 let out = emul.output();
                 assert_eq!(U256::from("1337"), U256::from(out.as_slice()));
+            }
+
+            it "should get an instruction offset from opcode offset" {
+                // fn into_instruction(position: usize, code: &[u8]) -> usize {
+                // PUSH1 0x80 PUSH3 0x20 0x31 0x32 ADD DIV PUSH6 0x10 0x40 0x10 0x10 0x70 0x23
+                let code: [u8; 15] = [0x60, 0x80, 0x62, 0x20, 0x31, 0x32, 0x01, 0x04, 0x65, 0x10, 0x40, 0x10, 0x10, 0x70, 0x23];
+                let offset = Emulator::<edbtest::MockWeb3Transport>::into_instruction(7, &code);
+                assert_eq!(offset, 3)
             }
         }
     }

@@ -1,11 +1,12 @@
 //! Contract Interface for Codefile/SourceMap/Debugger operations
+use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap, AbstractFunction, AstItem, CharOffset};
 
-use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap};
 use web3::{ types::{Address, BlockNumber}, Transport };
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
 use futures::future::Future;
 use failure::Error;
+use log::*;
 
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
@@ -17,11 +18,11 @@ pub struct ContractFile {
     source: String,
     /// General source map for offsets--line number
     // Abstract Syntax Tree of Source
-    ast: Box<dyn Ast<Err=LanguageError>>,
+    ast: Box<dyn Ast>,
 }
 
 impl ContractFile {
-    pub fn new(source: String, id: usize, ast: Box<dyn Ast<Err=LanguageError>>, file_path: PathBuf)
+    pub fn new(source: String, id: usize, ast: Box<dyn Ast>, file_path: PathBuf)
         -> Result<Self, Error>
     {
         let file_name = file_path
@@ -38,6 +39,16 @@ impl ContractFile {
 
     pub fn source(&self) -> &str {
         self.source.as_str()
+    }
+
+    delegate! {
+        target self.ast {
+            pub fn variable(&self, name: &str) -> Result<AstItem, Error>;
+            pub fn contract(&self, name: &str) -> Result<AstItem, Error>;
+            pub fn function(&self, name: &str, fun: &mut FnMut(Result<&AbstractFunction, Error>) -> bool) -> Result<AstItem, Error>;
+            pub fn find_contract(&self, offset: CharOffset) -> Option<AstItem>;
+            pub fn find_function(&self, fun: &mut FnMut(&AbstractFunction) -> bool) -> Option<AstItem>;
+        }
     }
 }
 
@@ -86,12 +97,17 @@ impl<T> Contract<T> where T: Transport {
             addr,
             abi.clone()
         );
-
+        trace!("Contract Instantiation Code Length: {}", runtime_bytecode.len());
+        trace!("{:?}", runtime_bytecode);
         Ok(Self { file, name, abi, deployed: contract, runtime_bytecode, source_map: map })
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn file(&self) -> Rc<ContractFile> {
+        self.file.clone()
     }
 
     // TODO: Make parallel/async
@@ -102,6 +118,7 @@ impl<T> Contract<T> where T: Transport {
         for a in addr.iter() {
             let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
             if needle == code.0.as_slice() {
+                debug!("Found code! {:x?}", code.0);
                 return Ok(a.clone());
             }
         }
