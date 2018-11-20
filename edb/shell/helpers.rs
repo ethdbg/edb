@@ -4,6 +4,6 @@
 macro_rules! shell_error {
     ($msg: expr) => {
         use colored::*;
-        eprintln!("{}: {}", "Error".red().bold(), $msg);
+        eprint!("\n{}: {}", "Error".red().bold(), $msg);
     }
 }

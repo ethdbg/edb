@@ -99,7 +99,7 @@ pub fn opcode() {
 }
 
 pub fn quit() {
-    println!("Goodbye!");
+    println!("\nGoodbye!");
     std::process::exit(0);
 }
 

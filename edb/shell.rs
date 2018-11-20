@@ -44,7 +44,7 @@ impl Shell {
         welcome();
 
         'shell: loop {
-            print!("~> ");
+            print!("\n~> ");
             stdout().flush()?;
 
             let mut input = String::new();
@@ -55,7 +55,6 @@ impl Shell {
                 let command = match command.parse() {
                     Ok(v) => v,
                     Err(e) => {
-                        print!("{}", "\n");
                         shell_error!(e);
                         Command::None
                     },
@@ -64,7 +63,6 @@ impl Shell {
                 match commands(command, parts) {
                     Ok(_)  => (),
                     Err(e) => {
-                        print!("{}", "\n");
                         shell_error!(e);
                     }
                 }
@@ -74,13 +72,12 @@ impl Shell {
 
     // parse events first, then if no events add key to buffer
     fn read_input(&self, input: &mut String) -> Result<(), Error> {
-        let stdin = stdin();
-        let stdin = stdin.lock();
         let mut stdout = stdout().into_raw_mode()?;
         let mut entry: usize = 0;
-        let mut cin = stdin.keys();
+        let mut cin = stdin().keys();
         'input: loop {
             let c = cin.next().ok_or(ShellError::InputError)??;
+            debug!("{:?}", c);
             match c {
                 Key::Up => {
                     if (self.shell_history.len() - entry) >= (self.shell_history.len()) {
@@ -90,7 +87,7 @@ impl Shell {
                         std::mem::replace(input, self.shell_history[self.shell_history.len() - entry].clone());
                     }
                     print!("{}", input);
-                    stdout.flush()?;
+                    debug!("{}", input);
                 },
                 Key::Down => {
                     if entry == 0 {
@@ -100,22 +97,26 @@ impl Shell {
                         entry -= 1;
                     }
                     print!("{}", input);
-                    stdout.flush()?;
+                    debug!("{}", input);
                 },
                 Key::Backspace => {
                     input.pop();
-                    let pos = stdout.cursor_pos()?;
-                    write!(stdout, "{}{}{} {}", termion::cursor::Goto(1, pos.1), termion::clear::CurrentLine, "~>", input)?;
-                    //write!(stdout, "{} {}", "~>", input);
+                    //let pos = stdout.cursor_pos()?;
+                    write!(stdout,
+                           "{}{}{}{}",
+                           termion::clear::CurrentLine,
+                           termion::cursor::Left((input.len() + 4) as u16),
+                           "~> ",
+                           input
+                           )?;
                 },
                 Key::Char('\n') => break,
-                Key::Char(c) => {
-                    input.push(c);
-                    print!("{}", c);
-                    // write!(stdout, "{}", c);
+                Key::Char(ch) => {
+                    input.push(ch);
+                    write!(stdout, "{}", ch)?;
                 }
                 _ => continue,
-            }
+            };
             stdout.flush()?;
         }
         Ok(())
