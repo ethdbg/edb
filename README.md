@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ethdbg/edb/master/edb_logo.png" />
+  <img src="https://raw.githubusercontent.com/ethdbg/edb/master/screenshot.png" />
 </p>
 
 # EDB
