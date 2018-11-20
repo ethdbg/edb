@@ -20,10 +20,15 @@ args:
         help: "Restrict debugging to specific contract"
         required: false
         takes_value: true
-  - addr:
+  - address:
         short: a
         long: address
         help: "Address of deployed contract"
-        required: true
+        required: false
         takes_value: true
-
+  - rpc:
+        short: r
+        long: rpc
+        help: "Address of RPC in use. Default: `http://localhost:8545`. takes format of `transport://URI`. ie `ipc:///home/user/.parity/ipc`"
+        required: false
+        takes_value: true

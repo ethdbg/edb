@@ -23,12 +23,12 @@ pub type Breakpoint = usize;
 impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     pub fn new(path: PathBuf,
-                  lang: L,
-                  client: web3::Web3<T>,
-                  tx: ValidTransaction,
-                  block: HeaderParams,
-                  contract_name: &str
-                  )
+                lang: L,
+                client: web3::Web3<T>,
+                tx: ValidTransaction,
+                block: HeaderParams,
+                contract_name: &str
+                )
         -> Result<Self, Error>
     {
         let cache = AddressCache::new(&client)?;
@@ -42,7 +42,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {
         self.emul.fire(Action::StepForward)?;
-        if let Some(b) = ed at 'eself.breakpoints.pop() {
+        if let Some(b) = self.breakpoints.pop() {
             self.step_loop(|line| *line == b)?;
             Ok(())
         } else { // if no breakpoints, just execute the contract
