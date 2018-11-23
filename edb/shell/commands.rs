@@ -4,26 +4,34 @@ use failure::Error;
 use super::err::ShellError;
 
 pub enum Command {
-    Help,
-    Run,
-    Step,
-    Break,
-    Next,
-    Execute,
-    Print,
-    Stack,
-    Memory,
-    Storage,
-    Opcode,
-    Quit,
-    None,
+    Help, // help message
+    Clear, // Clear the screen
+    Run, // run a function
+    Reset, // reset to first breakpoint
+    Restart,  // restart entirely (re-run) (no chaining)
+    Finish, // Finish current program (Next transaction keeps state from last transaction)
+    Step, // step to next line
+    Break, // toggle breakpoint
+    Next, // go to next breakpoint
+    Execute, // Execute to end (does not keep state from last transaction)
+    Print, // Print variables n' stuff
+    Stack, // Show a representation the stack
+    Memory, // Show a representation of the memory
+    Storage, // show a representation of the storage
+    Opcode, // show the current opcode
+    Quit, // quit the debugger
+    None, // no command
 }
 
 impl From<&Command> for String {
     fn from(command: &Command) -> String {
         match *command {
             Command::Help    => String::from("help"),
+            Command::Clear   => String::from("clear"),
             Command::Run     => String::from("run"),
+            Command::Reset   => String::from("reset"),
+            Command::Restart => String::from("restart"),
+            Command::Finish  => String::from("finish"),
             Command::Step    => String::from("step"),
             Command::Break   => String::from("break"),
             Command::Next    => String::from("next"),
@@ -43,7 +51,11 @@ impl From<Command> for String {
     fn from(command: Command) -> String {
         match command {
             Command::Help    => String::from("help"),
+            Command::Clear   => String::from("clear"),
             Command::Run     => String::from("run"),
+            Command::Reset   => String::from("reset"),
+            Command::Restart => String::from("restart"),
+            Command::Finish  => String::from("finish"),
             Command::Step    => String::from("step"),
             Command::Break   => String::from("break"),
             Command::Next    => String::from("next"),
@@ -66,7 +78,11 @@ impl FromStr for Command {
 
         match command.as_str() {
             "help"|"?"        => Ok(Command::Help),
+            "clear"           => Ok(Command::Clear),
             "run"             => Ok(Command::Run),
+            "reset"           => Ok(Command::Reset),
+            "restart"         => Ok(Command::Restart),
+            "finish"          => Ok(Command::Finish),
             "step"            => Ok(Command::Step),
             "break"           => Ok(Command::Break),
             "next"            => Ok(Command::Next),

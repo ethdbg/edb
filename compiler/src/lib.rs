@@ -37,7 +37,7 @@ use failure::Error;
 pub trait Language {
     // TODO: don't have to return tuple. Can just return Contracts
     /// Compiles Source Code File into a Vector of Contract Files
-    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, addresses: &[Address])
+    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, address: &Address)
         -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
 }
 

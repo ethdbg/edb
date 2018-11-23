@@ -11,8 +11,22 @@ use std::{
     path::PathBuf
 };
 
-pub struct Configuration {
+pub enum FileType {
+    Solidity,
+    Vyper,
+    LLL,
+    Bamboo,
+    Serpent
+}
+
+pub struct File {
     file: PathBuf,
+    fileType: FileType,
+}
+
+pub struct Configuration {
+    file: File,
+    transport: http::uri::Uri,
     contract: Option<String>,
 }
 

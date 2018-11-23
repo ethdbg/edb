@@ -87,14 +87,13 @@ impl<T> Contract<T> where T: Transport {
                eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
-               possible_addr: &[Address],
+               addr: &Address,
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
 
-        let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth, possible_addr)?;
         let contract = web3::contract::Contract::new(
             eth,
-            addr,
+            *addr,
             abi.clone()
         );
         trace!("Contract Instantiation Code Length: {}", runtime_bytecode.len());
@@ -108,21 +107,6 @@ impl<T> Contract<T> where T: Transport {
 
     pub fn file(&self) -> Rc<ContractFile> {
         self.file.clone()
-    }
-
-    // TODO: Make parallel/async
-    /// Find a contract from it's bytecode and a local ethereum node
-    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[Address])
-                              -> Result<Address, LanguageError>
-    {
-        for a in addr.iter() {
-            let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
-            if needle == code.0.as_slice() {
-                debug!("Found code! {:x?}", code.0);
-                return Ok(a.clone());
-            }
-        }
-        return Err(LanguageError::NotFound(NotFoundError::Contract))
     }
 
     /// Returns address on testnet that the contract is deployed at

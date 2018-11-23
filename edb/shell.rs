@@ -1,9 +1,10 @@
 //! A pretty simplistic implementation of a shell to use for EDB
+// TODO: Should be implemented as a trait and not as a builder
 
 mod commands;
 mod types;
-mod client;
-mod provider;
+mod ops;
+mod builder;
 mod err;
 #[macro_use] mod helpers;
 
@@ -13,30 +14,34 @@ use termion::{
     input::TermRead,
     event::Key,
     raw::IntoRawMode,
-    cursor::DetectCursorPos,
 };
 
 use std::{
-    io::{stdin, stdout, Write, Read},
+    io::{stdin, stdout, Write},
     str::SplitWhitespace
 };
 
-use self::commands::*;
-use self::client::*;
-use self::err::*;
+use edb_core::{Debugger, Language, Transport, Solidity};
 
-pub struct Shell {
+use self::commands::*;
+use self::ops::*;
+use self::err::*;
+pub use self::builder::ShellBuilder;
+
+pub struct Shell<T, L> where T: Transport, L: Language {
     shell_history: Vec<String>,
+    dbg: Debugger<T, L>
 }
 
 // a simple shell
 // Does nothing on no user input, will only crash with really fatal errors
 // otherwise errors which are fixable are printed
-impl Shell {
+impl<T, L> Shell<T, L> where T: Transport, L: Language {
 
-    pub fn new() -> Self {
+    pub fn new(debugger: Debugger<T, L>) -> Self {
         Self {
-            shell_history: Vec::new()
+            shell_history: Vec::new(),
+            dbg: debugger,
         }
     }
 
@@ -60,7 +65,7 @@ impl Shell {
                     },
                 };
 
-                match commands(command, parts) {
+                match commands(command, parts, &mut self.dbg) {
                     Ok(_)  => (),
                     Err(e) => {
                         shell_error!(e);
@@ -80,24 +85,24 @@ impl Shell {
             debug!("{:?}", c);
             match c {
                 Key::Up => {
-                    if (self.shell_history.len() - entry) >= (self.shell_history.len()) {
+                    if entry >= self.shell_history.len() {
                         std::mem::replace(input, "".to_string());
+                        write!(stdout, "{}{}{}{}", termion::cursor::Left(6u16), termion::clear::CurrentLine, "~> ", input)?;
                     } else {
                         entry += 1;
                         std::mem::replace(input, self.shell_history[self.shell_history.len() - entry].clone());
+                        write!(stdout, "{}{}{}{}", termion::cursor::Left((input.len() + 6) as u16), termion::clear::CurrentLine, "~> ", input)?;
                     }
-                    print!("{}", input);
-                    debug!("{}", input);
                 },
                 Key::Down => {
                     if entry == 0 {
                         std::mem::replace(input, "".to_string());
+                        write!(stdout, "{}{}{}{}", termion::cursor::Left(6u16), termion::clear::CurrentLine, "~> ", input)?;
                     } else {
                         std::mem::replace(input, self.shell_history[self.shell_history.len() - entry].clone());
+                        write!(stdout, "{}{}{}{}", termion::cursor::Left((input.len() + 6) as u16), termion::clear::CurrentLine, "~> ", input)?;
                         entry -= 1;
                     }
-                    print!("{}", input);
-                    debug!("{}", input);
                 },
                 Key::Backspace => {
                     input.pop();
@@ -105,7 +110,7 @@ impl Shell {
                     write!(stdout,
                            "{}{}{}{}",
                            termion::clear::CurrentLine,
-                           termion::cursor::Left((input.len() + 4) as u16),
+                           termion::cursor::Left((input.len() + 6) as u16),
                            "~> ",
                            input
                            )?;
@@ -123,15 +128,22 @@ impl Shell {
     }
 }
 
-fn commands(command: Command, mut args: SplitWhitespace) -> Result<(), Error> {
+fn commands<T, L>(command: Command, mut args: SplitWhitespace, dbg: &mut Debugger<T, L>) -> Result<(), Error>
+where T: Transport,
+      L: Language,
+{
     match command {
         Command::Help    => help(),
+        Command::Clear   => clear()?,
         Command::Run     => {
             let arg0 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
             let arg1 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
             let arg2 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
-            run(arg0, arg1, arg2, args);
+            run( );
         },
+        Command::Reset   => reset(),
+        Command::Restart => restart(),
+        Command::Finish  => finish(),
         Command::Step    => step(args.next(), args.next()),
         Command::Break   => br(args.next().ok_or_else(|| ShellError::ArgumentsRequired(1, String::from(command)))?),
         Command::Next    => next(),
@@ -144,7 +156,6 @@ fn commands(command: Command, mut args: SplitWhitespace) -> Result<(), Error> {
         Command::Quit    => quit(),
         Command::None    => (),
     };
-
     Ok(())
 }
 

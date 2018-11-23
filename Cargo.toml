@@ -24,6 +24,7 @@ members = [
 # vyper = { path = "./vyper" }
 termion = "1.5"
 clap = { version = "2.32", features = ["yaml"] }
+http = "0.1"
 tokio-core = "0.1"
 futures = "0.1.23"
 failure = "0.1.2"

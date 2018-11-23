@@ -1,13 +1,13 @@
 
 pub const LOGO: &'static str = "
-   ▄████████ ████████▄  ▀█████████▄     
-  ███    ███ ███   ▀███   ███    ███    
-  ███    █▀  ███    ███   ███    ███    
- ▄███▄▄▄     ███    ███  ▄███▄▄▄██▀     
-▀▀███▀▀▀     ███    ███ ▀▀███▀▀▀██▄     
-  ███    █▄  ███    ███   ███    ██▄    
-  ███    ███ ███   ▄███   ███    ███    
-  ██████████ ████████▀  ▄█████████▀     
+   ▄████████ ████████▄  ▀█████████▄
+  ███    ███ ███   ▀███   ███    ███
+  ███    █▀  ███    ███   ███    ███
+ ▄███▄▄▄     ███    ███  ▄███▄▄▄██▀
+▀▀███▀▀▀     ███    ███ ▀▀███▀▀▀██▄
+  ███    █▄  ███    ███   ███    ██▄
+  ███    ███ ███   ▄███   ███    ███
+  ██████████ ████████▀  ▄█████████▀
 ";
 
 pub const SHELL: &'static str = r"
@@ -18,7 +18,7 @@ pub const SHELL: &'static str = r"
 ";
 
 pub const WELCOME: &'static str = "Welcome to EDB. Use the command `help` or `?` to display the help message.";
-
+// run - Function to run, and the function parameters
 // The Help Message
 pub const HELP: &'static str = "
     Hello, I am the help message!
@@ -26,7 +26,7 @@ pub const HELP: &'static str = "
     If you need help with a specific command, use 'COMMAND help' like this: `step help` or `step?`
 
     Available Commands:
-    run - need the Address of deployed contract, Contract Name, Function to run, and the function parameters
+    run - Run a contract/function to debug
     execute - Execute the contract without stopping at any breakpionts
     step - Step a line of execution
     next - Go to the next breakpoint
@@ -35,4 +35,5 @@ pub const HELP: &'static str = "
     storage - Display the Storage
     stack - Display the Stack
     print - Print things
+    quit - use `quit` or `exit` to escape the shell
 ";

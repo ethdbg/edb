@@ -2,7 +2,13 @@
 use ethereum_types::H160;
 use failure::Error;
 
-use std::str::{FromStr, SplitWhitespace};
+use termion::raw::IntoRawMode;
+
+use std::{
+    io::Write,
+    str::{FromStr, SplitWhitespace},
+};
+use edb_core::{Debugger, Solidity, Language, Transport};
 
 use super::types::*;
 use super::err::ShellError;
@@ -56,8 +62,27 @@ pub fn help() {
     println!("{}", HELP);
 }
 
+pub fn clear() -> Result<(), Error> {
+    let mut stdout = std::io::stdout().into_raw_mode()?;
+    write!(stdout, "{}{}", termion::clear::All, termion::cursor::Goto(1,1))?;
+    Ok(())
+}
+
 // need the function ABI to be able to match params
-pub fn run(address: &str, contract: &str, func: &str, params: SplitWhitespace) {
+// pub fn run(address: &str, contract: &str, func: &str, params: SplitWhitespace) {
+pub fn run<T: Transport, L: Language>(file: &mut Debugger<T, L>, params: SplitWhitespace) -> Result<(), Error> {
+    unimplemented!();
+}
+
+pub fn reset() {
+    unimplemented!()
+}
+
+pub fn restart() {
+    unimplemented!()
+}
+
+pub fn finish() {
     unimplemented!()
 }
 
@@ -110,8 +135,8 @@ pub fn quit() {
  *   \/\/\/\/\\/\/\\\/\\/\\\/\/\/\/\/\/\/\
  */
 /// Function to control default configuration of EDB. IE: How many lines to print at once, etc
-/// ie `config edb xxxx` <-- EDB/ui specific 
-/// or `config eth xxx` <--- ethereum specific (block num etc)
+/// ie `config edb xxxx` <-- EDB/ui specific
+/// or `config eth xxx` <--- ethereum specific (block num, gas limit, tx params, etc etc)
 pub fn config() {
     unimplemented!();
 }

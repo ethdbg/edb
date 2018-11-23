@@ -6,7 +6,6 @@ use std::{
 use log::*;
 use edb_compiler::{Language, CodeFile, AbstractFunction};
 use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
-use super::addr_cache::AddressCache;
 use super::err::EvmError;
 use sputnikvm::Memory;
 
@@ -14,7 +13,6 @@ pub struct Debugger<T, L> where T: web3::Transport, L: Language {
     file: CodeFile<L, T>,
     emul: Emulator<T>,
     breakpoints: Vec<Breakpoint>,
-    // cache: AddressCache,
     curr_name: String,
 }
 
@@ -24,6 +22,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
 
     pub fn new(path: PathBuf,
                 lang: L,
+                address: &web3::types::Address,
                 client: web3::Web3<T>,
                 tx: ValidTransaction,
                 block: HeaderParams,
@@ -31,8 +30,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
                 )
         -> Result<Self, Error>
     {
-        let cache = AddressCache::new(&client)?;
-        let file = CodeFile::new(lang, path, client.clone(), &cache.as_vec().as_slice())?;
+        let file = CodeFile::new(lang, path, client.clone(), address)?;
         let emul = Emulator::new(tx, block, client);
         let breakpoints = Vec::new();
         let curr_name = String::from(contract_name);

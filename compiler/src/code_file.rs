@@ -21,7 +21,7 @@ pub struct CodeFile<L: Language, T: Transport> {
 impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
 
     /// Create a new instance of Code File
-    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, addresses: &[Address]) -> Result<Self, Error> {
+    pub fn new(language: L, path: PathBuf, client: web3::Web3<T>, address: &Address) -> Result<Self, Error> {
         let name = path.file_name()
             .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
@@ -31,7 +31,7 @@ impl<L, T> CodeFile<L, T> where L: Language, T: Transport {
         if path.is_dir() {
             return Err(LanguageError::NotFound(NotFoundError::File)).map_err(|e| e.into());
         }
-        let (files, contracts) = language.compile(path, &client.eth(), addresses)?;
+        let (files, contracts) = language.compile(path, &client.eth(), address)?;
         Ok(Self { language, client, files, contracts, name })
     }
 
