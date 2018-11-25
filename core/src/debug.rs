@@ -36,6 +36,11 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
         let curr_name = String::from(contract_name);
         Ok(Self {file, emul, breakpoints, curr_name})
     }
+    
+    // set emulator and TX
+    pub fn set(tx: ValidTransaction, block: HeaderParams) -> Result<(), Error> {
+        unimplemented!();
+    }
 
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {

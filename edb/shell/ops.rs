@@ -70,7 +70,7 @@ pub fn clear() -> Result<(), Error> {
 
 // need the function ABI to be able to match params
 // pub fn run(address: &str, contract: &str, func: &str, params: SplitWhitespace) {
-pub fn run<T: Transport, L: Language>(file: &mut Debugger<T, L>, params: SplitWhitespace) -> Result<(), Error> {
+pub fn run<T: Transport, L: Language>(file: Option<&mut Debugger<T, L>>, params: SplitWhitespace) -> Result<(), Error> {
     unimplemented!();
 }
 

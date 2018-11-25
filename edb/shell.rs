@@ -30,7 +30,7 @@ pub use self::builder::ShellBuilder;
 
 pub struct Shell<T, L> where T: Transport, L: Language {
     shell_history: Vec<String>,
-    dbg: Debugger<T, L>
+    dbg: Option<Debugger<T, L>>
 }
 
 // a simple shell
@@ -38,10 +38,10 @@ pub struct Shell<T, L> where T: Transport, L: Language {
 // otherwise errors which are fixable are printed
 impl<T, L> Shell<T, L> where T: Transport, L: Language {
 
-    pub fn new(debugger: Debugger<T, L>) -> Self {
+    pub fn new() -> Self {
         Self {
             shell_history: Vec::new(),
-            dbg: debugger,
+            dbg: None,
         }
     }
 
@@ -65,7 +65,7 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
                     },
                 };
 
-                match commands(command, parts, &mut self.dbg) {
+                match commands(command, parts, self.dbg.as_mut()) {
                     Ok(_)  => (),
                     Err(e) => {
                         shell_error!(e);
@@ -82,7 +82,7 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
         let mut cin = stdin().keys();
         'input: loop {
             let c = cin.next().ok_or(ShellError::InputError)??;
-            debug!("{:?}", c);
+            trace!("{:?}", c);
             match c {
                 Key::Up => {
                     if entry >= self.shell_history.len() {
@@ -128,19 +128,14 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
     }
 }
 
-fn commands<T, L>(command: Command, mut args: SplitWhitespace, dbg: &mut Debugger<T, L>) -> Result<(), Error>
+fn commands<T, L>(command: Command, args: SplitWhitespace, dbg: Option<&mut Debugger<T, L>>) -> Result<(), Error>
 where T: Transport,
       L: Language,
 {
     match command {
         Command::Help    => help(),
         Command::Clear   => clear()?,
-        Command::Run     => {
-            let arg0 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
-            let arg1 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
-            let arg2 = args.next().ok_or_else(|| ShellError::ArgumentsRequired(4, String::from(&command)))?;
-            run( );
-        },
+        Command::Run     => run(dbg, args)?,
         Command::Reset   => reset(),
         Command::Restart => restart(),
         Command::Finish  => finish(),
