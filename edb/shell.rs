@@ -30,7 +30,8 @@ pub use self::builder::ShellBuilder;
 
 pub struct Shell<T, L> where T: Transport, L: Language {
     shell_history: Vec<String>,
-    dbg: Option<Debugger<T, L>>
+    dbg: Option<Debugger<T, L>>,
+    lang: L
 }
 
 // a simple shell
@@ -38,10 +39,11 @@ pub struct Shell<T, L> where T: Transport, L: Language {
 // otherwise errors which are fixable are printed
 impl<T, L> Shell<T, L> where T: Transport, L: Language {
 
-    pub fn new() -> Self {
+    pub fn new(lang: L) -> Self {
         Self {
             shell_history: Vec::new(),
             dbg: None,
+            lang,
         }
     }
 
@@ -128,7 +130,7 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
     }
 }
 
-fn commands<T, L>(command: Command, args: SplitWhitespace, dbg: Option<&mut Debugger<T, L>>) -> Result<(), Error>
+fn commands<T, L>(command: Command, mut args: SplitWhitespace, dbg: Option<&mut Debugger<T, L>>) -> Result<(), Error>
 where T: Transport,
       L: Language,
 {
