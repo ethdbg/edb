@@ -31,7 +31,8 @@ pub use self::builder::ShellBuilder;
 pub struct Shell<T, L> where T: Transport, L: Language {
     shell_history: Vec<String>,
     dbg: Option<Debugger<T, L>>,
-    lang: L
+    lang: L,
+    client: web3::Web3<T>,
 }
 
 // a simple shell
@@ -39,7 +40,7 @@ pub struct Shell<T, L> where T: Transport, L: Language {
 // otherwise errors which are fixable are printed
 impl<T, L> Shell<T, L> where T: Transport, L: Language {
 
-    pub fn new(lang: L) -> Self {
+    pub fn new(lang: L, client: web3::Web3<T>) -> Self {
         Self {
             shell_history: Vec::new(),
             dbg: None,

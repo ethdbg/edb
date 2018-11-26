@@ -15,6 +15,11 @@ use log::*;
 fn main() -> Result<(), Error> {
     let conf = conf::Configuration::new()?;
     // TODO: Clean this up
+    // could probably use some kind of Iterator implementation on a 'Languages' enum, or 'Transports' enum, or
+    // something similar to that instead of manually matching everything (lots of repeated code)
+    // in addition, the errors should be propogated in order to avoid lots of error-handling
+    // boilerplate
+
 
     // Take care of the 'Transport' Generic based on CLI Arguments
     match *conf.file.file_type() {
@@ -32,7 +37,7 @@ fn main() -> Result<(), Error> {
                     start_provider(conf, client, Solidity::default())?;
                 },
                 Some("file") => {
-                    let (_eloop, ipc) = web3::transports::Ipc::new(into_str(trans).as_str())
+                    let (_eloop, ipc) = web3::transports::Ipc::new(into_str(trans).as_str()) // TODO: This probably won't work
                         .unwrap_or_else(|e| {
                             error!("{}", e);
                             std::process::exit(1);
@@ -71,7 +76,7 @@ fn start_provider<T>(conf: conf::Configuration, client: web3::Web3<T>, lang: imp
     -> Result<(), Error> where T: Transport
 {
     match *conf.mode() {
-        Mode::Tui => Shell::<T, _>::new(lang).run()?,
+        Mode::Tui => Shell::<T, _>::new(lang, client).run()?,
         Mode::Rpc => unimplemented!(),
     }
     Ok(())

@@ -334,7 +334,6 @@ dependencies = [
  "solc 0.1.0 (git+https://github.com/InsidiousMind/rust_solc?branch=insi_add-whitelisted-paths)",
  "solc_api 0.1.0",
  "speculate 0.1.0 (git+https://github.com/utkarshkukreti/speculate.rs.git)",
- "web3 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

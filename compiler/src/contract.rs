@@ -1,10 +1,10 @@
 //! Contract Interface for Codefile/SourceMap/Debugger operations
 use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap, AbstractFunction, AstItem, CharOffset};
 
-use web3::{ types::{Address, BlockNumber}, Transport };
+
+use ethereum_types::Address;
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
-use futures::future::Future;
 use failure::Error;
 use log::*;
 
@@ -55,17 +55,17 @@ impl ContractFile {
 // get rid of Web3 here. Only thing contract is needed for is querying local functions + AST. We
 // never really need to query the contract functions.
 /// Contract
-pub struct Contract<T> where T: Transport {
+pub struct Contract {
     file: Rc<ContractFile>,
     name: String,
     abi: ethabi::Contract,
-    deployed: web3::contract::Contract<T>,
     runtime_bytecode: Vec<u8>,
     source_map: Box<dyn SourceMap>,
+    addr: Address,
 }
 
 // contract interface for the debugger. should be the same across all languages
-impl<T> Contract<T> where T: Transport {
+impl Contract {
 
     delegate! {
         target self.abi {
@@ -86,21 +86,14 @@ impl<T> Contract<T> where T: Transport {
 
     pub fn new(file: Rc<ContractFile>,
                name: String,
-               eth: web3::api::Eth<T>,
                map: Box<dyn SourceMap>,
                abi: ethabi::Contract,
                addr: &Address,
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
-
-        let contract = web3::contract::Contract::new(
-            eth,
-            *addr,
-            abi.clone()
-        );
         trace!("Contract Instantiation Code Length: {}", runtime_bytecode.len());
         trace!("{:?}", runtime_bytecode);
-        Ok(Self { file, name, abi, deployed: contract, runtime_bytecode, source_map: map })
+        Ok(Self { addr: addr.clone(), file, name, abi, runtime_bytecode, source_map: map })
     }
 
     pub fn name(&self) -> &str {
@@ -113,7 +106,7 @@ impl<T> Contract<T> where T: Transport {
 
     /// Returns address on testnet that the contract is deployed at
     pub fn address(&self) -> Address {
-        self.deployed.address()
+        self.addr
     }
 
     /// get the source map of this contract

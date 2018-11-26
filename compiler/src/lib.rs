@@ -29,7 +29,8 @@ pub use self::code_file::CodeFile;
 pub use self::contract::{Contract, ContractFile};
 
 use std::{path::PathBuf, rc::Rc};
-use web3::{Transport, types::{Address}};
+
+use ethereum_types::Address;
 use failure::Error;
 #[cfg(test)] extern crate test;
 
@@ -37,8 +38,8 @@ use failure::Error;
 pub trait Language {
     // TODO: don't have to return tuple. Can just return Contracts
     /// Compiles Source Code File into a Vector of Contract Files
-    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, address: &Address)
-        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
+    fn compile(&self, path: PathBuf, address: &Address)
+        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract>), Error>;
 }
 
 /// Represents a Line - Line number and String (0-indexed)

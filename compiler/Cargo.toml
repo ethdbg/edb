@@ -20,7 +20,6 @@ ethabi = "6.0.1"
 delegate = "0.1.3"
 futures = "0.1.24"
 itertools = "0.7.8"
-web3 = "0.5"
 
 [dev-dependencies]
 speculate = { git = "https://github.com/utkarshkukreti/speculate.rs.git" }

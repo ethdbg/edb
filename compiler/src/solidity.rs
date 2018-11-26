@@ -8,7 +8,8 @@ use std::{
     iter::FromIterator,
     rc::Rc,
 };
-use web3::{Transport, types::Address};
+
+use ethereum_types::Address;
 use failure::Error;
 use solc_api::{ SolcApiBuilder, types::FoundationVersion };
 use log::*;
@@ -21,10 +22,8 @@ pub struct Solidity;
 
 impl Language for Solidity {
 
-    fn compile<T>(&self, path: PathBuf, eth: &web3::api::Eth<T>, address: &Address)
-        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error>
-        where
-            T: Transport
+    fn compile(&self, path: PathBuf, address: &Address)
+        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract>), Error>
     {
         let mut source = String::new();
         let file = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
@@ -54,7 +53,6 @@ impl Language for Solidity {
                         let deployed_code = c.evm.deployed_bytecode.as_ref().expect("Should never be missing field bytecode; qed").clone();
                         Contract::new(cfile.clone(),
                                       c.name.clone(),
-                                      eth.clone(),
                                       Box::new(SoliditySourceMap::new(cfile.clone().source(), deployed_code.source_map)),
                                       c.abi.clone(),
                                       address,
@@ -64,7 +62,7 @@ impl Language for Solidity {
                 Ok(cfile)
             })
             .collect::<Result<Vec<Rc<ContractFile>>, Error>>()?;
-        let contracts = Result::<Vec<Contract<T>>, Error>::from_iter(contracts)?;
+        let contracts = Result::<Vec<Contract>, Error>::from_iter(contracts)?;
         Ok((files, contracts))
     }
 }
@@ -80,8 +78,7 @@ mod test {
     fn compile_solidity() {
         pretty_env_logger::try_init();
         let mock = edbtest::MockWeb3Transport::default();
-        let client = web3::Web3::new(mock);
         let path = edbtest::contract_path(edbtest::Contract::Voting);
-        Solidity::compile(&Solidity, path, &client.eth(), edbtest::eth_contract_addrs().as_slice()).unwrap();
+        Solidity::compile(&Solidity, path, &edbtest::ethtype_addr(edbtest::SIMPLE_STORAGE_ADDR)).unwrap();
     }
 }
