@@ -12,6 +12,8 @@ use super::{
     err::ConfigurationError
 };
 
+use edb_core::{Language};
+
 // -----------------------------------
 // |          CLI Types              |
 // |                                 |
@@ -70,6 +72,7 @@ impl From<CLIArgs> for Configuration {
 // |                                 |
 // |---------------------------------|
 
+#[derive(Debug, Clone)]
 pub struct File {
     path: PathBuf,
     file_type: FileType,
@@ -82,6 +85,10 @@ impl File {
 
     pub fn file_type(&self) -> &FileType {
         &self.file_type
+    }
+
+    pub fn compile<L>(&self, lang: L, addr: &Address) -> Result<Compiled, Error> where L: Language {
+        lang.compile(lang, addr).map_err(|e| e.into())
     }
 }
 
@@ -98,6 +105,7 @@ impl From<PathBuf> for File {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum FileType {
     Solidity,
     Vyper,

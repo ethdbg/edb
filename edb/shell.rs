@@ -1,5 +1,5 @@
 //! A pretty simplistic implementation of a shell to use for EDB
-// TODO: Should be implemented as a trait and not as a builder
+// providers job to compile the file
 
 mod commands;
 mod types;
@@ -10,6 +10,7 @@ mod err;
 
 use failure::Error;
 use log::*;
+use ethereum_types::Address;
 use termion::{
     input::TermRead,
     event::Key,
@@ -26,26 +27,28 @@ use edb_core::{Debugger, Language, Transport, Solidity};
 use self::commands::*;
 use self::ops::*;
 use self::err::*;
-pub use self::builder::ShellBuilder;
+use super::conf::File;
 
-pub struct Shell<T, L> where T: Transport, L: Language {
+pub struct Shell<T> where T: Transport {
     shell_history: Vec<String>,
-    dbg: Option<Debugger<T, L>>,
-    lang: L,
+    dbg: Option<Debugger<T>>,
+    files: Compiled,
     client: web3::Web3<T>,
+    addr: Address,
+    file: File,
 }
 
 // a simple shell
 // Does nothing on no user input, will only crash with really fatal errors
 // otherwise errors which are fixable are printed
-impl<T, L> Shell<T, L> where T: Transport, L: Language {
+impl<T> Shell<T> where T: Transport {
 
-    pub fn new(lang: L, client: web3::Web3<T>) -> Self {
+    pub fn new<L>(lang: L, client: web3::Web3<T>, addr: Address, file: File) -> Self where L: Language {
         Self {
             shell_history: Vec::new(),
             dbg: None,
-            lang,
-            client
+            files: file.compile(lang, &addr),
+            client, addr, file 
         }
     }
 
@@ -69,7 +72,7 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
                     },
                 };
 
-                match commands(command, parts, self.dbg.as_mut()) {
+                match self.commands(command, parts) {
                     Ok(_)  => (),
                     Err(e) => {
                         shell_error!(e);
@@ -130,31 +133,32 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
         }
         Ok(())
     }
-}
 
-fn commands<T, L>(command: Command, mut args: SplitWhitespace, dbg: Option<&mut Debugger<T, L>>) -> Result<(), Error>
-where T: Transport,
-      L: Language,
-{
-    match command {
-        Command::Help    => help(),
-        Command::Clear   => clear()?,
-        Command::Run     => run(dbg, args)?,
-        Command::Reset   => reset(),
-        Command::Restart => restart(),
-        Command::Finish  => finish(),
-        Command::Step    => step(args.next(), args.next()),
-        Command::Break   => br(args.next().ok_or_else(|| ShellError::ArgumentsRequired(1, String::from(command)))?),
-        Command::Next    => next(),
-        Command::Execute => execute(),
-        Command::Print   => print(None, None),
-        Command::Stack   => stack(),
-        Command::Memory  => memory(),
-        Command::Storage => storage(),
-        Command::Opcode  => opcode(),
-        Command::Quit    => quit(),
-        Command::None    => (),
-    };
-    Ok(())
+    fn commands(&mut self, command: Command, mut args: SplitWhitespace) -> Result<(), Error>
+    where T: Transport,
+          L: Language,
+    {
+        match command {
+            Command::Help    => help(),
+            Command::Clear   => clear()?,
+            Command::Run     => run(self.dbg.as_mut(), args)?,
+            Command::Reset   => reset(),
+            Command::Restart => restart(),
+            Command::Finish  => finish(),
+            Command::Step    => step(args.next(), args.next()),
+            Command::Break   => br(args.next().ok_or_else(|| ShellError::ArgumentsRequired(1, String::from(command)))?),
+            Command::Next    => next(),
+            Command::Execute => execute(),
+            Command::Print   => print(None, None),
+            Command::Stack   => stack(),
+            Command::Memory  => memory(),
+            Command::Storage => storage(),
+            Command::Opcode  => opcode(),
+            Command::Quit    => quit(),
+            Command::None    => (),
+        };
+        Ok(())
+    }
+
 }
 

@@ -1,16 +1,20 @@
-use failure::Error;
+//! Core debugging functions
+
 use std::{
     path::PathBuf,
     collections::HashMap
 };
+
+use failure::Error;
 use log::*;
-use edb_compiler::{Language, CodeFile, AbstractFunction};
-use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
-use super::err::EvmError;
 use sputnikvm::Memory;
 
-pub struct Debugger<T, L> where T: web3::Transport, L: Language {
-    file: CodeFile<L>,
+use edb_compiler::{CodeFile, AbstractFunction, CompiledFiles};
+use edb_emul::{emulator::{Emulator, Action}, ValidTransaction, HeaderParams};
+use super::err::EvmError;
+
+pub struct Debugger<T> where T: web3::Transport {
+    file: CodeFile,
     emul: Emulator<T>,
     breakpoints: Vec<Breakpoint>,
     curr_name: String,
@@ -18,29 +22,30 @@ pub struct Debugger<T, L> where T: web3::Transport, L: Language {
 
 pub type Breakpoint = usize;
 
-impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
+impl<T> Debugger<T> where T: web3::Transport {
 
     pub fn new(path: PathBuf,
-                lang: L,
-                address: &web3::types::Address,
-                client: web3::Web3<T>,
-                tx: ValidTransaction,
-                block: HeaderParams,
-                contract_name: &str
+               files: CompiledFiles,
+               client: web3::Web3<T>,
+               tx: ValidTransaction,
+               block: HeaderParams,
+               contract_name: &str
                 )
         -> Result<Self, Error>
     {
-        let file = CodeFile::new(lang, path, address)?;
+        let file = CodeFile::new(files, path)?;
         let emul = Emulator::new(tx, block, client);
         let breakpoints = Vec::new();
         let curr_name = String::from(contract_name);
         Ok(Self {file, emul, breakpoints, curr_name})
     }
     
-    // set emulator and TX
+    // TODO finish
+    /* set emulator and TX
     pub fn set(tx: ValidTransaction, block: HeaderParams) -> Result<(), Error> {
         unimplemented!();
     }
+    */
 
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {

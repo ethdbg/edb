@@ -14,7 +14,7 @@ use failure::Error;
 use solc_api::{ SolcApiBuilder, types::FoundationVersion };
 use log::*;
 use self::{err::SolidityError, source_map::SoliditySourceMap, ast::SolidityAst};
-use super::{Language, contract::{ContractFile, Contract} };
+use super::{CompiledFiles, Language, contract::{ContractFile, Contract} };
 
 /// A struct for Solidity Source Mapping
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -23,7 +23,7 @@ pub struct Solidity;
 impl Language for Solidity {
 
     fn compile(&self, path: PathBuf, address: &Address)
-        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract>), Error>
+        -> Result<CompiledFiles, Error>
     {
         let mut source = String::new();
         let file = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
@@ -63,7 +63,7 @@ impl Language for Solidity {
             })
             .collect::<Result<Vec<Rc<ContractFile>>, Error>>()?;
         let contracts = Result::<Vec<Contract>, Error>::from_iter(contracts)?;
-        Ok((files, contracts))
+        Ok(CompiledFiles { files, contracts })
     }
 }
 

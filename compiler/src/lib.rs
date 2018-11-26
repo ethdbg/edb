@@ -28,7 +28,7 @@ pub mod solidity;
 pub use self::code_file::CodeFile;
 pub use self::contract::{Contract, ContractFile};
 
-use std::{path::PathBuf, rc::Rc};
+use std::{path::PathBuf, rc::Rc, slice::Iter};
 
 use ethereum_types::Address;
 use failure::Error;
@@ -39,7 +39,26 @@ pub trait Language {
     // TODO: don't have to return tuple. Can just return Contracts
     /// Compiles Source Code File into a Vector of Contract Files
     fn compile(&self, path: PathBuf, address: &Address)
-        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract>), Error>;
+        -> Result<CompiledFiles, Error>;
+}
+
+pub struct CompiledFiles {
+    files: Vec<Rc<ContractFile>>,
+    contracts: Vec<Contract>
+}
+
+impl CompiledFiles {
+    pub fn new(files: Vec<Rc<ContractFile>>, contracts: Vec<Contract>) -> Self {
+        Self { files, contracts }
+    }
+
+    pub fn contracts(&self) -> Iter<Contract> {
+        self.contracts.iter()
+    }
+
+    pub fn files(&self) -> Iter<Rc<ContractFile>> {
+        self.files.iter()
+    }
 }
 
 /// Represents a Line - Line number and String (0-indexed)

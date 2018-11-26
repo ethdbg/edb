@@ -1,27 +1,24 @@
 //! Codefile represents one source code file and all of the files it imports
 
-use super::{Language, Line, OpcodeOffset, CharOffset, LineNo, contract::{Contract, ContractFile}, err::{LanguageError, NotFoundError}};
+use super::{Line, CompiledFiles, OpcodeOffset, CharOffset, LineNo, contract::{Contract}, err::{LanguageError, NotFoundError}};
 use failure::Error;
-use ethereum_types::Address;
-use std::{path::{PathBuf}, rc::Rc};
+use std::path::PathBuf;
 
 // every CodeFile is associated with a language
 
-pub struct CodeFile<L: Language> {
-    language: L,
+pub struct CodeFile {
     name: String,
-    files: Vec<Rc<ContractFile>>,
-    // every Contract contains a reference back to the file (and therefore AST) from where it originated
-    contracts: Vec<Contract>
+    files: CompiledFiles,
 }
 
 // TODO: Assumes all contracts that are being debugged have unique names. Possible research
 // required to make sure this assumption is safe to make
 // Language compilers may do automatic namespacing
-impl<L> CodeFile<L> where L: Language {
+impl CodeFile {
 
+    // TODO: make path a reference (Path, not PathBuf)
     /// Create a new instance of Code File
-    pub fn new(language: L, path: PathBuf, address: &Address) -> Result<Self, Error> {
+    pub fn new(files: CompiledFiles, path: PathBuf) -> Result<Self, Error> {
         let name = path.file_name()
             .ok_or(LanguageError::NotFound(NotFoundError::File))?
             .to_str()
@@ -31,15 +28,14 @@ impl<L> CodeFile<L> where L: Language {
         if path.is_dir() {
             return Err(LanguageError::NotFound(NotFoundError::File)).map_err(|e| e.into());
         }
-        let (files, contracts) = language.compile(path, address)?;
-        Ok(Self { language, files, contracts, name })
+
+        Ok(Self { files, name })
     }
 
 
     /// find the first contract with name `contract`
     pub fn find_contract(&self, contract: &str) -> Result<&Contract, LanguageError> {
-        self.contracts
-            .iter()
+        self.files.contracts()
             .find(|c| c.name() == contract)
             .ok_or(LanguageError::NotFound(NotFoundError::Contract))
     }

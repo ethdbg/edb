@@ -52,8 +52,6 @@ impl ContractFile {
     }
 }
 
-// get rid of Web3 here. Only thing contract is needed for is querying local functions + AST. We
-// never really need to query the contract functions.
 /// Contract
 pub struct Contract {
     file: Rc<ContractFile>,

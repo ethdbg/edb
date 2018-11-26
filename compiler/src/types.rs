@@ -27,9 +27,10 @@ impl From<FoundationVersion> for String {
     }
 }
 
+//TODO: USE THIS ENUM!
 /// Language Enum
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Language {
+pub enum LanguageType {
     Solidity,
     Vyper,
     LLL,
@@ -37,8 +38,8 @@ pub enum Language {
 }
 
 /// Default Language is Solidity
-impl Default for Language {
-    fn default() -> Language {
-        Language::Solidity
+impl Default for LanguageType {
+    fn default() -> LanguageType {
+        LanguageType::Solidity
     }
 }
