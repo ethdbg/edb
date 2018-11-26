@@ -10,7 +10,7 @@ use super::err::EvmError;
 use sputnikvm::Memory;
 
 pub struct Debugger<T, L> where T: web3::Transport, L: Language {
-    file: CodeFile<L, T>,
+    file: CodeFile<L>,
     emul: Emulator<T>,
     breakpoints: Vec<Breakpoint>,
     curr_name: String,
@@ -30,7 +30,7 @@ impl<T, L> Debugger<T, L> where T: web3::Transport, L: Language {
                 )
         -> Result<Self, Error>
     {
-        let file = CodeFile::new(lang, path, client.clone(), address)?;
+        let file = CodeFile::new(lang, path, address)?;
         let emul = Emulator::new(tx, block, client);
         let breakpoints = Vec::new();
         let curr_name = String::from(contract_name);

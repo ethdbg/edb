@@ -45,6 +45,7 @@ impl<T, L> Shell<T, L> where T: Transport, L: Language {
             shell_history: Vec::new(),
             dbg: None,
             lang,
+            client
         }
     }
 
