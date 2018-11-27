@@ -12,6 +12,8 @@ pub enum EmulError {
     Web3(String),
     #[fail(display = "An error occurred storing or retrieving data for an ethereum account from local storage {}", _0)]
     State( #[fail(cause)] StateError),
+    #[fail(display = "Could not acquire current VM. is the VM started?")]
+    CouldNotAcquireVm
 }
 
 /// Errors that occured while interacting with In-Memory or cached Ethereum State Storage

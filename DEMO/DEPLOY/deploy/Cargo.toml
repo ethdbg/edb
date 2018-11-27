@@ -1,0 +1,9 @@
+[package]
+name = "deploy"
+version = "0.1.0"
+authors = ["Andrew <aplaza@liquidthink.net>"]
+edition = "2018"
+
+[dependencies]
+web3 = "0.5.0"
+rustc-hex = "2"

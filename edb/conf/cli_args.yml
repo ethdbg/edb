@@ -14,21 +14,29 @@ args:
         short: v
         multiple: true
         help: Sets level of verbosity
+  - address:
+        short: a
+        long: address
+        help: "Address of deployed contract"
+        required: true
+        takes_value: true
+  - mode:
+        short: m
+        long: mode
+        help: "Choose the mode to run EDB"
+        required: false
+        takes_value: true
+  - rpc:
+        short: r
+        long: rpc
+        help: "Address of RPC in use. Default: `http://localhost:8545`. takes format of `transport://URI`. ie `file:///home/user/.parity/ipc`. Supported transports: `ipc (file)`, `http`, `https`, `ws`"
+        required: true
+        takes_value: true
   - contract:
         short: c
         long: contract
         help: "Restrict debugging to specific contract"
         required: false
         takes_value: true
-  - address:
-        short: a
-        long: address
-        help: "Address of deployed contract"
-        required: false
-        takes_value: true
-  - rpc:
-        short: r
-        long: rpc
-        help: "Address of RPC in use. Default: `http://localhost:8545`. takes format of `transport://URI`. ie `ipc:///home/user/.parity/ipc`"
-        required: false
-        takes_value: true
+
+

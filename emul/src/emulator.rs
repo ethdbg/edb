@@ -102,9 +102,8 @@ impl<T> Emulator<T> where T: Transport {
         }
     }
 
-    pub fn memory(&self) -> &SeqMemory<ByzantiumPatch> {
-        &self.vm.current_state()
-            .expect("Could not acquire current state. is the VM started?").memory
+    pub fn memory(&self) -> Result<&SeqMemory<ByzantiumPatch>, EmulError> {
+        Ok(&self.vm.current_state().ok_or(EmulError::CouldNotAcquireVm)?.memory)
     }
 
     pub fn storage(&self) -> Option<HashMap<bigint::U256, bigint::M256>> {
@@ -159,13 +158,14 @@ impl<T> Emulator<T> where T: Transport {
     }
 
     /// get bytecode position
-    pub fn offset(&self) -> usize {
-        self.vm.current_machine().expect("Could not acquire current bytecode position").pc().opcode_position()
+    pub fn offset(&self) -> Result<usize, EmulError> {
+        //Ok(self.vm.current_machine().ok_or(EmulError::CouldNotAcquireVm)?.pc().opcode_position())
+        Ok(self.vm.current_machine().ok_or(EmulError::CouldNotAcquireVm)?.pc().position())
     }
 
     /// return the instruction position from an opcode offset
-    pub fn instruction(&self) -> usize {
-        Self::into_instruction(self.offset(), self.vm.current_machine().expect("could not acquire current machine").pc().code())
+    pub fn instruction(&self) -> Result<usize, EmulError> {
+        Ok(Self::into_instruction(self.offset()?, self.vm.current_machine().ok_or(EmulError::CouldNotAcquireVm)?.pc().code()))
     }
 
     fn into_instruction(position: usize, code: &[u8]) -> usize {

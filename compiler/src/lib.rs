@@ -26,10 +26,11 @@ pub mod solidity;
 // pub mod vyper;
 
 pub use self::code_file::CodeFile;
-pub use self::contract::{Contract, ContractFile};
+pub use self::contract::{Contract, Find, ContractFile};
 
 use std::{path::PathBuf, rc::Rc};
-use web3::{Transport, types::{Address}};
+
+use ethereum_types::Address;
 use failure::Error;
 #[cfg(test)] extern crate test;
 
@@ -37,8 +38,29 @@ use failure::Error;
 pub trait Language {
     // TODO: don't have to return tuple. Can just return Contracts
     /// Compiles Source Code File into a Vector of Contract Files
-    fn compile<T>(&self, path: PathBuf, client: &web3::api::Eth<T>, addresses: &[Address])
-        -> Result<(Vec<Rc<ContractFile>>, Vec<Contract<T>>), Error> where T: Transport;
+    fn compile(&self, path: PathBuf, address: &Address)
+        -> Result<CompiledFiles, Error>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CompiledFiles {
+    files: Vec<Rc<ContractFile>>,
+    contracts: Vec<Contract>
+}
+
+impl CompiledFiles {
+    pub fn new(files: Vec<Rc<ContractFile>>, contracts: Vec<Contract>) -> Self {
+        Self { files, contracts }
+    }
+
+    // TODO return slices
+    pub fn contracts(&self) -> &Vec<Contract> {
+        &self.contracts
+    }
+
+    pub fn files(&self) -> &Vec<Rc<ContractFile>> {
+        &self.files
+    }
 }
 
 /// Represents a Line - Line number and String (0-indexed)
@@ -89,7 +111,6 @@ pub trait SourceMap {
     /// Get the next `count` number of lines (inclusive) from opcode position/offset
     fn next_lines(&self, offset: OpcodeOffset, count: usize) -> Result<Vec<Line>, Error>;
 }
-
 
 /// loosely and generally represents a Node in the Ast attached to a particular language item
 #[derive(Debug, Clone, PartialEq)]

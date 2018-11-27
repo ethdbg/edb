@@ -2,21 +2,20 @@ use std::{
     path::PathBuf,
     str::FromStr
 };
+
+use log::*;
+use http::uri::Uri;
 use failure::Error;
-use clap::{App, load_yaml};
+use clap::{App, load_yaml, value_t};
 use ethereum_types::H160;
 
+use super::types::*;
 
-#[derive(Debug, Clone)]
-pub enum LogLevel {
-    None, // Error by default
-    Info,
-    Debug,
-    Insane
-}
 
 pub struct CLIArgs {
     pub file: PathBuf,
+    pub mode: Mode,
+    pub transport: Uri,
     pub contract: Option<String>,
     pub log_level: LogLevel,
     pub address: H160,
@@ -35,7 +34,13 @@ pub fn parse() -> Result<CLIArgs, Error> {
         3 | _ => LogLevel::Insane,
     };
     let address = H160::from_str(matches.value_of("address").expect("Missing Address"))?;
+    let mode = value_t!(matches.value_of("mode"), Mode).ok().unwrap_or_else(|| {
+        warn!("No RPC mode specified, using default 'TUI'");
+        Mode::default()
+    });
+    let transport = matches.value_of("rpc").expect("Must specify an RPC to use");
+    let transport = http::uri::Uri::from_shared(transport.as_bytes().into())?;
 
-    Ok(CLIArgs { file, contract, log_level, address })
+    Ok(CLIArgs { file, mode, transport, contract, log_level, address })
 }
 

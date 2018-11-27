@@ -6,8 +6,6 @@ pub enum LanguageError {
     SourceMap(#[cause] SourceMapError),
     #[fail(display = "{}", _0)]
     NotFound(NotFoundError),
-    #[fail(display = "An error occurred while communicating with the local test node")]
-    NodeIo(String),
     #[fail(display = "Could not parse source code file for line number positions")]
     ParseError,
     #[fail(display = "Path must be valid UTF-8")]
@@ -33,13 +31,6 @@ pub enum SourceMapError {
     UnknownJump(String),
     #[fail(display = "Decode Error")]
     Decode(#[cause] std::num::ParseIntError),
-}
-
-impl From<web3::error::Error> for LanguageError {
-    fn from(err: web3::error::Error) -> LanguageError {
-        println!("Web3 Error. Backtrace: {:?}, Kind: {:?}, description: {}", err.backtrace(), err.kind(), err.description());
-        LanguageError::NodeIo(format!("{}", err))
-    }
 }
 
 impl From<std::num::ParseIntError> for SourceMapError {

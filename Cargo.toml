@@ -18,28 +18,34 @@ members = [
   "emul/",
   "solc_api",
   "test_helpers",
+  "DEMO/DEPLOY/deploy"
 ]
 
 [dependencies]
 # vyper = { path = "./vyper" }
 termion = "1.5"
 clap = { version = "2.32", features = ["yaml"] }
+http = "0.1"
 tokio-core = "0.1"
-futures = "0.1.23"
-failure = "0.1.2"
+futures = "0.1"
+failure = "0.1"
 log = "*"
 fern = { version = "0.5", features = ["colored"] }
-colored = "1.6.1"
-dirs = "1.0.4"
+colored = "1.6"
+dirs = "1.0"
 chrono = "0.4"
-serde = "1.0.78"
-serde_json = "1.0.27"
-serde_derive = "1.0.78"
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
 hex = "0.3"
-ethereum-types = "0.4.0"
-ethabi = "6.1.0"
-web3 = { git = "https://github.com/tomusdrw/rust-web3" }
+ethereum-types = "0.4"
+etcommon-bigint = "0.2.9"
+bytes = "0.4"
+ethabi = "6.1"
+web3 = "0.5"
+sputnikvm = "0.10.1"
 edb-core = { path = "./core" }
 
 [dev-dependencies]
 edb_test_helpers = { path = "./test_helpers" }
+

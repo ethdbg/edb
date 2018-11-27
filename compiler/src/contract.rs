@@ -1,13 +1,37 @@
 //! Contract Interface for Codefile/SourceMap/Debugger operations
 use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap, AbstractFunction, AstItem, CharOffset};
 
-use web3::{ types::{Address, BlockNumber}, Transport };
+
+use ethereum_types::Address;
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
-use futures::future::Future;
-use failure::Error;
+use failure::{Fail, Error};
 use log::*;
 
+#[derive(Debug, Fail)]
+pub enum ContractError {
+    #[fail(display = "Could not find Contract `{}`", _0)]
+    NotFound(String)
+}
+
+pub trait Find {
+    type C;
+    fn find(&self, contract: &str) -> Result<&Self::C, Error>;
+}
+
+impl Find for Vec<Contract> {
+    type C = Contract;
+    fn find(&self, contract: &str) -> Result<&Contract, Error> {
+        debug!("Contract name: {}", contract);
+        debug!("Contracts: {:?}", self);
+        self.iter()
+            .find(|c| c.name() == contract)
+            .ok_or(ContractError::NotFound(contract.to_string()))
+            .map_err(|e| e.into())
+    }
+}
+
+#[derive(Clone)]
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
     id: usize,
@@ -18,11 +42,17 @@ pub struct ContractFile {
     source: String,
     /// General source map for offsets--line number
     // Abstract Syntax Tree of Source
-    ast: Box<dyn Ast>,
+    ast: Rc<dyn Ast>,
+}
+
+impl std::fmt::Debug for ContractFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "file: {}, path: {:?}", self.file_name, self.file_path.to_str())
+    }
 }
 
 impl ContractFile {
-    pub fn new(source: String, id: usize, ast: Box<dyn Ast>, file_path: PathBuf)
+    pub fn new(source: String, id: usize, ast: Rc<dyn Ast>, file_path: PathBuf)
         -> Result<Self, Error>
     {
         let file_name = file_path
@@ -53,17 +83,24 @@ impl ContractFile {
 }
 
 /// Contract
-pub struct Contract<T> where T: Transport {
+#[derive(Clone)]
+pub struct Contract {
     file: Rc<ContractFile>,
     name: String,
     abi: ethabi::Contract,
-    deployed: web3::contract::Contract<T>,
     runtime_bytecode: Vec<u8>,
-    source_map: Box<dyn SourceMap>,
+    source_map: Rc<dyn SourceMap>,
+    addr: Address,
+}
+
+impl std::fmt::Debug for Contract {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "name: {}, addr: {}", self.name, self.addr)
+    }
 }
 
 // contract interface for the debugger. should be the same across all languages
-impl<T> Contract<T> where T: Transport {
+impl Contract {
 
     delegate! {
         target self.abi {
@@ -84,22 +121,14 @@ impl<T> Contract<T> where T: Transport {
 
     pub fn new(file: Rc<ContractFile>,
                name: String,
-               eth: web3::api::Eth<T>,
-               map: Box<dyn SourceMap>,
+               map: Rc<dyn SourceMap>,
                abi: ethabi::Contract,
-               possible_addr: &[Address],
+               addr: &Address,
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
     {
-
-        let addr = Self::find_deployed_contract(runtime_bytecode.as_slice(), &eth, possible_addr)?;
-        let contract = web3::contract::Contract::new(
-            eth,
-            addr,
-            abi.clone()
-        );
         trace!("Contract Instantiation Code Length: {}", runtime_bytecode.len());
         trace!("{:?}", runtime_bytecode);
-        Ok(Self { file, name, abi, deployed: contract, runtime_bytecode, source_map: map })
+        Ok(Self { addr: addr.clone(), file, name, abi, runtime_bytecode, source_map: map })
     }
 
     pub fn name(&self) -> &str {
@@ -110,28 +139,13 @@ impl<T> Contract<T> where T: Transport {
         self.file.clone()
     }
 
-    // TODO: Make parallel/async
-    /// Find a contract from it's bytecode and a local ethereum node
-    fn find_deployed_contract(needle: &[u8], eth: &web3::api::Eth<T>, addr: &[Address])
-                              -> Result<Address, LanguageError>
-    {
-        for a in addr.iter() {
-            let code = eth.code(*a, Some(BlockNumber::Latest)).wait()?;
-            if needle == code.0.as_slice() {
-                debug!("Found code! {:x?}", code.0);
-                return Ok(a.clone());
-            }
-        }
-        return Err(LanguageError::NotFound(NotFoundError::Contract))
-    }
-
     /// Returns address on testnet that the contract is deployed at
     pub fn address(&self) -> Address {
-        self.deployed.address()
+        self.addr
     }
 
-    /// get the source map of this contract
-    pub fn source_map(&self) -> &Box<dyn SourceMap> {
-        &self.source_map
+    /// get a reference to the source map of this contract
+    pub fn source_map(&self) -> Rc<dyn SourceMap> {
+        self.source_map.clone()
     }
 }
