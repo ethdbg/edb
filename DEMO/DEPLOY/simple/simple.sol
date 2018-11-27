@@ -10,7 +10,7 @@ contract SimpleStorage {
 
     function set(uint x) public {
         uint y = 0;
-        storedData = x;
+
         while (y < storedData) {
             y = y + 1;
         }

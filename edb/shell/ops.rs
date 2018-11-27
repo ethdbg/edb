@@ -212,8 +212,9 @@ pub fn br<T>(dbg: &mut Debugger<T>, line: Option<&str>) -> Result<(), Error> whe
     }
 }
 
-pub fn next() {
-    unimplemented!();
+pub fn next<T>(dbg: &mut Debugger<T>) -> Result<(), Error> where T: Transport {
+    dbg.next()?;
+    Ok(())
 }
 
 pub fn execute() {

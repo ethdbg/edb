@@ -183,7 +183,7 @@ impl<T> Shell<T> where T: Transport {
             Command::Finish  => finish(),
             Command::Step    => check!(self.dbg, step(&mut self.dbg.as_mut().unwrap(), args.next(), args.next())?),
             Command::Break   => br(&mut self.dbg.as_mut().unwrap(), args.next())?,
-            Command::Next    => next(),
+            Command::Next    => check!(self.dbg, next(&mut self.dbg.as_mut().unwrap())?),
             Command::Execute => execute(),
             Command::Print   => check!(self.dbg, print(&mut self.dbg.as_mut().unwrap(), args.next(), args.next())?),
             // Command::Stack   => stack(),

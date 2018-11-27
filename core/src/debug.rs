@@ -50,6 +50,7 @@ impl<T> Debugger<T> where T: web3::Transport {
     /// Begins the program, and runs until it hits a breakpoint
     pub fn run(&mut self) -> Result<(), Error> {
         self.emul.fire(Action::StepForward)?;
+        self.breakpoints.reverse();
         if let Some(b) = self.breakpoints.pop() {
             self.step_loop(|line| *line == b)?;
             Ok(())
@@ -127,7 +128,7 @@ impl<T> Debugger<T> where T: web3::Transport {
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.instruction()?, self.curr_name.as_str())?))?;
+            self.step_loop(|line| *line != b)?;
         } else {
             self.emul.fire(Action::Exec)?;
         }

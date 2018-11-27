@@ -59,6 +59,7 @@ impl SoliditySourceMap {
     }
 }
 
+//TODO don't need a 'line-cache' or 'unique exists' functions
 impl SourceMap for SoliditySourceMap {
 
     fn unique_exists(&self, lineno: LineNo) -> bool {
@@ -96,7 +97,6 @@ impl SourceMap for SoliditySourceMap {
     }
 
     fn lineno_from_opcode_pos(&self, offset: OpcodeOffset) -> Result<LineNo, Error> {
-        trace!("Instruction {}, {:?}", offset, self.program_map.get(offset).unwrap());
         let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
         Ok(self.map.find_line(pos.start).ok_or(SolidityError::SourceMap(SourceMapError::LineNotFound))?)
     }

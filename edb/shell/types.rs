@@ -26,14 +26,14 @@ pub const HELP: &'static str = "
     If you need help with a specific command, use 'COMMAND help' like this: `step help` or `step?`
 
     Available Commands:
+    help - Display this message
+    clear - clear the terminal
+    set - Set the parameters for the function that will be debugged
     run - Run a contract/function to debug
-    execute - Execute the contract without stopping at any breakpionts
+    reset - Reset to the first breakpoint
+    chain - Chain the previous transaction into another, preserving the state trie
     step - Step a line of execution
     next - Go to the next breakpoint
     break - Set a breakpoint
-    memory - Display the Memory
-    storage - Display the Storage
-    stack - Display the Stack
-    print - Print things
     quit - use `quit` or `exit` to escape the shell
 ";

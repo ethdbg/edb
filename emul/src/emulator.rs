@@ -260,7 +260,7 @@ impl<T> Emulator<T> where T: Transport {
         while last_pos < *self.positions.last().unwrap_or(&0) {
             self.step()?;
             if let Some(x) = self.vm.current_machine() {
-                last_pos = x.pc().opcode_position();
+                last_pos = x.pc().position();
             } else {
                 panic!("Vm stepped but state is not initialized");
             }
@@ -271,7 +271,7 @@ impl<T> Emulator<T> where T: Transport {
     fn step_forward(&mut self) -> Result<(), EmulError> {
         self.step()?;
         if let Some(x) = self.vm.current_machine() {
-            self.positions.push(x.pc().opcode_position());
+            self.positions.push(x.pc().position());
         } else {
             self.positions.push(0);
         }
