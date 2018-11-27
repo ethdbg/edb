@@ -18,6 +18,7 @@ members = [
   "emul/",
   "solc_api",
   "test_helpers",
+  "DEMO/DEPLOY/deploy"
 ]
 
 [dependencies]
@@ -38,6 +39,7 @@ serde_json = "1.0"
 serde_derive = "1.0"
 hex = "0.3"
 ethereum-types = "0.4"
+etcommon-bigint = "0.2.9"
 bytes = "0.4"
 ethabi = "6.1"
 web3 = "0.5"
@@ -46,3 +48,4 @@ edb-core = { path = "./core" }
 
 [dev-dependencies]
 edb_test_helpers = { path = "./test_helpers" }
+

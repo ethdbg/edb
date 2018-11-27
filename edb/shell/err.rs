@@ -11,5 +11,15 @@ pub enum ShellError {
     ArgumentsRequired(usize, String),
     #[fail(display = "Could not get next input byte")]
     InputError,
+    #[fail(display = "{}", _0)]
+    Ethabi(String),
+    #[fail(display = "{}", _0)]
+    Custom(String),
+}
+
+impl From<ethabi::Error> for ShellError {
+    fn from(err: ethabi::Error) -> ShellError {
+        ShellError::Ethabi(format!("{}", err))
+    }
 }
 

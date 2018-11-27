@@ -20,7 +20,8 @@ contract SimpleStorage {
         if (y > anotherNumber) {
             hello = "Hello Greater Than";
         }
-        storedData = 4919;
+        // storedData = 4919;
+        storedData = x;
     }
 
     function get() view public returns (uint) {

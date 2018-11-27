@@ -26,9 +26,9 @@ pub mod solidity;
 // pub mod vyper;
 
 pub use self::code_file::CodeFile;
-pub use self::contract::{Contract, ContractFile};
+pub use self::contract::{Contract, Find, ContractFile};
 
-use std::{path::PathBuf, rc::Rc, slice::Iter};
+use std::{path::PathBuf, rc::Rc};
 
 use ethereum_types::Address;
 use failure::Error;
@@ -42,6 +42,7 @@ pub trait Language {
         -> Result<CompiledFiles, Error>;
 }
 
+#[derive(Debug, Clone)]
 pub struct CompiledFiles {
     files: Vec<Rc<ContractFile>>,
     contracts: Vec<Contract>
@@ -52,12 +53,13 @@ impl CompiledFiles {
         Self { files, contracts }
     }
 
-    pub fn contracts(&self) -> Iter<Contract> {
-        self.contracts.iter()
+    // TODO return slices
+    pub fn contracts(&self) -> &Vec<Contract> {
+        &self.contracts
     }
 
-    pub fn files(&self) -> Iter<Rc<ContractFile>> {
-        self.files.iter()
+    pub fn files(&self) -> &Vec<Rc<ContractFile>> {
+        &self.files
     }
 }
 
@@ -109,7 +111,6 @@ pub trait SourceMap {
     /// Get the next `count` number of lines (inclusive) from opcode position/offset
     fn next_lines(&self, offset: OpcodeOffset, count: usize) -> Result<Vec<Line>, Error>;
 }
-
 
 /// loosely and generally represents a Node in the Ast attached to a particular language item
 #[derive(Debug, Clone, PartialEq)]

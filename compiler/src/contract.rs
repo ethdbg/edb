@@ -5,9 +5,33 @@ use super::{err::{LanguageError, NotFoundError}, Ast, SourceMap, AbstractFunctio
 use ethereum_types::Address;
 use delegate::*;
 use std::{path::PathBuf, rc::Rc};
-use failure::Error;
+use failure::{Fail, Error};
 use log::*;
 
+#[derive(Debug, Fail)]
+pub enum ContractError {
+    #[fail(display = "Could not find Contract `{}`", _0)]
+    NotFound(String)
+}
+
+pub trait Find {
+    type C;
+    fn find(&self, contract: &str) -> Result<&Self::C, Error>;
+}
+
+impl Find for Vec<Contract> {
+    type C = Contract;
+    fn find(&self, contract: &str) -> Result<&Contract, Error> {
+        debug!("Contract name: {}", contract);
+        debug!("Contracts: {:?}", self);
+        self.iter()
+            .find(|c| c.name() == contract)
+            .ok_or(ContractError::NotFound(contract.to_string()))
+            .map_err(|e| e.into())
+    }
+}
+
+#[derive(Clone)]
 pub struct ContractFile {
     /// Identifier for source file (used in Source Maps)
     id: usize,
@@ -18,11 +42,17 @@ pub struct ContractFile {
     source: String,
     /// General source map for offsets--line number
     // Abstract Syntax Tree of Source
-    ast: Box<dyn Ast>,
+    ast: Rc<dyn Ast>,
+}
+
+impl std::fmt::Debug for ContractFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "file: {}, path: {:?}", self.file_name, self.file_path.to_str())
+    }
 }
 
 impl ContractFile {
-    pub fn new(source: String, id: usize, ast: Box<dyn Ast>, file_path: PathBuf)
+    pub fn new(source: String, id: usize, ast: Rc<dyn Ast>, file_path: PathBuf)
         -> Result<Self, Error>
     {
         let file_name = file_path
@@ -53,13 +83,20 @@ impl ContractFile {
 }
 
 /// Contract
+#[derive(Clone)]
 pub struct Contract {
     file: Rc<ContractFile>,
     name: String,
     abi: ethabi::Contract,
     runtime_bytecode: Vec<u8>,
-    source_map: Box<dyn SourceMap>,
+    source_map: Rc<dyn SourceMap>,
     addr: Address,
+}
+
+impl std::fmt::Debug for Contract {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "name: {}, addr: {}", self.name, self.addr)
+    }
 }
 
 // contract interface for the debugger. should be the same across all languages
@@ -84,7 +121,7 @@ impl Contract {
 
     pub fn new(file: Rc<ContractFile>,
                name: String,
-               map: Box<dyn SourceMap>,
+               map: Rc<dyn SourceMap>,
                abi: ethabi::Contract,
                addr: &Address,
                runtime_bytecode: Vec<u8>) -> Result<Self, Error>
@@ -107,8 +144,8 @@ impl Contract {
         self.addr
     }
 
-    /// get the source map of this contract
-    pub fn source_map(&self) -> &Box<dyn SourceMap> {
-        &self.source_map
+    /// get a reference to the source map of this contract
+    pub fn source_map(&self) -> Rc<dyn SourceMap> {
+        self.source_map.clone()
     }
 }

@@ -1,6 +1,6 @@
 //! Codefile represents one source code file and all of the files it imports
 
-use super::{Line, CompiledFiles, OpcodeOffset, CharOffset, LineNo, contract::{Contract}, err::{LanguageError, NotFoundError}};
+use super::{Line, CompiledFiles, OpcodeOffset, CharOffset, LineNo, contract::{Contract, Find}, err::{LanguageError, NotFoundError}};
 use failure::Error;
 use std::path::PathBuf;
 
@@ -32,63 +32,76 @@ impl CodeFile {
         Ok(Self { files, name })
     }
 
-
-    /// find the first contract with name `contract`
-    pub fn find_contract(&self, contract: &str) -> Result<&Contract, LanguageError> {
-        self.files.contracts()
-            .find(|c| c.name() == contract)
-            .ok_or(LanguageError::NotFound(NotFoundError::Contract))
-    }
-
     /// Find the root contract that is being debugged
     pub fn root_name(&self) -> &str {
         &self.name
     }
 
     pub fn unique_exists(&self, lineno: LineNo, contract: &str) -> Result<bool, Error> {
-        let contract = self.find_contract(contract)?;
-        Ok(contract.source_map().unique_exists(lineno))
+        Ok(self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .unique_exists(lineno))
     }
 
     pub fn unique_opcode_pos(&self, lineno: LineNo, contract: &str) -> Result<OpcodeOffset, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().unique_opcode_pos(lineno)
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .unique_opcode_pos(lineno)
     }
 
     // passthrough for Source Map Trait
     /// Get a byte offset in the bytecode from a line number
     pub fn opcode_pos_from_lineno(&self, lineno: LineNo, from: OpcodeOffset, contract: &str) -> Result<OpcodeOffset, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().opcode_pos_from_lineno(lineno, from)
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .opcode_pos_from_lineno(lineno, from)
     }
 
     pub fn char_pos_from_lineno(&self, lineno: LineNo, contract: &str) -> Result<CharOffset, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().char_pos_from_lineno(lineno)
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .char_pos_from_lineno(lineno)
     }
 
     pub fn lineno_from_char_pos(&self, offset: CharOffset, contract: &str) -> Result<LineNo, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().lineno_from_char_pos(offset)
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .lineno_from_char_pos(offset)
     }
 
     pub fn lineno_from_opcode_pos(&self, offset: OpcodeOffset, contract: &str) -> Result<LineNo, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().lineno_from_opcode_pos(offset)
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .lineno_from_opcode_pos(offset)
     }
 
     pub fn current_line(&self, offset: usize, contract: &str) -> Result<Line, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().current_line(offset).map_err(|e| e.into())
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .current_line(offset)
+            .map_err(|e| e.into())
     }
 
     pub fn last_lines(&self, offset: usize, count: usize, contract: &str) -> Result<Vec<Line>, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().last_lines(offset, count).map_err(|e| e.into())
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .last_lines(offset, count)
+            .map_err(|e| e.into())
     }
 
     pub fn next_lines(&self, offset: usize, count: usize, contract: &str) -> Result<Vec<Line>, Error> {
-        let contract = self.find_contract(contract)?;
-        contract.source_map().next_lines(offset, count).map_err(|e| e.into())
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .next_lines(offset, count)
+            .map_err(|e| e.into())
     }
 }

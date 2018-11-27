@@ -5,8 +5,6 @@ use failure::Fail;
 pub enum ConfigurationError {
     #[fail(display = "Parsing CLI Arguments: {}", _0)]
     InputError(String),
-    #[fail(display = "Unsupported file type: {}", _0)]
-    FileExtensionParse(String)
 }
 
 

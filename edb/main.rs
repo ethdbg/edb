@@ -1,12 +1,20 @@
 mod conf;
 mod shell;
+mod lib;
+mod err;
+// mod rpc;
 
 use edb_core::{Transport, Language, Solidity};
-use self::conf::{FileType, Mode};
-use self::shell::Shell;
+use self::{
+    conf::Mode,
+    shell::Shell,
+    lib::FileType
+};
 
 use failure::Error;
 use log::*;
+
+
 // Get user input from Config
 //  - (File Type)
 //  - RPC
@@ -76,7 +84,7 @@ fn start_provider<T>(conf: conf::Configuration, client: web3::Web3<T>, lang: imp
     -> Result<(), Error> where T: Transport
 {
     match *conf.mode() {
-        Mode::Tui => Shell::<T, _>::new(lang, client, conf.addr().clone(), conf.file().clone()).run()?,
+        Mode::Tui => Shell::<T>::new(lang, client, conf.addr().clone(), conf.file().clone())?.run()?,
         Mode::Rpc => unimplemented!(),
     }
     Ok(())

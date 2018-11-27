@@ -3,8 +3,8 @@ mod helpers;
 mod err;
 mod types;
 
-pub use self::types::*;
-
+pub use self::types::{Mode, LogLevel};
+use super::lib::File;
 use failure::Error;
 use ethereum_types::Address;
 

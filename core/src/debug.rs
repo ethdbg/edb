@@ -39,7 +39,7 @@ impl<T> Debugger<T> where T: web3::Transport {
         let curr_name = String::from(contract_name);
         Ok(Self {file, emul, breakpoints, curr_name})
     }
-    
+
     // TODO finish
     /* set emulator and TX
     pub fn set(tx: ValidTransaction, block: HeaderParams) -> Result<(), Error> {
@@ -87,8 +87,8 @@ impl<T> Debugger<T> where T: web3::Transport {
     /// Steps to the next line of execution
     pub fn step_forward(&mut self) -> Result<(), Error> {
         // let contract = self.file.find_contract(self.curr_name.as_str())?;
-        debug!("Finding Line from position {}, and contract {}", self.emul.instruction(), self.curr_name.as_str());
-        let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
+        debug!("Finding Line from position {}, and contract {}", self.emul.instruction()?, self.curr_name.as_str());
+        let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction()?, self.curr_name.as_str())?;
         debug!("Current line: {}", current_line);
         // let offset = self.file.char_pos_from_lineno(current_line, self.curr_name.as_str())?;
 
@@ -111,11 +111,12 @@ impl<T> Debugger<T> where T: web3::Transport {
         F: Fn(&usize) -> bool
     {
         'step: loop {
-            let line = self.file.lineno_from_opcode_pos(self.emul.instruction(), self.curr_name.as_str())?;
+            let line = self.file.lineno_from_opcode_pos(self.emul.instruction()?, self.curr_name.as_str())?;
             // let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
             info!("Current line: {}", line);
             if fun(&line) || self.emul.finished() {
                 break 'step;
+                info!("Finished");
             } else {
                 self.emul.fire(Action::StepForward)?;
             }
@@ -126,7 +127,7 @@ impl<T> Debugger<T> where T: web3::Transport {
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
         if let Some(b) = self.breakpoints.pop() {
-            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.instruction(), self.curr_name.as_str())?))?;
+            self.emul.fire(Action::RunUntil(self.file.opcode_pos_from_lineno(b, self.emul.instruction()?, self.curr_name.as_str())?))?;
         } else {
             self.emul.fire(Action::Exec)?;
         }
@@ -135,17 +136,17 @@ impl<T> Debugger<T> where T: web3::Transport {
 
     /// returns the current line of execution
     pub fn current_line(&self) -> Result<(usize, String), Error> {
-        self.file.current_line(self.emul.instruction(), self.curr_name.as_str())
+        self.file.current_line(self.emul.instruction()?, self.curr_name.as_str())
     }
 
     /// Returns the `count` number of last lines relative to current line of execution
-    pub fn last_lines(&self,count: usize) -> Result<Vec<(usize, String)>, Error> {
-        self.file.last_lines(self.emul.instruction(), count, self.curr_name.as_str())
+    pub fn last_lines(&self, count: usize) -> Result<Vec<(usize, String)>, Error> {
+        self.file.last_lines(self.emul.instruction()?, count, self.curr_name.as_str())
     }
 
     /// Returns the `count` number of next lines relative to the current line of execution
     pub fn next_lines(&self, count: usize) -> Result<Vec<(usize, String)>, Error> {
-        self.file.next_lines(self.emul.instruction(), count, self.curr_name.as_str())
+        self.file.next_lines(self.emul.instruction()?, count, self.curr_name.as_str())
     }
 
     /// Chain another transaction on the VM, optionally with a new blockheader
@@ -180,7 +181,7 @@ impl<T> Debugger<T> where T: web3::Transport {
     /// returns evm memory
     pub fn memory(&self) -> Result<Vec<bigint::M256>, Error> {
         let mut mem_vec = Vec::new();
-        let mem = self.emul.memory();
+        let mem = self.emul.memory()?;
         for i in 0..mem.len() {
             mem_vec.push(mem.read(i.into()));
         }

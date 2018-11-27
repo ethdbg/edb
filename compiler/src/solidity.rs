@@ -28,13 +28,11 @@ impl Language for Solidity {
         let mut source = String::new();
         let file = std::fs::File::open(path.as_path())?.read_to_string(&mut source)?;
         info!("Read {} bytes from Source File", file);
-
         let parent = path.parent().ok_or(SolidityError::ParentNotFound)?.to_path_buf();
         let compiled_source = SolcApiBuilder::default()
             .source_file(path)
             .evm_version(FoundationVersion::Byzantium)
             .compile();
-
         let mut contracts = Vec::new();
         let files = compiled_source
             .sources()
@@ -46,14 +44,14 @@ impl Language for Solidity {
                 info!("Read {} bytes from source file: {}", file_buf, file);
 
                 let ast = SolidityAst::new(&src)?;
-                let cfile = Rc::new(ContractFile::new(src, compiled_file.id, Box::new(ast), import_path)?);
+                let cfile = Rc::new(ContractFile::new(src, compiled_file.id, Rc::new(ast), import_path)?);
                 contracts.extend(compiled_source
                     .contracts_by(|c| &c.file_name == file)
                     .map(|c| {
                         let deployed_code = c.evm.deployed_bytecode.as_ref().expect("Should never be missing field bytecode; qed").clone();
                         Contract::new(cfile.clone(),
                                       c.name.clone(),
-                                      Box::new(SoliditySourceMap::new(cfile.clone().source(), deployed_code.source_map)),
+                                      Rc::new(SoliditySourceMap::new(cfile.clone().source(), deployed_code.source_map)),
                                       c.abi.clone(),
                                       address,
                                       deployed_code.object
@@ -62,6 +60,9 @@ impl Language for Solidity {
                 Ok(cfile)
             })
             .collect::<Result<Vec<Rc<ContractFile>>, Error>>()?;
+        if contracts.len() == 0 {
+            warn!("Possible error during compilation; no contracts compiled");
+        }
         let contracts = Result::<Vec<Contract>, Error>::from_iter(contracts)?;
         Ok(CompiledFiles { files, contracts })
     }
