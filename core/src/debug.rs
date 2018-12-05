@@ -135,6 +135,11 @@ impl<T> Debugger<T> where T: web3::Transport {
         Ok(())
     }
 
+    /// Returns the current range of execution
+    pub fn current_range(&self) ->Result<String, Error> {
+        self.file.current_range(self.emul.instruction()?, self.curr_name.as_str())
+    }
+
     /// returns the current line of execution
     pub fn current_line(&self) -> Result<(usize, String), Error> {
         self.file.current_line(self.emul.instruction()?, self.curr_name.as_str())

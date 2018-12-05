@@ -2,7 +2,7 @@ mod conf;
 mod shell;
 mod lib;
 mod err;
-// mod rpc;
+//mod rpc;
 
 use edb_core::{Transport, Language, Solidity};
 use self::{
@@ -85,7 +85,7 @@ fn start_provider<T>(conf: conf::Configuration, client: web3::Web3<T>, lang: imp
 {
     match *conf.mode() {
         Mode::Tui => Shell::<T>::new(lang, client, conf.addr().clone(), conf.file().clone())?.run()?,
-        Mode::Rpc => unimplemented!(),
+        Mode::Rpc => unimplemented!(), //rpc::Rpc::<T>::new(lang, client, conf.addr().clone(), conf.file().clone())?.run()?,
     }
     Ok(())
 }
