@@ -81,6 +81,14 @@ impl CodeFile {
             .lineno_from_opcode_pos(offset)
     }
 
+    pub fn current_range(&self, offset: usize, contract: &str) -> Result<String, Error> {
+        self.files.contracts()
+            .find(contract)?
+            .source_map()
+            .current_range(offset)
+            .map_err(|e| e.into())
+    }
+
     pub fn current_line(&self, offset: usize, contract: &str) -> Result<Line, Error> {
         self.files.contracts()
             .find(contract)?

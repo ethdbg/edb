@@ -30,7 +30,8 @@ pub enum Print {
     Stack,
     Memory,
     Forward, // implies lines
-    Backward // implies lines
+    Backward, // implies lines
+    Current
 }
 
 impl FromStr for Print {
@@ -42,6 +43,9 @@ impl FromStr for Print {
             "storage"|"storg" => Ok(Print::Storage),
             "stack"|"s" => Ok(Print::Stack),
             "memory"|"mem" => Ok(Print::Memory),
+            "forward"|"f" => Ok(Print::Forward),
+            "backward"|"b" => Ok(Print::Backward),
+            "current"|"curr" => Ok(Print::Current),
             _ => Err(ShellError::Custom("Unknown print value".to_string()).into())
         }
     }
@@ -223,11 +227,14 @@ pub fn execute() {
 
 pub fn print<T>(dbg: &mut Debugger<T>, item: Option<&str>, num: Option<&str>) -> Result<(), Error> where T: Transport {
     if item.is_none() {
-        let (line, stri) = dbg.current_line()?;
-        println!("\n{}: {}", line, stri);
+        println!("\n{}", dbg.current_range()?);
     } else {
         let num = num.unwrap_or("1").parse().map_err(|_| ShellError::Custom(format!("`{}` is not valid. Must be a positive integer from 0 to 2^32", num.unwrap())))?;
         match item.expect("scope is conditional; qed").parse()? {
+            Print::Current => {
+                let (line, stri) = dbg.current_line()?;
+                println!("\n{}: {}", line, stri);
+            },
             Print::Forward => {
                 let lines = dbg.next_lines(num)?;
                 for (nu, line) in lines.iter() {

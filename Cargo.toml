@@ -44,6 +44,8 @@ bytes = "0.4"
 ethabi = "6.1"
 web3 = "0.5"
 sputnikvm = "0.10.1"
+jsonrpc-core = { git = "https://github.com/paritytech/jsonrpc" }
+jsonrpc-minihttp-server = { git = "https://github.com/paritytech/jsonrpc" }
 edb-core = { path = "./core" }
 
 [dev-dependencies]

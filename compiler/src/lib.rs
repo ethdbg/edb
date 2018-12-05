@@ -102,6 +102,8 @@ pub trait SourceMap {
     /// Get the linenumber that corresponds to an opcode position
     fn lineno_from_opcode_pos(&self, offset: OpcodeOffset) -> Result<LineNo, Error>;
 
+    fn current_range(&self, offset: OpcodeOffset) -> Result<String, Error>;
+
     /// Get a line mapping (line number => str) from opcode position/offset
     fn current_line(&self, offset: OpcodeOffset) -> Result<Line, Error>;
 

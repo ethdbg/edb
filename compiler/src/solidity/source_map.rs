@@ -100,6 +100,12 @@ impl SourceMap for SoliditySourceMap {
         let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
         Ok(self.map.find_line(pos.start).ok_or(SolidityError::SourceMap(SourceMapError::LineNotFound))?)
     }
+    
+    /// finds the current range from opcode offset
+    fn current_range(&self, offset: OpcodeOffset) -> Result<String, Error> {
+        let pos = self.program_map.get(offset).ok_or(SolidityError::SourceMap(SourceMapError::PositionNotFound))?;
+        Ok(self.map.raw_range(&pos.start, &pos.length)?)
+    }
 
     /// Finds the current line from the an opcode offset
     fn current_line(&self, offset: OpcodeOffset) -> Result<Line, Error> {

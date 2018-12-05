@@ -11,7 +11,6 @@ use ethereum_types::H160;
 
 use super::types::*;
 
-
 pub struct CLIArgs {
     pub file: PathBuf,
     pub mode: Mode,

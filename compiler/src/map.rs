@@ -156,6 +156,20 @@ impl Map {
             Ok(self.matrix[range].iter().map(|s| String::from_iter(s.as_slice())).collect::<Vec<String>>())
         }
     }
+    
+    //TODO: fix
+    pub fn raw_range(&self, start: &usize, len: &usize) -> Result<String, MapError> {
+        
+        Ok(
+            self.matrix.iter()
+            .flat_map(|s| s.iter())
+            .enumerate()
+            .skip_while(|(i, s)| i < start)
+            .take_while(|(i, s)| i < &(start+len))
+            .map(|(i, s)| s)
+            .collect::<String>()
+           )
+    }
 
     /// find the byte range of a line number (start offset and end offset)
     /// For LineNumber::Start, and LineNumber::End, returns canoncial start and end
