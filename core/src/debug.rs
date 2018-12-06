@@ -90,7 +90,7 @@ impl<T> Debugger<T> where T: web3::Transport {
         // let contract = self.file.find_contract(self.curr_name.as_str())?;
         debug!("Finding Line from position {}, and contract {}", self.emul.instruction()?, self.curr_name.as_str());
         let current_line = self.file.lineno_from_opcode_pos(self.emul.instruction()?, self.curr_name.as_str())?;
-        debug!("Current line: {}", current_line);
+        info!("Current Real line: {}", current_line);
         // let offset = self.file.char_pos_from_lineno(current_line, self.curr_name.as_str())?;
 
 /*        let function = contract.file().find_function(&mut |func| {
@@ -114,10 +114,10 @@ impl<T> Debugger<T> where T: web3::Transport {
         'step: loop {
             let line = self.file.lineno_from_opcode_pos(self.emul.instruction()?, self.curr_name.as_str())?;
             // let char_offset = self.file.char_pos_from_lineno(line, self.curr_name.as_str())?;
-            info!("Current line: {}", line);
+            info!("Current Deciphered Line from next opcode to be executed: {}", line);
             if fun(&line) || self.emul.finished() {
+                info!("Finished!");
                 break 'step;
-                info!("Finished");
             } else {
                 self.emul.fire(Action::StepForward)?;
             }
@@ -127,8 +127,9 @@ impl<T> Debugger<T> where T: web3::Transport {
 
     /// Jumps to the next breakpoint in execution
     pub fn next(&mut self) -> Result<(), Error> {
+        debug!("Breakpoints: {:?}", self.breakpoints);
         if let Some(b) = self.breakpoints.pop() {
-            self.step_loop(|line| *line != b)?;
+            self.step_loop(|line| *line == b)?;
         } else {
             self.emul.fire(Action::Exec)?;
         }
